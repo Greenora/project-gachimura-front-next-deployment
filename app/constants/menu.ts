@@ -7,6 +7,20 @@ interface Translation {
     signup: string;
     start: string;
   };
+
+  auth: {
+    titleLogin: string;
+    titleRegister: string;
+    emailPlaceholder: string;
+    passwordPlaceholder: string;
+    birthPlaceholder: string;
+    phonePlaceholder: string;
+    btnContinue: string;
+    btnLogin: string;
+    btnRegister: string;
+    btnKakao: string;
+    errorPassword: string;
+  };
   home: {
     gachimura: string
     heroTitle: string;
@@ -18,8 +32,6 @@ interface Translation {
     toAction: string;
     scrollMessage: string;
   };
-  // 앞으로 추가될 페이지들...
-  // board: { ... }
 }
 
 // 한국어와 일본어 모든 필드가 같이 들어있어야 함.(한쪽에만 있고 한쪽에는 없고 불가)
@@ -29,6 +41,20 @@ export const menu: Record<Language, Translation> = {
       login: "로그인하기",
       signup: "회원가입",
       start: "시작하기",
+    },
+    
+    auth: {
+      titleLogin: "가입 또는 로그인을 위해\n이메일을 입력해주세요.",
+      titleRegister: "회원가입을 진행하려면\n아래 항목을 입력해주세요.",
+      emailPlaceholder: "이메일을 입력해주세요.",
+      passwordPlaceholder: "비밀번호 (영문+숫자 6자 이상)",
+      birthPlaceholder: "생년월일 (예: 980101)",
+      phonePlaceholder: "전화번호",
+      btnContinue: "계속",
+      btnLogin: "로그인",
+      btnRegister: "회원가입 하기",
+      btnKakao: "카카오 간편 로그인",
+      errorPassword: "❌ 영문과 숫자를 포함하여 6자 이상 입력해주세요.",
     },
     home: {
       gachimura: "가치무라",
@@ -47,6 +73,20 @@ export const menu: Record<Language, Translation> = {
       login: "ログイン",
       signup: "会員登録",
       start: "始める",
+    },
+    
+    auth: {
+      titleLogin: "登録またはログインのために\nメールアドレスを入力してください。",
+      titleRegister: "会員登録を進めるには\n以下の項目を入力してください。",
+      emailPlaceholder: "メールアドレスを入力してください。",
+      passwordPlaceholder: "パスワード (英数6文字以上)",
+      birthPlaceholder: "生年月日 (例: 980101)",
+      phonePlaceholder: "電話番号",
+      btnContinue: "次へ",
+      btnLogin: "ログイン",
+      btnRegister: "会員登録する",
+      btnKakao: "カカオで簡単ログイン",
+      errorPassword: "❌ 英字と数字を含めて6文字以上で入力してください。",
     },
     home: {
       gachimura: "ガチムラ",
