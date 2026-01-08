@@ -32,8 +32,6 @@ interface Translation {
     toAction: string;
     scrollMessage: string;
   };
-<<<<<<< HEAD
-=======
   chat: {
     members: string;
     kick: string;
@@ -53,7 +51,6 @@ interface Translation {
     rejectConfirm: string;
     rejectSuccess: string;
   };
->>>>>>> main
 }
 
 // 한국어와 일본어 모든 필드가 같이 들어있어야 함.(한쪽에만 있고 한쪽에는 없고 불가)
