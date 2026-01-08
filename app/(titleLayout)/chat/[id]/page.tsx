@@ -19,6 +19,7 @@ async function getChatData(partyId: number) {
     const formattedMessages = messages.map((m: any) => ({
       userId: m.senderId,
       nickname: m.sender?.nickname || "알 수 없음",
+      profileImage: m.sender?.profileImage,
       message: m.content,
       partyId: m.partyId,
       messageType: m.messageType,
@@ -28,7 +29,7 @@ async function getChatData(partyId: number) {
     const formattedMembers = members.map((m: any) => ({
       id: m.userId,
       nickname: m.user?.nickname || "알 수 없음",
-      profileImage: `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user?.nickname || m.id}`,
+      profileImage: m.user?.profileImage,
       status: m.status
     }));
 

@@ -7,11 +7,12 @@ export interface ChatPayload {
   partyId: number;
   message: string;
   nickname: string;
+  profileImage?: string | null;
   messageType?: "TALK" | "SYSTEM";
   createdAt?: string;
 }
 
-export function useChat(userId: number, nickname: string, partyId: number) {
+export function useChat(userId: number, nickname: string, partyId: number, profileImage?: string | null) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<ChatPayload[]>([]);
 
@@ -51,6 +52,7 @@ export function useChat(userId: number, nickname: string, partyId: number) {
       const payload: ChatPayload = {
         userId,
         nickname,
+        profileImage,
         partyId,
         message: msg,
       };
