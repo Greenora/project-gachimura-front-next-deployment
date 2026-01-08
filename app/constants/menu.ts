@@ -18,8 +18,25 @@ interface Translation {
     toAction: string;
     scrollMessage: string;
   };
-  // 앞으로 추가될 페이지들...
-  // board: { ... }
+  chat: {
+    members: string;
+    kick: string;
+    pending: string;
+    accept: string;
+    reject: string;
+    loading: string;
+    noInfo: string;
+    date: string;
+    settle: string;
+    end: string;
+    placeholder: string;
+    me: string;
+    newMessage: string;
+    kickConfirm: string;
+    approveSuccess: string;
+    rejectConfirm: string;
+    rejectSuccess: string;
+  };
 }
 
 // 한국어와 일본어 모든 필드가 같이 들어있어야 함.(한쪽에만 있고 한쪽에는 없고 불가)
@@ -41,6 +58,25 @@ export const menu: Record<Language, Translation> = {
       toAction: "지금 바로 시작해보세요",
       scrollMessage: "스크롤해서 더 알아보기",
     },
+    chat: {
+      members: "참여 멤버",
+      kick: "강퇴",
+      pending: "승인 대기 중",
+      accept: "수락",
+      reject: "거절",
+      loading: "로딩 중...",
+      noInfo: "모임 정보 없음",
+      date: "모임 날짜",
+      settle: "정산하기",
+      end: "모임 종료",
+      placeholder: "메시지를 입력하세요...",
+      me: "나",
+      newMessage: "새 메시지 ↓",
+      kickConfirm: "님을 강퇴하시겠습니까?",
+      approveSuccess: "님의 참가를 승인했습니다.",
+      rejectConfirm: "님의 요청을 거절하시겠습니까?",
+      rejectSuccess: "신청을 거절 처리했습니다.",
+    },
   },
   [Language.japanese]: {
     common: {
@@ -51,13 +87,32 @@ export const menu: Record<Language, Translation> = {
     home: {
       gachimura: "ガチムラ",
       heroTitle: "買い物は一緒に、\n精算はスマートに。",
-      heroSubtitle: "コストコやトレーダースの大容量商品が負担なとき、\n近所の隣人と分け合って費用を自動計算しましょう。",
+      heroSubtitle: "コストコやトレーダースの大容量商品가 負担なとき、\n近所の隣人と分け合って費用を自動計算しましょう。",
       feature1Title: "近くの隣人と集まり",
       feature1Desc: "地図ベースで町内の買い物集まりを一目で確認しましょう。",
       feature2Title: "正確な割り勘",
       feature2Desc: "レシートの写真をアップするだけで品目別に価格を分け、入金状況を追跡します。",
       toAction: "今すぐ始める",
       scrollMessage: "スクロールしてもっと見る",
+    },
+    chat: {
+      members: "参加メンバー",
+      kick: "追放",
+      pending: "承認待ち",
+      accept: "承認",
+      reject: "拒否",
+      loading: "読み込み中...",
+      noInfo: "集まりの情報なし",
+      date: "集まりの日付",
+      settle: "精算する",
+      end: "集まりを終了",
+      placeholder: "メッセージを入力してください...",
+      me: "自分",
+      newMessage: "新しいメッセージ ↓",
+      kickConfirm: "さんを追放しますか？",
+      approveSuccess: "さんの参加を承認しました。",
+      rejectConfirm: "さんの要請を拒否しますか？",
+      rejectSuccess: "申請を拒否処理しました。",
     },
   },
 };
