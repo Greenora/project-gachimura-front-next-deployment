@@ -47,8 +47,8 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts }: any
           {!isMe && (
             <div className="shrink-0 mt-1">
               <img
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${nickname}`}
-                className="w-12 h-12 rounded-full border-2 border-white bg-white shadow-md transition-transform hover:rotate-6"
+                src={msg.profileImage || "/images/gachimura_logo.png"}
+                className="w-12 h-12 rounded-full border-2 border-white bg-white shadow-md transition-transform hover:rotate-6 object-contain p-1"
                 alt=""
               />
             </div>
@@ -166,8 +166,8 @@ const Sidebar = memo(
                       onClick={() => routerPush(`/profile/${member.id}`)}
                     >
                       <img
-                        src={member.profileImage}
-                        className="w-12 h-12 rounded-full border-2 border-gray-50 shadow-sm"
+                        src={member.profileImage || "/images/gachimura_logo.png"}
+                        className={`w-12 h-12 rounded-full border-2 border-gray-50 shadow-sm ${!member.profileImage ? "object-contain p-2 bg-gray-50/50" : "object-cover"}`}
                         alt=""
                       />
                       <div className="flex flex-col">
@@ -208,7 +208,11 @@ const Sidebar = memo(
                     {pendingMembers.map((member: any) => (
                       <div key={member.id} className="flex items-center justify-between p-2 rounded-xl bg-gray-50/50">
                         <div className="flex items-center gap-3">
-                          <img src={member.profileImage} className="w-10 h-10 rounded-full opacity-60" alt="" />
+                          <img
+                            src={member.profileImage || "/images/gachimura_logo.png"}
+                            className={`w-10 h-10 rounded-full opacity-60 ${!member.profileImage ? "object-contain p-1.5 bg-gray-50/30" : "object-cover"}`}
+                            alt=""
+                          />
                           <span className="font-bold text-gray-400 text-[14px]">{member.nickname}</span>
                         </div>
                         <div className="flex gap-1.5">
@@ -334,6 +338,7 @@ export default function ChatContainer({
 }: ChatContainerProps) {
   const [myId, setMyId] = useState<number>(1);
   const [myNickname, setMyNickname] = useState<string>("");
+  const [myProfileImage, setMyProfileImage] = useState<string | null>(null);
   const [members, setMembers] = useState(initialMembers);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -341,7 +346,7 @@ export default function ChatContainer({
 
   const router = useRouter();
   const { texts } = useLanguage();
-  const { messages: realTimeMessages, sendMessage } = useChat(myId, myNickname, partyId);
+  const { messages: realTimeMessages, sendMessage } = useChat(myId, myNickname, partyId, myProfileImage);
   const { formatFullDate, formatDividerDate, formatMessageTime } = useDateFormatter();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -354,11 +359,13 @@ export default function ChatContainer({
       if (user) {
         setMyId(id);
         setMyNickname(user.nickname);
+        setMyProfileImage(user.profileImage || null);
       }
     } else {
-      const defaultUser = initialMembers[0] || { id: 1, nickname: "홍길동" };
+      const defaultUser = initialMembers[0] || { id: 1, nickname: "홍길동", profileImage: null };
       setMyId(defaultUser.id);
       setMyNickname(defaultUser.nickname);
+      setMyProfileImage(defaultUser.profileImage || null);
     }
     setMembers(initialMembers);
     setIsLoaded(true);
@@ -498,7 +505,7 @@ export default function ChatContainer({
           <div className="sticky bottom-4 left-0 right-0 flex justify-center z-30 pointer-events-none">
             <button
               onClick={scrollToBottom}
-              className="pointer-events-auto bg-white/90 text-gray-500 px-6 py-2 rounded-full shadow-lg text-xs font-black animate-bounce backdrop-blur-sm border border-gray-100 font-sans"
+              className="pointer-events-auto bg-white/90 text-gray-500 px-6 py-2 rounded-full shadow-lg text-xs font-black animate-pulse-fast backdrop-blur-sm border border-gray-100 font-sans"
             >
               {texts.chat.newMessage}
             </button>
@@ -506,7 +513,7 @@ export default function ChatContainer({
         )}
       </div>
 
-      {/* 4. 입력창 (상태 격리 완료) */}
+      {/* 4. 입력창 */}
       <ChatInputArea onSendMessage={handleSendMessage} placeholder={texts.chat.placeholder} />
     </div>
   );

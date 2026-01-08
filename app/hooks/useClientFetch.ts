@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { API_CONFIG } from "@/app/constants/api";
+import { API_CONFIG } from "@/config/api";
 
 interface FetchOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";

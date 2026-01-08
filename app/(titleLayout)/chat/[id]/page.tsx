@@ -1,5 +1,5 @@
 import ChatContainer from "@/components/chat/ChatContainer";
-import { API_CONFIG } from "@/app/constants/api";
+import { API_CONFIG } from "@/config/api";
 
 async function getChatData(partyId: number) {
   try {
