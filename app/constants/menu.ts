@@ -20,6 +20,11 @@ interface Translation {
     btnRegister: string;
     btnKakao: string;
     errorPassword: string;
+    welcomePrefix: string;
+    welcomeSuffix: string;
+    alertLoginFail: string;
+    alertRegisterSuccess: string;
+    alertRegisterFail: string;
   };
   home: {
     gachimura: string
@@ -74,6 +79,11 @@ export const menu: Record<Language, Translation> = {
       btnRegister: "회원가입 하기",
       btnKakao: "카카오 간편 로그인",
       errorPassword: "❌ 영문과 숫자를 포함하여 6자 이상 입력해주세요.",
+      welcomePrefix: "환영합니다!",
+      welcomeSuffix: "님, 로그인되었습니다.",
+      alertLoginFail: "로그인 요청에 실패했습니다.",
+      alertRegisterSuccess: "회원가입 성공! 이제 로그인해주세요.",
+      alertRegisterFail: "가입 실패: 다시 시도해주세요.",
     },
     home: {
       gachimura: "가치무라",
@@ -125,6 +135,11 @@ export const menu: Record<Language, Translation> = {
       btnRegister: "会員登録する",
       btnKakao: "カカオで簡単ログイン",
       errorPassword: "❌ 英字と数字を含めて6文字以上で入力してください。",
+      welcomePrefix: "ようこそ！",
+      welcomeSuffix: "さん、ログインしました。",
+      alertLoginFail: "ログインリクエストに失敗しました。",
+      alertRegisterSuccess: "会員登録成功！ログインできます。",
+      alertRegisterFail: "登録失敗：再度お試しください。",
     },
     home: {
       gachimura: "ガチムラ",

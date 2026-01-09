@@ -13,16 +13,30 @@ interface FetchOptions {
 export async function clientFetch<T = any>(url: string, options: FetchOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options;
 
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || API_CONFIG.PUBLIC_BASE_URL;
   const fullUrl = url.startsWith("http")
     ? url
-    : `${API_CONFIG.PUBLIC_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+    : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+
+  const getCookieValue = (name: string) => {
+    if (typeof document === "undefined") return null;
+    const match = document.cookie.match(new RegExp(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`));
+    return match ? decodeURIComponent(match[2]) : null;
+  };
+
+  const authToken = getCookieValue("accessToken");
+  const finalHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...headers,
+  };
+
+  if (authToken && !finalHeaders.Authorization) {
+    finalHeaders.Authorization = `Bearer ${authToken}`;
+  }
 
   const response = await fetch(fullUrl, {
     method,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
+    headers: finalHeaders,
     body: body ? JSON.stringify(body) : undefined,
   });
 
