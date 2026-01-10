@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import GroupInput from "./GroupInput";
+import PartyInput from "./PartyInput";
 
 export default function GroupLocation() {
   const [martInfo, setMartInfo] = useState({
@@ -17,7 +17,7 @@ export default function GroupLocation() {
   return (
     <div className="mb-10">
       {/* 1. 검색창 */}
-      <GroupInput
+      <PartyInput
         label="마트"
         placeholder="마트 이름을 검색하세요"
         className="mb-2.5"

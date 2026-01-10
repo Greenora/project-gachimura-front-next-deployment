@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 
-export default function GroupImageUpload() {
+export default function PartyImageUpload() {
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,7 +29,7 @@ export default function GroupImageUpload() {
         {/* 숨겨진 파일 Input */}
         <input 
           type="file" 
-          name="groupImage" 
+          name="PartyImage" 
           accept="image/*" 
           className="hidden" 
           ref={fileInputRef}

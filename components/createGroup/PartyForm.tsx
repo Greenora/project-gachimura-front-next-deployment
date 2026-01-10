@@ -1,13 +1,13 @@
 'use client';
 
-import GroupInput from "./GroupInput";
+import PartyInput from "./PartyInput";
 import DateTimeSelector from "./DateTimeSelector";
-import GroupDescription from "./GroupDescription";
-import GroupLocation from "./GroupLocation";
+import PartyContent from "./PartyContent";
+import PartyLocation from "./PartyLocation"
 import SubmitButton from "./SubmitButton";
-import GroupImageUpload from "./GroupImageUpload";
+import PartyImageUpload from "./PartyImageUpload";
 
-export default function GroupForm() {
+export default function PartyForm() {
   const handleClientAction = (formData: FormData) => {
     const data = Object.fromEntries(formData.entries());
     console.log("=== 모임 등록 데이터 ===");
@@ -16,18 +16,18 @@ export default function GroupForm() {
 
   return (
     <form action={handleClientAction} className="mt-12">
-      <GroupInput label="제목" name="title" />
+      <PartyInput label="제목" name="title" />
       
       <DateTimeSelector />
       
-      {/* <GroupInput label="마트 명(지점명)" name="martName" placeholder="예) 코스트코 대구점" /> */}
-      <GroupLocation />
+      {/* <PartyInput label="마트 명(지점명)" name="martName" placeholder="예) 코스트코 대구점" /> */}
+      <PartyLocation />
 
-      <GroupImageUpload />
+      <PartyImageUpload />
 
-      <GroupDescription />
+      <PartyContent />
 
-      {/* <GroupLocation /> */}
+      {/* <PartyLocation /> */}
 
       <div className="pt-4">
         <SubmitButton />

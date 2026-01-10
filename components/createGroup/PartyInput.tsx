@@ -7,7 +7,7 @@ interface Props {
   className?: string;
 }
 
-export default function GroupInput({ label, name, placeholder, className }: Props) {
+export default function PartyInput({ label, name, placeholder, className }: Props) {
   return (
     <div className={`flex items-center ${className || 'mb-10'}`}>
       <label className="w-49 font-medium text-gray-700">{label}</label>

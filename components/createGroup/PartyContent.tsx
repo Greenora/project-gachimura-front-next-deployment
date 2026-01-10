@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export default function GroupDescription() {
+export default function PartyContent() {
   const [text, setText] = useState('');
   const maxLength = 200;
 
@@ -11,7 +11,7 @@ export default function GroupDescription() {
       <label className="w-49 font-medium text-gray-700 pt-2">모임 설명</label>
       <div className="flex-1 relative">
         <textarea
-          name="description"
+          name="content"
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={maxLength}
