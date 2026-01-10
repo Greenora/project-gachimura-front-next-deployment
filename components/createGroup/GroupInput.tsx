@@ -14,7 +14,7 @@ export default function GroupInput({ label, name, placeholder }: Props) {
         type="text" 
         name={name}
         placeholder={placeholder}
-        className="flex-1 border border-gray-300 rounded-lg p-3.5 focus:outline-none focus:border-green-700 bg-white"
+        className="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-green-700 bg-white"
       />
     </div>
   );

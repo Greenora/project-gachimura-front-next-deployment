@@ -15,7 +15,7 @@ export default function GroupDescription() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={maxLength}
-          placeholder="구매할 물품과 기타 설명을 자세하게 적어주세요.&#13;&#10;정확한 모임 위치는 모임의 채팅방에서 공유해주세요!"
+          placeholder="구매할 물품과 기타 설명을 자세하게 적어주세요. 정확한 모임 위치는 모임의 채팅방에서 공유해주세요!"
           className="w-full h-36 border border-gray-300 rounded-lg p-4 resize-none bg-white text-sm focus:outline-none focus:border-green-700"
         />
         <div className="absolute bottom-3 right-4 text-xs text-gray-400">
