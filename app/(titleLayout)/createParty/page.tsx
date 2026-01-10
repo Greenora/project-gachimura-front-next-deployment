@@ -1,4 +1,4 @@
-import PartyForm from "@/components/createGroup/PartyForm";
+import PartyForm from "@/components/createParty/PartyForm";
 
 export default function CreateParty() {
   return (

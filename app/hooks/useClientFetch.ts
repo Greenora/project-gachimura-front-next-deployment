@@ -16,14 +16,20 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
   const fullUrl = url.startsWith("http")
     ? url
     : `${API_CONFIG.PUBLIC_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+  
+  const isFormData = body instanceof FormData;
 
   const response = await fetch(fullUrl, {
     method,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...headers,
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body === undefined
+      ? undefined
+      : isFormData
+      ? body
+      : JSON.stringify(body)
   });
 
   const result = await response.json();
