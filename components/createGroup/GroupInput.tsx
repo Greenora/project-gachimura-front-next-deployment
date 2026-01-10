@@ -2,14 +2,15 @@
 
 interface Props {
   label: string;
-  name: string;
+  name?: string;
   placeholder?: string;
+  className?: string;
 }
 
-export default function GroupInput({ label, name, placeholder }: Props) {
+export default function GroupInput({ label, name, placeholder, className }: Props) {
   return (
-    <div className="flex items-center mb-10">
-      <label className="w-50 font-medium text-gray-700">{label}</label>
+    <div className={`flex items-center ${className || 'mb-10'}`}>
+      <label className="w-49 font-medium text-gray-700">{label}</label>
       <input 
         type="text" 
         name={name}

@@ -8,7 +8,7 @@ export default function GroupDescription() {
 
   return (
     <div className="flex mb-10">
-      <label className="w-50 font-medium text-gray-700 pt-2">모임 설명</label>
+      <label className="w-49 font-medium text-gray-700 pt-2">모임 설명</label>
       <div className="flex-1 relative">
         <textarea
           name="description"

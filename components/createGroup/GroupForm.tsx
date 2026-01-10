@@ -20,13 +20,14 @@ export default function GroupForm() {
       
       <DateTimeSelector />
       
-      <GroupInput label="마트 명(지점명)" name="martName" placeholder="예) 코스트코 대구점" />
+      {/* <GroupInput label="마트 명(지점명)" name="martName" placeholder="예) 코스트코 대구점" /> */}
+      <GroupLocation />
 
       <GroupImageUpload />
 
       <GroupDescription />
 
-      <GroupLocation />
+      {/* <GroupLocation /> */}
 
       <div className="pt-4">
         <SubmitButton />

@@ -24,7 +24,7 @@ export default function GroupImageUpload() {
 
   return (
     <div className="flex mb-10">
-      <label className="w-50 font-medium text-gray-700 pt-2">모임 대표사진(선택)</label>
+      <label className="w-49 font-medium text-gray-700 pt-2">모임 대표사진(선택)</label>
       <div className="flex-1">
         {/* 숨겨진 파일 Input */}
         <input 
@@ -39,7 +39,7 @@ export default function GroupImageUpload() {
         {/* 클릭 가능한 업로드 영역 */}
         <div 
           onClick={handleContainerClick}
-          className="w-50 h-50 bg-[#F2F2F2] rounded-xl flex items-center justify-center cursor-pointer border border-gray-100 hover:bg-gray-200 transition-colors overflow-hidden"
+          className="w-49 h-50 bg-[#F2F2F2] rounded-xl flex items-center justify-center cursor-pointer border border-gray-100 hover:bg-gray-200 transition-colors overflow-hidden"
         >
           {preview ? (
             <img src={preview} alt="미리보기" className="w-full h-full object-cover" />

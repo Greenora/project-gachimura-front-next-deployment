@@ -11,7 +11,7 @@ export default function DateTimeSelector() {
 
   return (
     <div className="flex items-center mb-10">
-      <label className="w-50 font-medium text-gray-700">모임 날짜, 시간</label>
+      <label className="w-49 font-medium text-gray-700">모임 날짜, 시간</label>
       <div className="flex gap-2">
         {/* 날짜 선택 */}
         <div className="relative">
