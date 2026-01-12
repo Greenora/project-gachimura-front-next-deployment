@@ -36,15 +36,12 @@ export default function PartyForm() {
       <PartyInput label="제목" name="title" />
       
       <DateTimeSelector />
-      
-      {/* <PartyInput label="마트 명(지점명)" name="martName" placeholder="예) 코스트코 대구점" /> */}
-      <PartyLocation />
 
       <PartyImageUpload />
 
       <PartyContent />
 
-      {/* <PartyLocation /> */}
+      <PartyLocation />
 
       <div className="pt-4">
         <SubmitButton />
