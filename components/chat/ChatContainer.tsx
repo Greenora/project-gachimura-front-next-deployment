@@ -350,25 +350,40 @@ export default function ChatContainer({
   const { formatFullDate, formatDividerDate, formatMessageTime } = useDateFormatter();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 초기 유저 로드
+  // 초기 유저 로드 
   useEffect(() => {
-    const savedId = localStorage.getItem("gachimura_user_id");
-    if (savedId) {
-      const id = Number(savedId);
-      const user = initialMembers.find((m) => m.id === id);
-      if (user) {
-        setMyId(id);
-        setMyNickname(user.nickname);
-        setMyProfileImage(user.profileImage || null);
+    const fetchCurrentUser = async () => {
+      try {
+        // JWT 토큰이 있으면 현재 사용자 정보 가져오기
+        const result = await clientFetch<{ id: number; nickname: string; profileImage?: string }>(
+          "/users/profile"
+        );
+        
+        if (result && result.id) {
+          setMyId(result.id);
+          setMyNickname(result.nickname);
+          setMyProfileImage(result.profileImage || null);
+        } else {
+          // 프로필을 못 가져왔다면 initialMembers에서 찾기
+          const member = initialMembers[0] || { id: 1, nickname: "홍길동", profileImage: null };
+          setMyId(member.id);
+          setMyNickname(member.nickname);
+          setMyProfileImage(member.profileImage || null);
+        }
+      } catch (error) {
+        console.error("사용자 정보 로드 실패:", error);
+        // 실패했으면 initialMembers에서 가져오기
+        const member = initialMembers[0] || { id: 1, nickname: "홍길동", profileImage: null };
+        setMyId(member.id);
+        setMyNickname(member.nickname);
+        setMyProfileImage(member.profileImage || null);
+      } finally {
+        setMembers(initialMembers);
+        setIsLoaded(true);
       }
-    } else {
-      const defaultUser = initialMembers[0] || { id: 1, nickname: "홍길동", profileImage: null };
-      setMyId(defaultUser.id);
-      setMyNickname(defaultUser.nickname);
-      setMyProfileImage(defaultUser.profileImage || null);
-    }
-    setMembers(initialMembers);
-    setIsLoaded(true);
+    };
+
+    fetchCurrentUser();
   }, [initialMembers]);
 
   // 자동 스크롤 하단 고정 로직
