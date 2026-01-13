@@ -6,7 +6,8 @@ import { LanguageProvider } from "@/app/hooks/LanguageContext";
 import { cookies } from "next/headers";
 import { menu } from "@/app/constants/menu";
 import { Language } from "@/app/common/types";
-import Script from "next/script"; 
+import Script from "next/script";
+import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,9 +47,10 @@ export default async function RootLayout({
   const texts = menu[validLang];
 
   return (
-    <html lang={validLang}>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang={validLang} suppressHydrationWarning> //suppressHydrationWarning: 브라우저 환경 간섭 제거
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <LanguageProvider texts={texts} lang={validLang}>
+          <Toaster position="top-center" reverseOrder={false} />
           <div className="absolute top-4 right-4 z-50">
             <LanguageSwitcher />
           </div>
@@ -57,9 +59,9 @@ export default async function RootLayout({
 
         <Script
           src="https://developers.kakao.com/sdk/js/kakao.min.js"
-          strategy="beforeInteractive" 
+          strategy="beforeInteractive"
         />
-        
+
       </body>
     </html>
   );
