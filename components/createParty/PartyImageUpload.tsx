@@ -3,22 +3,31 @@
 import { useState, useRef } from 'react';
 
 export default function PartyImageUpload() {
-  const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // UI (미리보기)
+  const [preview, setPreview] = useState<string | null>(null);
+  // 서버 전송 (File 객체)
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // 미리보기 URL 생성
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    // server 전송용 file 저장
+    setImageFile(file);
+
+    // UI 미리보기
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setPreview(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleContainerClick = () => {
+  const handleClickUpload = () => {
     fileInputRef.current?.click();
   };
 
@@ -26,19 +35,19 @@ export default function PartyImageUpload() {
     <div className="flex mb-10">
       <label className="w-49 font-medium text-gray-700 pt-2">모임 대표사진(선택)</label>
       <div className="flex-1">
-        {/* 숨겨진 파일 Input */}
-        <input 
+        {/* 실제 서버로 전송되는 Input */}
+        <input
+          ref={fileInputRef}
           type="file" 
-          name="PartyImage" 
+          name="thumbnail_image" 
           accept="image/*" 
           className="hidden" 
-          ref={fileInputRef}
           onChange={handleImageChange}
         />
         
         {/* 클릭 가능한 업로드 영역 */}
         <div 
-          onClick={handleContainerClick}
+          onClick={handleClickUpload}
           className="w-49 h-50 bg-[#F2F2F2] rounded-xl flex items-center justify-center cursor-pointer border border-gray-100 hover:bg-gray-200 transition-colors overflow-hidden"
         >
           {preview ? (
