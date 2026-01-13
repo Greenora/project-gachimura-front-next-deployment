@@ -3,24 +3,35 @@
 interface Props {
   label: string;
   name?: string;
-  value?: string;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   className?: string;
+  error?: string;
 }
 
-export default function PartyInput({ label, name, value, placeholder, onChange, className }: Props) {
+export default function PartyInput({ label, name, value, placeholder, onChange, className, error }: Props) {
   return (
-    <div className={`flex items-center ${className || 'mb-10'}`}>
-      <label className="w-49 font-medium text-gray-700">{label}</label>
-      <input 
-        type="text" 
-        name={name}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-green-700 bg-white"
-      />
+    <div className={className || 'mb-6'}>
+      <div className="flex items-start">
+        <label className="w-49 font-medium text-gray-700 h-10 flex items-center">{label}</label>
+
+        <div className="flex-1">
+          <input 
+            type="text" 
+            name={name}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className={`w-full h-10 border rounded-lg p-3 outline-none transition-colors"
+              ${error ? 'border-red-500' : 'border-gray-300 focus:border-green-700'}`}
+          />
+
+          <div className="min-h-5 mt-1">
+            {error && <p className="text-xs text-red-500">{error}</p>}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
