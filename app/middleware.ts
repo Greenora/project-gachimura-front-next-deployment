@@ -19,7 +19,7 @@ export function middleware(request: NextRequest) {
   }
 
   // 이미 로그인했는데 로그인 페이지(/login)에 또 가려고 한다?
-  if (pathname === "/login" && token) {
+  if (pathname.startsWith("/login") && token) {
     // 메인으로 튕겨내기
     return NextResponse.redirect(new URL("/home", request.url));
   }
