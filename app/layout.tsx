@@ -47,7 +47,8 @@ export default async function RootLayout({
   const texts = menu[validLang];
 
   return (
-    <html lang={validLang} suppressHydrationWarning> //suppressHydrationWarning: 브라우저 환경 간섭 제거
+    //suppressHydrationWarning: 브라우저 환경 간섭 제거
+    <html lang={validLang} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <LanguageProvider texts={texts} lang={validLang}>
           <Toaster position="top-center" reverseOrder={false} />
