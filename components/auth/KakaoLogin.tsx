@@ -1,81 +1,145 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLanguage } from "@/app/hooks/LanguageContext";
+import { Language } from "@/app/common/types";
+import { useState } from "react";
+import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+
+// Kakao SDK 타입 정의
+interface KakaoAuthResponse {
+  access_token: string;
+  token_type: string;
+  refresh_token: string;
+  expires_in: number;
+  scope: string;
+}
+
+interface KakaoSDK {
+  init: (key: string) => void;
+  isInitialized: () => boolean;
+  Auth: {
+    login: (options: {
+      success: (authObj: KakaoAuthResponse) => void;
+      fail: (err: Error) => void;
+    }) => void;
+  };
+}
+
+declare global {
+  interface Window {
+    Kakao: KakaoSDK;
+  }
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface Props {
   buttonText?: string;
 }
 
-export default function KakaoLogin({ buttonText = "카카오 간편 로그인" }: Props) {
+export default function KakaoLogin({ buttonText }: Props) {
+  const { texts, lang } = useLanguage();
   const router = useRouter();
-  const [isReady, setIsReady] = useState(false);
-  
-  //  환경변수에서 키 가져오기 (없으면 빈 문자열)
-  const KAKAO_JS_KEY = process.env.NEXT_PUBLIC_KAKAO_JS_KEY || "";
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (!KAKAO_JS_KEY) {
-      console.error("⚠️ 카카오 키가 설정되지 않았습니다. .env.local 확인 필요");
+  // 기본 버튼 텍스트 설정
+  const displayText = buttonText || texts.auth.kakaoLogin || "카카오로 로그인";
+
+  const handleLogin = () => {
+    if (isLoading) return;
+
+    if (!window.Kakao) {
+      toast.error("Kakao SDK not loaded");
       return;
     }
 
-    if (typeof window !== "undefined") {
-      const checkKakao = setInterval(() => {
-        const kakao = (window as any).Kakao;
-        if (kakao) {
-          if (!kakao.isInitialized()) {
-            kakao.init(KAKAO_JS_KEY);
-          }
-          setIsReady(true);
-          clearInterval(checkKakao);
-        }
-      }, 100);
-      setTimeout(() => clearInterval(checkKakao), 5000);
+    if (!window.Kakao.isInitialized()) {
+      window.Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY || "");
     }
-  }, [KAKAO_JS_KEY]);
 
-  const handleLogin = () => {
-    const kakao = (window as any).Kakao;
-    if (!kakao || !isReady) return alert("로딩 중...");
+    // 언어 감지 로직 강화 (LoginForm과 동일)
+    let currentLang = lang;
+    
+    if (!currentLang) {
+       currentLang = Cookies.get("language") as Language;
+    }
 
-    kakao.Auth.login({
-      success: async (authObj: any) => {
+    console.log("KakaoLogin 감지 언어:", currentLang);
+
+    const isJapanese = currentLang === Language.japanese;
+                       
+    const langCode = isJapanese ? 'jp' : 'ko';
+
+    console.log("KakaoLogin 전송 언어코드:", langCode);
+
+    window.Kakao.Auth.login({
+      success: async (authObj: KakaoAuthResponse) => {
+        setIsLoading(true);
+
         try {
-          //  API 주소도 환경변수 사용
           const res = await fetch(`${API_URL}/auth/kakao`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kakaoAccessToken: authObj.access_token }),
+            body: JSON.stringify({ 
+                kakaoAccessToken: authObj.access_token,
+                language: langCode
+            }),
           });
 
-          if (res.ok) {
-            const data = await res.json();
-            Cookies.set("accessToken", data.accessToken, { expires: 1 });
-            window.location.href = "/";
-          } else {
-            alert("로그인 실패");
+          if (!res.ok) {
+            throw new Error("Kakao Login Failed");
           }
+
+          const data: { 
+            accessToken: string; 
+            user: { nickname: string; nickname_jp?: string }; 
+          } = await res.json();
+          
+          Cookies.set("accessToken", data.accessToken || "", { expires: 1 });
+          
+          // 현재 언어에 따라 닉네임 선택
+          const displayNickname = isJapanese && data.user.nickname_jp 
+            ? data.user.nickname_jp 
+            : data.user.nickname;
+          
+          toast.success(`${texts.auth.welcomePrefix} ${displayNickname}${texts.auth.welcomeSuffix}`);
+          router.push("/");
+
         } catch (error) {
-          alert("서버 연결 실패");
+          console.error(error);
+          toast.error(texts.auth.alertLoginFail);
+        } finally {
+           setIsLoading(false);
         }
       },
-      fail: (err: any) => alert("카카오 로그인 실패"),
+      fail: (err: Error) => {
+        console.error(err);
+        toast.error("Kakao Login canceled");
+      },
     });
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleLogin}
-      className="w-full bg-[#FEE500] text-[#191919] font-medium py-4 rounded-lg transition hover:bg-[#FDD835] flex items-center justify-center gap-2"
-    >
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-        <path d="M12 3C5.373 3 0 7.373 0 12.766c0 3.357 2.112 6.326 5.375 8.16l-.88 3.256c-.056.208.193.376.368.256l3.87-2.585c1.06.305 2.18.47 3.267.47 6.627 0 12-4.372 12-9.766C24 7.373 18.627 3 12 3z" />
-      </svg>
-      {buttonText}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={handleLogin}
+        disabled={isLoading}
+        className={`w-full font-medium py-4 rounded-lg transition flex items-center justify-center gap-2
+            ${isLoading ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-[#FEE500] text-[#000000] hover:bg-[#E6CF00]"}
+        `}
+      >
+        {isLoading ? texts.auth.loading : (
+            <>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3C6.477 3 2 6.358 2 10.5c0 2.646 1.832 5.01 4.708 6.364L5.67 20.3a.5.5 0 0 0 .762.56l3.665-2.444c.62.094 1.256.142 1.903.142 5.523 0 10-3.358 10-7.5C22 6.358 17.523 3 12 3z"/>
+                </svg>
+                {displayText}
+            </>
+        )}
+      </button>
+    </>
   );
 }
