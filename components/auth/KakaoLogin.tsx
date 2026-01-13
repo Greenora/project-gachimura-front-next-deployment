@@ -92,11 +92,19 @@ export default function KakaoLogin({ buttonText }: Props) {
             throw new Error("Kakao Login Failed");
           }
 
-          const data = await res.json();
+          const data: { 
+            accessToken: string; 
+            user: { nickname: string; nickname_jp?: string }; 
+          } = await res.json();
           
           Cookies.set("accessToken", data.accessToken || "", { expires: 1 });
           
-          toast.success(`${texts.auth.welcomePrefix} ${data.user.nickname}${texts.auth.welcomeSuffix}`);
+          // 현재 언어에 따라 닉네임 선택
+          const displayNickname = isJapanese && data.user.nickname_jp 
+            ? data.user.nickname_jp 
+            : data.user.nickname;
+          
+          toast.success(`${texts.auth.welcomePrefix} ${displayNickname}${texts.auth.welcomeSuffix}`);
           router.push("/");
 
         } catch (error) {

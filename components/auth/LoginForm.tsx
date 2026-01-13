@@ -209,7 +209,7 @@ export default function LoginForm() {
           {step === "REGISTER_FORM" ? texts.auth.titleRegister : texts.auth.titleLogin}
         </h1>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-2">
           {/* 이메일 */}
           <div>
             <div className="relative">
