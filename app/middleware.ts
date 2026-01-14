@@ -1,9 +1,9 @@
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// 로그인이 꼭 필요한 페이지들 목록 (나중에 추가 가능)
-// 예: /mypage, /board/write 등
-const protectedRoutes = [];
+// 로그인이 꼭 필요한 페이지들 목록
+const protectedRoutes = ["/chat", "/home"];
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("accessToken")?.value;
@@ -14,14 +14,14 @@ export function middleware(request: NextRequest) {
     // 로그인 페이지로 강제 이동
     const loginUrl = new URL("/login", request.url);
     // 로그인 끝나고 다시 돌아올 수 있게 원래 주소를 기억해둠 (선택사항)
-    loginUrl.searchParams.set("callbackUrl", pathname); 
+    loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // 이미 로그인했는데 로그인 페이지(/login)에 또 가려고 한다?
   if (pathname.startsWith("/login") && token) {
     // 메인으로 튕겨내기
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/home", request.url));
   }
 
   return NextResponse.next();

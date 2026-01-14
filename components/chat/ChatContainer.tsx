@@ -17,6 +17,11 @@ interface ChatContainerProps {
     meetDate: string;
     storeName: string;
   } | null;
+  currentUser: {
+    id: number;
+    nickname: string;
+    profileImage?: string;
+  };
 }
 
 // 1. 개별 메시지 최적화 - 프롭스 안바뀌면 다시 안그림
@@ -335,48 +340,37 @@ export default function ChatContainer({
   initialMembers = [],
   hostId = null,
   partyInfo = null,
+  currentUser,
 }: ChatContainerProps) {
-  const [myId, setMyId] = useState<number>(1);
-  const [myNickname, setMyNickname] = useState<string>("");
-  const [myProfileImage, setMyProfileImage] = useState<string | null>(null);
   const [members, setMembers] = useState(initialMembers);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   const router = useRouter();
   const { texts } = useLanguage();
-  const { messages: realTimeMessages, sendMessage } = useChat(myId, myNickname, partyId, myProfileImage);
+
+  // props로 받은 currentUser 정보를 바로 사용
+  const { messages: realTimeMessages, sendMessage } = useChat(
+    currentUser.id,
+    currentUser.nickname,
+    partyId,
+    currentUser.profileImage
+  );
+
   const { formatFullDate, formatDividerDate, formatMessageTime } = useDateFormatter();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 초기 유저 로드
+  // 멤버 목록 업데이트 (초기값 설정)
   useEffect(() => {
-    const savedId = localStorage.getItem("gachimura_user_id");
-    if (savedId) {
-      const id = Number(savedId);
-      const user = initialMembers.find((m) => m.id === id);
-      if (user) {
-        setMyId(id);
-        setMyNickname(user.nickname);
-        setMyProfileImage(user.profileImage || null);
-      }
-    } else {
-      const defaultUser = initialMembers[0] || { id: 1, nickname: "홍길동", profileImage: null };
-      setMyId(defaultUser.id);
-      setMyNickname(defaultUser.nickname);
-      setMyProfileImage(defaultUser.profileImage || null);
-    }
     setMembers(initialMembers);
-    setIsLoaded(true);
   }, [initialMembers]);
 
   // 자동 스크롤 하단 고정 로직
   useEffect(() => {
-    if (isLoaded && scrollRef.current) {
+    if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [isLoaded]);
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -423,10 +417,10 @@ export default function ChatContainer({
         const result = await clientFetch(`/party-members/${partyId}/${targetId}`, { method: 'DELETE' });
         if (result.success) setMembers((prev) => prev.filter((m) => m.id !== targetId));
       } catch (error: any) {
-        alert(error.message || '오류남');
+        alert(error.message || '오류 발생');
       }
     },
-    [partyId, texts.chat.kickConfirm]
+    [partyId, texts?.chat?.kickConfirm]
   );
 
   const handleApprove = useCallback(
@@ -439,7 +433,7 @@ export default function ChatContainer({
         alert(error.message || '실패');
       }
     },
-    [partyId, texts.chat.approveSuccess]
+    [partyId, texts?.chat?.approveSuccess]
   );
 
   const handleReject = useCallback(
@@ -453,10 +447,8 @@ export default function ChatContainer({
         alert(error.message || '실패');
       }
     },
-    [partyId, texts.chat.rejectConfirm, texts.chat.rejectSuccess]
+    [partyId, texts?.chat?.rejectConfirm, texts?.chat?.rejectSuccess]
   );
-
-  if (!isLoaded) return <div className="flex-1 bg-white h-screen" />;
 
   return (
     <div className="relative flex flex-col h-[calc(100vh-64px)] w-full bg-white overflow-hidden font-sans">
@@ -465,7 +457,7 @@ export default function ChatContainer({
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
         members={members}
-        myId={myId}
+        myId={currentUser.id}
         hostId={hostId}
         texts={texts}
         onKick={handleKick}
@@ -476,7 +468,7 @@ export default function ChatContainer({
 
       {/* 2. 헤더 */}
       <ChatHeader
-        isHost={myId === hostId}
+        isHost={currentUser.id === hostId}
         partyInfo={partyInfo}
         texts={texts}
         formatFullDate={formatFullDate}
@@ -495,7 +487,7 @@ export default function ChatContainer({
       >
         <MessageList
           messages={processedMessages}
-          myId={myId}
+          myId={currentUser.id}
           formatMessageTime={formatMessageTime}
           texts={texts.chat}
         />
