@@ -7,8 +7,36 @@ interface Translation {
     signup: string;
     start: string;
   };
+
+  auth: {
+    titleLogin: string;
+    titleRegister: string;
+    emailPlaceholder: string;
+    passwordPlaceholder: string;
+    birthPlaceholder: string;
+    phonePlaceholder: string;
+    btnContinue: string;
+    btnLogin: string;
+    btnRegister: string;
+    btnKakao: string;
+    errorPassword: string;
+    errorLoginAuth: string;
+    errorBirth: string;
+    errorPhone: string;
+    errorEmail: string;
+    welcomePrefix: string;
+    welcomeSuffix: string;
+    alertLoginFail: string;
+    alertRegisterSuccess: string;
+    alertRegisterFail: string;
+    alertServerError: string;
+    loading: string;
+    rememberMe: string;
+    forgotPassword: string;
+    forgotPasswordMessage: string;
+  };
   home: {
-    gachimura: string
+    gachimura: string;
     heroTitle: string;
     heroSubtitle: string;
     feature1Title: string;
@@ -65,6 +93,34 @@ export const menu: Record<Language, Translation> = {
       signup: "회원가입",
       start: "시작하기",
     },
+    
+    auth: {
+      titleLogin: "가입 또는 로그인을 위해\n이메일을 입력해주세요.",
+      titleRegister: "회원가입을 진행하려면\n아래 항목을 입력해주세요.",
+      emailPlaceholder: "이메일을 입력해주세요.",
+      passwordPlaceholder: "비밀번호 (영문+숫자 6자 이상)",
+      birthPlaceholder: "생년월일 (예: 980101)",
+      phonePlaceholder: "전화번호",
+      btnContinue: "계속",
+      btnLogin: "로그인",
+      btnRegister: "회원가입 하기",
+      btnKakao: "카카오 간편 로그인",
+      errorPassword: "영문과 숫자를 포함하여 6자 이상 입력해주세요.",
+      errorEmail: "올바른 이메일 형식이 아닙니다.",
+      errorLoginAuth: "이메일 혹은 비밀번호를 확인해주세요.",
+      errorBirth: "생년월일 6자리를 입력해주세요.",
+      errorPhone: "올바른 전화번호 형식이 아닙니다. (예: 01012345678)",
+      welcomePrefix: "환영합니다!",
+      welcomeSuffix: "님, 로그인되었습니다.",
+      alertLoginFail: "로그인 요청에 실패했습니다.",
+      alertRegisterSuccess: "회원가입 성공! 이제 로그인해주세요.",
+      alertRegisterFail: "가입 실패: 다시 시도해주세요.",
+      alertServerError: "서버와 통신 중 오류가 발생했습니다.",
+      loading: "로딩 중...",
+      rememberMe: "로그인 유지",
+      forgotPassword: "비밀번호 찾기",
+      forgotPasswordMessage: "비밀번호 찾기 기능은 준비 중입니다.",
+    },
     home: {
       gachimura: "가치무라",
       heroTitle: "함께 장보고,\n정산은 똑똑하게.",
@@ -119,6 +175,34 @@ export const menu: Record<Language, Translation> = {
       login: "ログイン",
       signup: "会員登録",
       start: "始める",
+    },
+    
+    auth: {
+      titleLogin: "登録またはログインのために\nメールアドレスを入力してください。",
+      titleRegister: "会員登録を進めるには\n以下の項目を入力してください。",
+      emailPlaceholder: "メールアドレスを入力してください。",
+      passwordPlaceholder: "パスワード (英数6文字以上)",
+      birthPlaceholder: "生年月日 (例: 980101)",
+      phonePlaceholder: "電話番号",
+      btnContinue: "次へ",
+      btnLogin: "ログイン",
+      btnRegister: "会員登録する",
+      btnKakao: "カカオで簡単ログイン",
+      errorPassword: "英字と数字を含めて6文字以上で入力してください。",
+      errorLoginAuth: "メールアドレス、またはパスワードが違います。",
+      errorEmail: "正しいメールアドレスの形式ではありません。",
+      errorBirth: "生年月日6桁を入力してください。",
+      errorPhone: "正しい電話番号の形式ではありません。(例: 09012345678)",
+      welcomePrefix: "ようこそ！",
+      welcomeSuffix: "さん、ログインしました。",
+      alertLoginFail: "ログインリクエストに失敗しました。",
+      alertRegisterSuccess: "会員登録成功！ログインできます。",
+      alertRegisterFail: "登録失敗：再度お試しください。",
+      alertServerError: "サーバーとの通信中にエラーが発生しました",
+      loading: "通信中...",
+      rememberMe: "ログイン状態を維持",
+      forgotPassword: "パスワードを忘れた方",
+      forgotPasswordMessage: "パスワード再設定機能は準備中です。",
     },
     home: {
       gachimura: "ガチムラ",

@@ -6,6 +6,8 @@ import { LanguageProvider } from "@/app/hooks/LanguageContext";
 import { cookies } from "next/headers";
 import { menu } from "@/app/constants/menu";
 import { Language } from "@/app/common/types";
+import Script from "next/script";
+import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,25 +41,28 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 1. 쿠키 읽음
   const cookieStore = await cookies();
   const lang = (cookieStore.get("language")?.value as Language) || Language.korean;
-
-  // 2. 언어 검증, 아니면 한국어로
   const validLang = Object.values(Language).includes(lang) ? lang : Language.korean;
   const texts = menu[validLang];
 
   return (
-    <html lang={validLang}>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    //suppressHydrationWarning: 브라우저 환경 간섭 제거
+    <html lang={validLang} suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <LanguageProvider texts={texts} lang={validLang}>
+          <Toaster position="top-center" reverseOrder={false} />
           <div className="absolute top-4 right-4 z-50">
             <LanguageSwitcher />
           </div>
           {children}
         </LanguageProvider>
+
+        <Script
+          src="https://developers.kakao.com/sdk/js/kakao.min.js"
+          strategy="beforeInteractive"
+        />
+
       </body>
     </html>
   );

@@ -13,23 +13,41 @@ interface FetchOptions {
 export async function clientFetch<T = any>(url: string, options: FetchOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options;
 
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || API_CONFIG.PUBLIC_BASE_URL;
   const fullUrl = url.startsWith("http")
     ? url
-    : `${API_CONFIG.PUBLIC_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-  
-  const isFormData = body instanceof FormData;
+    : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
 
+  // cookie에서 token 추출
+  const getCookieValue = (name: string) => {
+    if (typeof document === "undefined") return null;
+    const match = document.cookie.match(new RegExp(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`));
+    return match ? decodeURIComponent(match[2]) : null;
+  };
+
+  const authToken = getCookieValue("accessToken");
+  
+  // FormData 여부에 따른 헤더 설정
+  const isFormData = body instanceof FormData;
+  const finalHeaders: Record<string, string> = {
+    ...(isFormData ? {} : {"Content-Type": "application/json" }),
+    ...headers,
+  };
+
+  // 인증 토큰 주입
+  if (authToken && !finalHeaders.Authorization) {
+    finalHeaders.Authorization = `Bearer ${authToken}`;
+  }
+
+  // body 처리 (FormData면 그대로, 아니면 문자열화)
   const response = await fetch(fullUrl, {
     method,
-    headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...headers,
-    },
+    headers: finalHeaders,
     body: body === undefined
       ? undefined
       : isFormData
       ? body
-      : JSON.stringify(body)
+      : JSON.stringify(body),
   });
 
   const result = await response.json();
