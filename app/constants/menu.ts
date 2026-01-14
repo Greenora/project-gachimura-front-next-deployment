@@ -37,6 +37,9 @@ interface Translation {
     rejectConfirm: string;
     rejectSuccess: string;
   };
+  createParty: {
+    pageTitle: string;
+  };
   partyForm: {
     title: string;
     titlePlaceholder: string;
@@ -92,6 +95,9 @@ export const menu: Record<Language, Translation> = {
       rejectConfirm: "님의 요청을 거절하시겠습니까?",
       rejectSuccess: "신청을 거절 처리했습니다.",
     },
+    createParty: {
+      pageTitle: "모임 등록",
+    },
     partyForm: {
       title: "제목",
       titlePlaceholder: "제목을 입력해주세요",
@@ -143,6 +149,9 @@ export const menu: Record<Language, Translation> = {
       approveSuccess: "さんの参加を承認しました。",
       rejectConfirm: "さんの要請を拒否しますか？",
       rejectSuccess: "申請を拒否処理しました。",
+    },
+    createParty: {
+      pageTitle: "集まりの登録",
     },
     partyForm: {
       title: "タイトル",
