@@ -3,14 +3,13 @@
 import { useState, useRef } from 'react';
 
 interface Props {
+  label: string;
   onChange: (file: File | null) => void;
 }
 
-export default function PartyImageUpload({ onChange }: Props) {
+export default function PartyImageUpload({ label, onChange }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // UI (미리보기)
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null); // UI (미리보기)
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -38,8 +37,8 @@ export default function PartyImageUpload({ onChange }: Props) {
 
   return (
     <div className="flex mb-10">
-      <label className="w-49 font-medium text-gray-700 h-10 flex items-center">모임 대표사진(선택)</label>
-      <div className="flex-1">
+      <label className="w-48 font-medium text-gray-700 h-10 flex items-center">{label}</label>
+      <div className="flex-1 flex items-start">
         {/* 실제 서버로 전송되는 Input */}
         <input
           ref={fileInputRef}
@@ -53,7 +52,7 @@ export default function PartyImageUpload({ onChange }: Props) {
         {/* 클릭 가능한 업로드 영역 */}
         <div 
           onClick={handleClickUpload}
-          className="w-54 h-55 bg-[#F2F2F2] rounded-xl flex items-center justify-center cursor-pointer border border-gray-100 hover:bg-green-100 transition-colors overflow-hidden"
+          className="w-52 h-48 shrink-0 flex-none bg-gray-100 rounded-xl flex items-center justify-center cursor-pointer border hover:bg-green-100 transition-colors overflow-hidden"
         >
           {preview ? (
             <img src={preview} alt="미리보기" className="w-full h-full object-cover" />

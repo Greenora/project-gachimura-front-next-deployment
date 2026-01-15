@@ -10,23 +10,22 @@ interface StoreInfo {
   longitude: string;
 }
 interface Props {
+  label: string;
+  placeholder: string;
+  emptyMessage: string;
   storeInfo: StoreInfo;
-  setStoreInfo: React.Dispatch<React.SetStateAction<StoreInfo>>;
+  setStoreInfo: (val: StoreInfo) => void;
   errors?: {
     storeName?: string;
     storeAddress?: string;
   };
 }
 
-export default function PartyLocation({
-  storeInfo,
-  setStoreInfo,
-  errors,
-}: Props) {
+export default function PartyLocation({ label, placeholder, emptyMessage, storeInfo, setStoreInfo, errors }: Props) {
   // UI 전용 검색어 상태
   const [searchStore, setSearchStore] = useState('');
 
-  // 나중에 kakao API 등에서 장소를 선택했을 때 이 함수를 실행하게 됩니다.
+  // 지도 API 결과(장소)를 선택했을 때 이 함수를 호출하여 상태 업데이트
   const handleSelectPlace = (
     name: string,
     address: string,
@@ -48,8 +47,8 @@ export default function PartyLocation({
     <div className="mb-6">
       {/* 1. 검색창 */}
       <PartyInput
-        label="마트"
-        placeholder="마트 이름을 검색하세요"
+        label={label}
+        placeholder={placeholder}
         value={searchStore}
         onChange={(e) =>
           setSearchStore(e.target.value)}
@@ -65,7 +64,7 @@ export default function PartyLocation({
       <input type="hidden" name="longitude" value={storeInfo?.longitude} />
 
       <div className="flex">
-        <div className="w-49" /> 
+        <div className="w-48" /> 
         <div className="flex-1">
           <div className="w-full h-56 bg-gray-100 border border-gray-200 mb-2 flex items-center justify-center text-gray-400 italic text-sm">
             지도 영역
@@ -82,7 +81,7 @@ export default function PartyLocation({
                 </span>
               </>
             ) : (
-              <span className="text-gray-400 text-sm">마트를 검색하여 선택해주세요.</span>
+              <span className="text-gray-400 text-sm">{emptyMessage}</span>
             )}
           </div>
         </div>

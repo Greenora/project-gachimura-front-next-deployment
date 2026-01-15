@@ -3,19 +3,27 @@
 import { useRef } from 'react';
 
 interface Props {
+  label: string;
   date: string;
   time: string;
   setDate: (v: string) => void;
   setTime: (v: string) => void;
   errors?: { date?: string; time?: string };
+  texts: {
+    dateSelect: string;
+    timeSelect: string;
+    error: string
+  };
 }
 
 export default function DateTimeSelector({
+  label,
   date,
   time,
   setDate,
   setTime,
   errors,
+  texts
 }: Props) {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const timeInputRef = useRef<HTMLInputElement>(null);
@@ -24,15 +32,15 @@ export default function DateTimeSelector({
 
   return (
     <div className="flex items-start mb-6">
-      <label className="w-49 font-medium text-gray-700 h-10 flex items-center">
-        모임 날짜, 시간
+      <label className="w-48 font-medium text-gray-700 h-10 flex items-center">
+        {label}
       </label>
 
       <div className="flex-1">
-        <div className="flex gap-2.5 items-center">
+        <div className="flex gap-3 h-12">
         {/* FormData로 실제 전송되는 값들 */}
           {/* 날짜 */}
-          <div className="relative h-10 w-fit">
+          <div className="relative h-11">
             <input
               ref={dateInputRef}
               type="date"
@@ -51,12 +59,12 @@ export default function DateTimeSelector({
                   ? 'bg-gray-100 text-gray-700 border-gray-200 focus:border-green-700'
                   : 'bg-emerald-50 text-green-600 border-green-200 focus:border-green-700'}`}
             >
-              {date ? date.replace(/-/g, '.') : '날짜 선택'}
+              {date ? date.replace(/-/g, '.') : texts.dateSelect}
             </button>
           </div>
 
           {/* 시간 */}
-          <div className="relative h-10 w-fit">
+          <div className="relative h-11">
             <input
               ref={timeInputRef}
               type="time"
@@ -76,7 +84,7 @@ export default function DateTimeSelector({
                     ? 'bg-gray-100 text-gray-700 border-gray-200 focus:border-green-700'
                     : 'bg-emerald-50 text-green-600 border-green-200 focus:border-green-700'}`}
             >
-              {time || '시간 선택'}
+              {time || texts.timeSelect}
             </button>
           </div>
         </div>
@@ -85,7 +93,7 @@ export default function DateTimeSelector({
         <div className="min-h-5 mt-1">
           {combinedError && (
             <p className="text-xs text-red-500">
-              날짜와 시간을 선택해주세요
+              {texts.error}
             </p>
           )}
         </div>

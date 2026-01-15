@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from "react";
+import { useLanguage } from "@/app/hooks/LanguageContext";
 import PartyInput from "./PartyInput";
 import DateTimeSelector from "./DateTimeSelector";
 import PartyContent from "./PartyContent";
@@ -8,7 +9,6 @@ import PartyLocation from "./PartyLocation"
 import SubmitButton from "./SubmitButton";
 import PartyImageUpload from "./PartyImageUpload";
 import { clientFetch } from "@/app/hooks/useClientFetch";
-import { fieldset } from "framer-motion/client";
 
 type FormErrors = {
   title?: string;
@@ -20,6 +20,9 @@ type FormErrors = {
 }
 
 export default function PartyForm() {
+  const { texts } = useLanguage();
+  const pf = texts.partyForm; // party form 텍스트 참조
+
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -46,12 +49,11 @@ export default function PartyForm() {
   const validateForm = () => {
     const newErrors: FormErrors = {};
 
-    if (!title.trim()) newErrors.title = '제목을 입력해주세요';
-    if (!date) newErrors.date = '모임 날짜를 선택해주세요';
-    if (!time) newErrors.time = '모임 시간을 선택해주세요';
-    if (!description.trim()) newErrors.description = '설명을 작성해주세요';
-    if (!storeInfo.name) newErrors.storeName = '마트를 선택해주세요';
-    if (!storeInfo.address) newErrors.storeAddress = '마트 주소가 필요합니다';
+    if (!title.trim()) newErrors.title = pf.titlePlaceholder;
+    if (!date) newErrors.date = pf.errorDateTime;
+    if (!time) newErrors.time = pf.errorDateTime;
+    if (!description.trim()) newErrors.description = pf.descriptionPlaceholder;
+    if (!storeInfo.name) newErrors.storeName = pf.storeEmpty;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -82,9 +84,14 @@ export default function PartyForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-12 max-w-exl mx-auto px-4">
+    // <form onSubmit={handleSubmit} className="mt-12 max-w-2xl mx-auto px-4">
+    <form onSubmit={handleSubmit} className="w-full">
+      <h2 className="text-2xl font-bold text-center mb-10 text-gray-800">{pf.pageTitle}</h2>
+
       <PartyInput
-        label="제목"
+        label={pf.title}
+        name="title"
+        placeholder={pf.titlePlaceholder}
         value={title}
         onChange={(e) => {
           setTitle(e.target.value);
@@ -94,16 +101,24 @@ export default function PartyForm() {
       />
       
       <DateTimeSelector
+        label={pf.date}
         date={date}
         time={time}
         setDate={(val) => { setDate(val); clearError('date'); }}
         setTime={(val) => { setTime(val); clearError('time'); }}
         errors={{ date: errors.date, time: errors.time }}
+        texts={{ dateSelect: pf.dateSelect, timeSelect: pf.timeSelect, error: pf.errorDateTime }}
       />
 
-      <PartyImageUpload onChange={setImageFile} />
+      <PartyImageUpload
+        label={pf.image}
+        onChange={setImageFile}
+      />
 
       <PartyContent
+        label={pf.description}
+        name="content"
+        placeholder={pf.descriptionPlaceholder}
         value={description}
         onChange={(val) => {
           setDescription(val);
@@ -113,19 +128,19 @@ export default function PartyForm() {
       />
 
       <PartyLocation
+        label={pf.store}
+        placeholder={pf.storePlaceholder}
+        emptyMessage={pf.storeEmpty}
         storeInfo={storeInfo}
         setStoreInfo={(val) => {
           setStoreInfo(val);
           clearError('storeName');
         }}
-        errors={{
-          storeName: errors.storeName,
-          storeAddress: errors.storeAddress,
-        }}
+        errors={{ storeName: errors.storeName }}
       />
 
       <div className="pt-4">
-        <SubmitButton />
+        <SubmitButton text={pf.submit} />
       </div>
     </form>
   );

@@ -14,11 +14,11 @@ export default function PartyInput({ label, name, value, placeholder, onChange, 
   return (
     <div className={className || 'mb-6'}>
       <div className="flex items-start">
-        <label className="w-49 font-medium text-gray-700 h-10 flex items-center">{label}</label>
+        <label className="w-48 font-medium text-gray-700 h-10 flex items-center">{label}</label>
 
         <div className="flex-1">
           <input 
-            type="text" 
+            type="text"
             name={name}
             value={value}
             onChange={onChange}

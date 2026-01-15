@@ -65,10 +65,8 @@ interface Translation {
     rejectConfirm: string;
     rejectSuccess: string;
   };
-  createParty: {
-    pageTitle: string;
-  };
   partyForm: {
+    pageTitle: string;
     title: string;
     titlePlaceholder: string;
     date: string;
@@ -151,10 +149,8 @@ export const menu: Record<Language, Translation> = {
       rejectConfirm: "님의 요청을 거절하시겠습니까?",
       rejectSuccess: "신청을 거절 처리했습니다.",
     },
-    createParty: {
-      pageTitle: "모임 등록",
-    },
     partyForm: {
+      pageTitle: "모임 등록",
       title: "제목",
       titlePlaceholder: "제목을 입력해주세요",
       date: "모임 날짜, 시간",
@@ -234,10 +230,8 @@ export const menu: Record<Language, Translation> = {
       rejectConfirm: "さんの要請を拒否しますか？",
       rejectSuccess: "申請を拒否処理しました。",
     },
-    createParty: {
-      pageTitle: "集まりの登録",
-    },
     partyForm: {
+      pageTitle: "集まりの登録",
       title: "タイトル",
       titlePlaceholder: "タイトルを入力してください",
       date: "集まりの日付・時間",
