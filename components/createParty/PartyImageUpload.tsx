@@ -52,7 +52,7 @@ export default function PartyImageUpload({ label, onChange }: Props) {
         {/* 클릭 가능한 업로드 영역 */}
         <div 
           onClick={handleClickUpload}
-          className="w-52 h-48 shrink-0 flex-none bg-gray-100 rounded-xl flex items-center justify-center cursor-pointer border hover:bg-green-100 transition-colors overflow-hidden"
+          className="w-52 h-52 shrink-0 flex-none bg-gray-100 rounded-xl flex items-center justify-center cursor-pointer border hover:bg-green-100 transition-colors overflow-hidden"
         >
           {preview ? (
             <img src={preview} alt="미리보기" className="w-full h-full object-cover" />

@@ -9,6 +9,8 @@ import PartyLocation from "./PartyLocation"
 import SubmitButton from "./SubmitButton";
 import PartyImageUpload from "./PartyImageUpload";
 import { clientFetch } from "@/app/hooks/useClientFetch";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 type FormErrors = {
   title?: string;
@@ -22,6 +24,7 @@ type FormErrors = {
 export default function PartyForm() {
   const { texts } = useLanguage();
   const pf = texts.partyForm; // party form 텍스트 참조
+  const router = useRouter();
 
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
@@ -75,16 +78,17 @@ export default function PartyForm() {
     formData.append('longitude', storeInfo.longitude);
     if (imageFile) formData.append('thumbnail_image', imageFile);
 
-    console.log("===모임 등록 데이터===");
-    for (const [key, value] of formData.entries()) {
-      console.log(key, value);
+    try {
+      await clientFetch("/parties", { method: "POST", body: formData });
+      toast.success(texts.auth.alertRegisterSuccess || "모임이 등록되었습니다.");
+      router.push("/"); // 등록 성공 시 메인으로 이동
+    } catch (error: any) {
+      console.error("등록 실패:", error);
+      toast.error(error.message || "등록에 실패했습니다.");
     }
-
-    await clientFetch('/parties', { method: 'POST', body: formData });
   };
 
   return (
-    // <form onSubmit={handleSubmit} className="mt-12 max-w-2xl mx-auto px-4">
     <form onSubmit={handleSubmit} className="w-full">
       <h2 className="text-2xl font-bold text-center mb-10 text-gray-800">{pf.pageTitle}</h2>
 
