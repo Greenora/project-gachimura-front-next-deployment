@@ -22,7 +22,7 @@ type FormErrors = {
 }
 
 export default function PartyForm() {
-  const { texts } = useLanguage();
+  const { texts, lang } = useLanguage();
   const pf = texts.partyForm; // party form 텍스트 참조
   const router = useRouter();
 
@@ -32,9 +32,10 @@ export default function PartyForm() {
   const [description, setDescription] = useState('');
   const [storeInfo, setStoreInfo] = useState({
     name: '',
-    address: '',
-    latitude: '',
-    longitude: '',
+    address_ko: '',
+    address_jp: '',
+    latitude: 0,
+    longitude: 0,
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -73,9 +74,10 @@ export default function PartyForm() {
     formData.append('meetingTime', time);
     formData.append('content', description);
     formData.append('store_name', storeInfo.name);
-    formData.append('address', storeInfo.address);
-    formData.append('latitude', storeInfo.latitude);
-    formData.append('longitude', storeInfo.longitude);
+    formData.append('address', storeInfo.address_ko);
+    formData.append('address', storeInfo.address_jp); // 백엔드 요구사항에 따라 조정 필요
+    formData.append('latitude', storeInfo.latitude.toString());
+    formData.append('longitude', storeInfo.longitude.toString());
     if (imageFile) formData.append('thumbnail_image', imageFile);
 
     try {
@@ -141,6 +143,7 @@ export default function PartyForm() {
           clearError('storeName');
         }}
         errors={{ storeName: errors.storeName }}
+        currentLang={lang}
       />
 
       <div className="pt-4">

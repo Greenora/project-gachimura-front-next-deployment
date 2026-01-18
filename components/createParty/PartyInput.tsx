@@ -1,5 +1,7 @@
 'use client';
 
+import { forwardRef } from "react";
+
 interface Props {
   label: string;
   name?: string;
@@ -10,7 +12,8 @@ interface Props {
   error?: string;
 }
 
-export default function PartyInput({ label, name, value, placeholder, onChange, className, error }: Props) {
+const PartyInput = forwardRef<HTMLInputElement, Props>(
+  ({ label, name, value, placeholder, onChange, className, error }, ref) => {
   return (
     <div className={className || 'mb-6'}>
       <div className="flex items-start">
@@ -18,6 +21,7 @@ export default function PartyInput({ label, name, value, placeholder, onChange, 
 
         <div className="flex-1">
           <input 
+            ref={ref}
             type="text"
             name={name}
             value={value}
@@ -34,4 +38,9 @@ export default function PartyInput({ label, name, value, placeholder, onChange, 
       </div>
     </div>
   );
-}
+ }
+)
+
+PartyInput.displayName = 'PartyInput';
+
+export default PartyInput;
