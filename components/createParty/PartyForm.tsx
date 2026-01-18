@@ -59,6 +59,10 @@ export default function PartyForm() {
     if (!description.trim()) newErrors.description = pf.descriptionPlaceholder;
     if (!storeInfo.name) newErrors.storeName = pf.storeEmpty;
 
+    if (!storeInfo.name || !storeInfo.latitude || !storeInfo.longitude) {
+      newErrors.storeName = pf.storeEmpty;
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -74,8 +78,8 @@ export default function PartyForm() {
     formData.append('meetingTime', time);
     formData.append('content', description);
     formData.append('store_name', storeInfo.name);
-    formData.append('address', storeInfo.address_ko);
-    formData.append('address', storeInfo.address_jp); // 백엔드 요구사항에 따라 조정 필요
+    formData.append('address_ko', storeInfo.address_ko);
+    formData.append('address_jp', storeInfo.address_jp); // 백엔드 요구사항에 따라 조정 필요
     formData.append('latitude', storeInfo.latitude.toString());
     formData.append('longitude', storeInfo.longitude.toString());
     if (imageFile) formData.append('thumbnail_image', imageFile);
