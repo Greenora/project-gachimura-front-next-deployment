@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import PartyInput from "./PartyInput";
 
 interface StoreInfo {
-  name: string;
+  name_ko: string;
+  name_jp: string;
   address_ko: string;
   address_jp: string;
   latitude: number;
@@ -40,42 +41,8 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
-  // 지도 API 결과(장소)를 선택했을 때 이 함수를 호출하여 상태 업데이트
-  const handleSelectPlace = async (
-    name: string,
-    placeId: string,
-    lat: number,
-    lng: number,
-  ) => {
-    try {
-      const googleLangCode = getGoogleMapsLangCode(currentLang);
-      const currentAddress = await getPlaceDetails(placeId, googleLangCode);
-
-      const isJapanese = googleLangCode === 'ja';
-      setStoreInfo({
-        name,
-        address_ko: isJapanese ? (storeInfo.address_ko || '') : currentAddress,
-        address_jp: isJapanese ? currentAddress : (storeInfo.address_jp || ''),
-        latitude: lat,
-        longitude: lng,
-        place_id: placeId,
-      });
-
-      // 검색창에 선택한 마트 이름 표시
-      setSearchStore(name);
-
-      if (googleMapRef.current && markerRef.current) {
-        const newPos = { lat, lng };
-        googleMapRef.current.setCenter(newPos);
-        markerRef.current.setPosition(newPos);
-      }
-    } catch (error) {
-      console.error('주소 가져오기 실패:', error);
-    }
-  };
-
   //  place_id로 특정 언어 주소 가져오기
-  const getPlaceDetails = (placeId: string, language: string): Promise<string> => {
+  const getPlaceDetails = (placeId: string, language: string): Promise<{ address: string, name: string }> => {
     return new Promise((resolve, reject) => {
       if (!placesServiceRef.current) {
         reject('PlacesService not initialized');
@@ -84,13 +51,16 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
 
       const request = {
         placeId: placeId,
-        fields: ['formatted_address'],
+        fields: ['formatted_address', 'name'],
         language: language,
       };
 
       placesServiceRef.current.getDetails(request, (place, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && place?.formatted_address) {
-          resolve(place.formatted_address);
+          resolve({
+            address: place.formatted_address || '',
+            name: place.name || ''
+          });
         } else {
           reject(`Failed to get address for language: ${language}`);
         }
@@ -109,6 +79,41 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
     };
     return langMap[lang.toLowerCase()] || 'ko';
   }
+
+  // 지도 API 결과(장소)를 선택했을 때 이 함수를 호출하여 상태 업데이트
+  const handleSelectPlace = async (
+    name: string,
+    placeId: string,
+    lat: number,
+    lng: number,
+  ) => {
+    try {
+      const googleLangCode = getGoogleMapsLangCode(currentLang);
+      const details = await getPlaceDetails(placeId, googleLangCode);
+
+      const isJapanese = googleLangCode === 'ja';
+      setStoreInfo({
+        name_ko: isJapanese ? (storeInfo.name_ko || '') : details.name,
+        name_jp: isJapanese ? details.name : (storeInfo.name_jp || ''),
+        address_ko: isJapanese ? (storeInfo.address_ko || '') : details.address,
+        address_jp: isJapanese ? details.address : (storeInfo.address_jp || ''),
+        latitude: lat,
+        longitude: lng,
+        place_id: placeId,
+      });
+
+      // 검색창에 선택한 마트 이름 표시
+      setSearchStore(details.name);
+
+      if (googleMapRef.current && markerRef.current) {
+        const newPos = { lat, lng };
+        googleMapRef.current.setCenter(newPos);
+        markerRef.current.setPosition(newPos);
+      }
+    } catch (error) {
+      console.error('주소 가져오기 실패:', error);
+    }
+  };
 
   // 지도 초기화
   useEffect(() => {
@@ -195,6 +200,7 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
     initMap();
   }, [currentLang]);
 
+  // 언어 변경 시 주소와 이름 모두 업데이트
   useEffect(() => {
     // place_id가 없으면 선택된 장소가 없는 것이므로 return
     if (!storeInfo.place_id) return;
@@ -206,16 +212,23 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
     // 현재 언어의 주소가 이미 있으면 재요청 불필요
     const currentAddress = isJapanese ? storeInfo.address_jp : storeInfo.address_ko;
     if (currentAddress) return;
+    const currentName = isJapanese ? storeInfo.name_jp : storeInfo.name_ko;
+
+    if (currentAddress && currentName) return;
 
     const fetchAddressForCurrentLang = async () => {
       try {
-        const address = await getPlaceDetails(storeInfo.place_id, googleLangCode);
+        const details = await getPlaceDetails(storeInfo.place_id, googleLangCode);
 
         setStoreInfo({
           ...storeInfo,
-          address_ko: isJapanese ? storeInfo.address_ko : address,
-          address_jp: isJapanese ? address : storeInfo.address_jp,
+          name_ko: isJapanese ? storeInfo.name_ko : details.name,
+          name_jp: isJapanese ? details.name : storeInfo.name_jp,
+          address_ko: isJapanese ? storeInfo.address_ko : details.address,
+          address_jp: isJapanese ? details.address : storeInfo.address_jp,
         });
+
+        setSearchStore(details.name);
       } catch (error) {
         console.error(`${googleLangCode} 주소 가져오기 실패:`, error);
       }
@@ -223,6 +236,8 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
 
     fetchAddressForCurrentLang();
   }, [currentLang, storeInfo.place_id]);
+
+  const currentDisplayName = getGoogleMapsLangCode(currentLang) === 'ja' ? storeInfo.name_jp : storeInfo.name_ko;
 
   return (
     <div className="mb-6">
@@ -232,7 +247,7 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
           ref={inputRef}
           label={label}
           placeholder={placeholder}
-          value={searchStore}
+          value={currentDisplayName || searchStore}
           onChange={(e) =>
             setSearchStore(e.target.value)}
           error={errors?.storeName}
@@ -242,9 +257,10 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
 
       {/* 2. Hidden Inputs: 실제 백엔드로 보낼 마트 이름과 주소를 담는 곳 */}
       {/* value가 storeInfo 상태와 연결되어 있어, 지도 검색 시 자동으로 업데이트됨 */}
-      <input type="hidden" name="store_name" value={storeInfo?.name} />
-      <input type="hidden" name="address_ko" value={storeInfo?.address_ko} />
-      <input type="hidden" name="address_jp" value={storeInfo?.address_jp} />
+      <input type="hidden" name="name_ko" value={storeInfo?.name_ko ?? ''} />
+      <input type="hidden" name="name_jp" value={storeInfo?.name_jp ?? ''} />
+      <input type="hidden" name="address_ko" value={storeInfo?.address_ko ?? ''} />
+      <input type="hidden" name="address_jp" value={storeInfo?.address_jp ?? ''} />
       <input type="hidden" name="latitude" value={storeInfo?.latitude ?? ''} />
       <input type="hidden" name="longitude" value={storeInfo?.longitude ?? ''} />
       <input type="hidden" name="place_id" value={storeInfo?.place_id ?? ''} />
@@ -258,10 +274,10 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
           />
 
           <div className="flex items-center gap-2 min-h-7">
-            {storeInfo?.name ? (
+            {(getGoogleMapsLangCode(currentLang) === 'ja' ? storeInfo?.name_jp : storeInfo?.name_ko) ? (
               <>
                 <span className="font-bold text-lg text-gray-900">
-                  {storeInfo.name}
+                  {getGoogleMapsLangCode(currentLang) === 'ja' ? storeInfo.name_jp : storeInfo.name_ko}
                 </span>
                 <span className="text-gray-500 text-sm">
                   {getGoogleMapsLangCode(currentLang) === 'ja' ? storeInfo.address_jp : storeInfo.address_ko}
