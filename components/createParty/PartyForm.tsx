@@ -31,14 +31,21 @@ export default function PartyForm() {
   const [time, setTime] = useState('');
   const [description, setDescription] = useState('');
   const [storeInfo, setStoreInfo] = useState({
-    name: '',
+    name_ko: '',
+    name_jp: '',
     address_ko: '',
     address_jp: '',
     latitude: 0,
     longitude: 0,
+    place_id: '',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  const isJapanese = () => {
+    const language = String(lang).toLowerCase();
+    return language === 'ja' || language === 'japanese' || language === 'jp';
+  };
 
   const clearError = (field: keyof FormErrors) => {
     if (errors[field]) {
@@ -57,9 +64,9 @@ export default function PartyForm() {
     if (!date) newErrors.date = pf.errorDateTime;
     if (!time) newErrors.time = pf.errorDateTime;
     if (!description.trim()) newErrors.description = pf.descriptionPlaceholder;
-    if (!storeInfo.name) newErrors.storeName = pf.storeEmpty;
 
-    if (!storeInfo.name || !storeInfo.latitude || !storeInfo.longitude) {
+    const currentName = isJapanese() ? storeInfo.name_jp : storeInfo.name_ko;
+    if (!currentName || !storeInfo.latitude || !storeInfo.longitude) {
       newErrors.storeName = pf.storeEmpty;
     }
 
@@ -77,9 +84,12 @@ export default function PartyForm() {
     formData.append('meetingDate', date);
     formData.append('meetingTime', time);
     formData.append('content', description);
-    formData.append('store_name', storeInfo.name);
+
+    const currentName = isJapanese() ? storeInfo.name_jp : storeInfo.name_ko;
+    formData.append('store_name', currentName);
+    formData.append('address', storeInfo.address_ko); // address 필드는 기본 한국어 주소로 전달
     formData.append('address_ko', storeInfo.address_ko);
-    formData.append('address_jp', storeInfo.address_jp); // 백엔드 요구사항에 따라 조정 필요
+    formData.append('address_jp', storeInfo.address_jp);
     formData.append('latitude', storeInfo.latitude.toString());
     formData.append('longitude', storeInfo.longitude.toString());
     if (imageFile) formData.append('thumbnail_image', imageFile);
@@ -147,7 +157,7 @@ export default function PartyForm() {
           clearError('storeName');
         }}
         errors={{ storeName: errors.storeName }}
-        currentLang={lang}
+        currentLang={String(lang)}
       />
 
       <div className="pt-4">

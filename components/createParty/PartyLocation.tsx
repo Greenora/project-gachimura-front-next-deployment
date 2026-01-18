@@ -93,10 +93,10 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
 
       const isJapanese = googleLangCode === 'ja';
       setStoreInfo({
-        name_ko: isJapanese ? (storeInfo.name_ko || '') : details.name,
-        name_jp: isJapanese ? details.name : (storeInfo.name_jp || ''),
-        address_ko: isJapanese ? (storeInfo.address_ko || '') : details.address,
-        address_jp: isJapanese ? details.address : (storeInfo.address_jp || ''),
+        name_ko: isJapanese ? '' : details.name,
+        name_jp: isJapanese ? details.name : '',
+        address_ko: isJapanese ? '' : details.address,
+        address_jp: isJapanese ? details.address : '',
         latitude: lat,
         longitude: lng,
         place_id: placeId,
@@ -214,7 +214,12 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
     if (currentAddress) return;
     const currentName = isJapanese ? storeInfo.name_jp : storeInfo.name_ko;
 
-    if (currentAddress && currentName) return;
+    if (currentAddress && currentName) {
+      if (searchStore !== currentName) {
+        setTimeout(() => setSearchStore(currentName), 0);
+      }
+      return;
+    }
 
     const fetchAddressForCurrentLang = async () => {
       try {
@@ -247,7 +252,7 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
           ref={inputRef}
           label={label}
           placeholder={placeholder}
-          value={currentDisplayName || searchStore}
+          value={searchStore}
           onChange={(e) =>
             setSearchStore(e.target.value)}
           error={errors?.storeName}
@@ -274,10 +279,10 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
           />
 
           <div className="flex items-center gap-2 min-h-7">
-            {(getGoogleMapsLangCode(currentLang) === 'ja' ? storeInfo?.name_jp : storeInfo?.name_ko) ? (
+            {currentDisplayName ? (
               <>
                 <span className="font-bold text-lg text-gray-900">
-                  {getGoogleMapsLangCode(currentLang) === 'ja' ? storeInfo.name_jp : storeInfo.name_ko}
+                  {currentDisplayName}
                 </span>
                 <span className="text-gray-500 text-sm">
                   {getGoogleMapsLangCode(currentLang) === 'ja' ? storeInfo.address_jp : storeInfo.address_ko}
