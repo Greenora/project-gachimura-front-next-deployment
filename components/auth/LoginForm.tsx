@@ -19,8 +19,20 @@ import {
   PhoneIcon, 
   CalendarIcon 
 } from "@/components/common/Icons";
+import LineLogin from "@/components/auth/LineLogin";
 
-// 타입 정의 강화
+/**
+ * 통합 로그인 폼 컴포넌트
+ * 
+ * 3단계로 동작함:
+ * 1. EMAIL_INPUT: 이메일 입력 → 기존 회원인지 체크
+ * 2. PASSWORD_INPUT: 기존 회원이면 로그인
+ * 3. REGISTER_FORM: 신규 회원이면 회원가입
+ * 
+ * 소셜 로그인 (카카오, 라인)도 여기서 보여줌
+ */
+
+// 타입 정의
 interface LoginResponse {
   user: { nickname: string };
   accessToken: string;
@@ -29,20 +41,19 @@ interface LoginResponse {
 }
 
 interface CheckResponse {
-  exists: boolean;
+  exists: boolean; // 이메일이 이미 가입되어 있는지 여부
 }
 
-// 회원가입 폼 데이터 타입 정의
 interface RegisterData {
   email: string;
   passwordRegister: string;
   phone?: string;
-  birthdate?: string;
+  birthdate?: string; // YYMMDD 형식 (6자리)
 }
 
+// 폼 진행 단계
 type Step = "EMAIL_INPUT" | "PASSWORD_INPUT" | "REGISTER_FORM";
 
-// 폼 전체 데이터 타입
 interface FormData {
   email: string;
   passwordLogin?: string;
@@ -51,7 +62,7 @@ interface FormData {
   birthdate?: string;
 }
 
-// 유효한 Language 값인지 확인하는 헬퍼 함수
+// 쿠키에서 가져온 언어 값이 유효한지 체크하는 함수
 const isValidLanguage = (value: string | undefined): value is Language => {
   return value !== undefined && Object.values(Language).includes(value as Language);
 };
@@ -74,9 +85,9 @@ export default function LoginForm() {
     formState: { errors },
   } = useForm<FormData>({ mode: "onChange" });
 
-  // 이메일 체크
+  // 이메일 체크: 백엔드에 이 이메일이 가입되어 있는지 물어봄
   const handleEmailCheck = async (email: string) => {
-    if (isLoading) return;
+    if (isLoading) return; // 중복 요청 방지
     setIsLoading(true);
 
     try {
@@ -84,6 +95,7 @@ export default function LoginForm() {
         method: "POST",
         body: { email },
       });
+      // 있으면 로그인 화면, 없으면 회원가입 화면으로 전환
       setStep(data.exists ? "PASSWORD_INPUT" : "REGISTER_FORM");
       clearErrors();
     } catch (error) {
@@ -100,9 +112,9 @@ export default function LoginForm() {
     passwordLogin: string;
   }
 
-  // 로그인
+  // 로그인 처리
   const handleLogin = async (data: LoginFormData) => {
-    if (isLoading) return;
+    if (isLoading) return; // 중복 요청 방지
     setIsLoading(true);
 
     try {
@@ -111,17 +123,18 @@ export default function LoginForm() {
         body: { 
           email: data.email, 
           password: data.passwordLogin,
-          rememberMe: rememberMe,
+          rememberMe: rememberMe, // 자동 로그인 체크 여부
         },
       });
 
-      // 토큰 저장 (자동 로그인 시 30일, 아니면 1일)
+      // 토큰 쿠키에 저장
+      // 자동 로그인 체크했으면 30일, 안했으면 1일
       const expiresInDays = rememberMe ? 30 : 1;
       Cookies.set("accessToken", result.accessToken, { expires: expiresInDays, path: "/" });
       Cookies.set("refreshToken", result.refreshToken, { expires: 7, path: "/" });
 
       toast.success(`${texts.auth.welcomePrefix} ${result.user.nickname}${texts.auth.welcomeSuffix}`);
-      router.push("/"); 
+      router.push("/"); // 메인 페이지로 이동
     } catch {
       setError("passwordLogin", {
         type: "manual",
@@ -133,16 +146,16 @@ export default function LoginForm() {
     }
   };
 
-  // 회원가입
+  // 회원가입 처리
   const handleRegister = async (data: RegisterData) => {
-    if (isLoading) return;
+    if (isLoading) return; // 중복 요청 방지
     setIsLoading(true);
 
-    // 언어 감지 로직 (쿠키 유효성 검증 포함)
+    // 언어 설정 감지 (백엔드에 보내서 닉네임 생성할 때 사용)
     const cookieLang = Cookies.get("language");
     const currentLang = lang || (isValidLanguage(cookieLang) ? cookieLang : Language.korean);
     const isJapanese = currentLang === Language.japanese;
-    const langCode = isJapanese ? 'jp' : 'ko';
+    const langCode = isJapanese ? 'jp' : 'ko'; // 일본어면 'jp', 아니면 'ko'
 
     const requestBody = {
       email: data.email,
@@ -387,8 +400,9 @@ export default function LoginForm() {
         </form>
 
         {step === "EMAIL_INPUT" && (
-          <div className="mt-4">
+          <div className="mt-4 flex flex-col gap-3">
             <KakaoLogin buttonText={texts.auth.btnKakao} />
+            <LineLogin buttonText={texts.auth.btnLine}/>
           </div>
         )}
       </div>
