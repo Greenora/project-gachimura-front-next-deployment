@@ -18,6 +18,7 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
     ? url
     : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
 
+  // cookie에서 token 추출
   const getCookieValue = (name: string) => {
     if (typeof document === "undefined") return null;
     const match = document.cookie.match(new RegExp(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`));
@@ -25,19 +26,28 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
   };
 
   const authToken = getCookieValue("accessToken");
+  
+  // FormData 여부에 따른 헤더 설정
+  const isFormData = body instanceof FormData;
   const finalHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : {"Content-Type": "application/json" }),
     ...headers,
   };
 
+  // 인증 토큰 주입
   if (authToken && !finalHeaders.Authorization) {
     finalHeaders.Authorization = `Bearer ${authToken}`;
   }
 
+  // body 처리 (FormData면 그대로, 아니면 문자열화)
   const response = await fetch(fullUrl, {
     method,
     headers: finalHeaders,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body === undefined
+      ? undefined
+      : isFormData
+      ? body
+      : JSON.stringify(body),
   });
 
   const result = await response.json();
