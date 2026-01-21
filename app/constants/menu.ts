@@ -65,6 +65,22 @@ interface Translation {
     rejectConfirm: string;
     rejectSuccess: string;
   };
+  partyForm: {
+    pageTitle: string;
+    title: string;
+    titlePlaceholder: string;
+    date: string;
+    dateSelect: string;
+    timeSelect: string;
+    errorDateTime: string;
+    image: string;
+    description: string;
+    descriptionPlaceholder: string;
+    store: string;
+    storePlaceholder: string;
+    storeEmpty: string;
+    submit: string;
+  };
 }
 
 // 한국어와 일본어 모든 필드가 같이 들어있어야 함.(한쪽에만 있고 한쪽에는 없고 불가)
@@ -134,6 +150,22 @@ export const menu: Record<Language, Translation> = {
       rejectConfirm: "님의 요청을 거절하시겠습니까?",
       rejectSuccess: "신청을 거절 처리했습니다.",
     },
+    partyForm: {
+      pageTitle: "모임 등록",
+      title: "제목",
+      titlePlaceholder: "제목을 입력해주세요",
+      date: "모임 날짜, 시간",
+      dateSelect: "날짜 선택",
+      timeSelect: "시간 선택",
+      errorDateTime: "날짜와 시간을 모두 선택해주세요",
+      image: "모임 대표사진(선택)",
+      description: "모임 설명",
+      descriptionPlaceholder: "구매할 물품과 기타 설명을 자세하게 작성해주세요. 정확한 모임 위치는 모임의 채팅방에서 공유해주세요!",
+      store: "마트",
+      storePlaceholder: "마트 이름을 검색하세요",
+      storeEmpty: "마트를 검색하여 선택해주세요",
+      submit: "모임 등록하기",
+    },
   },
   [Language.japanese]: {
     common: {
@@ -199,6 +231,22 @@ export const menu: Record<Language, Translation> = {
       approveSuccess: "さんの参加を承認しました。",
       rejectConfirm: "さんの要請を拒否しますか？",
       rejectSuccess: "申請を拒否処理しました。",
+    },
+    partyForm: {
+      pageTitle: "集まりの登録",
+      title: "タイトル",
+      titlePlaceholder: "タイトルを入力してください",
+      date: "集まりの日付・時間",
+      dateSelect: "日付を選択",
+      timeSelect: "時間を選択",
+      errorDateTime: "日付と時間を選択してください",
+      image: "代表写真(任意)",
+      description: "集まりの説明",
+      descriptionPlaceholder: "購入する物品やその他の説明を詳しく記入してください。正確な場所はチャットルームで共有してください！",
+      store: "マート",
+      storePlaceholder: "マート名を検索してください",
+      storeEmpty: "マートを検索して選択してください。",
+      submit: "集まりを登録する",
     },
   },
 };
