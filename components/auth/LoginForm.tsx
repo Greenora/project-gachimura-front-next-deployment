@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import Image from "next/image";
 import Cookies from "js-cookie";
@@ -84,6 +84,14 @@ export default function LoginForm() {
     clearErrors,
     formState: { errors },
   } = useForm<FormData>({ mode: "onChange" });
+
+  // 로그인 상태 체크: 이미 로그인되어 있으면 메인 페이지로 리다이렉트
+  useEffect(() => {
+    const accessToken = Cookies.get("accessToken");
+    if (accessToken) {
+      router.push("/");
+    }
+  }, [router]);
 
   // 이메일 체크: 백엔드에 이 이메일이 가입되어 있는지 물어봄
   const handleEmailCheck = async (email: string) => {
