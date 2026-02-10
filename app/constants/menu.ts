@@ -261,7 +261,7 @@ export const menu: Record<Language, Translation> = {
       forgotPasswordMessage: "パスワード再設定機能は準備中です。",
     },
     home: {
-      gachimura: "カ치무라",
+      gachimura: "カチムラ",
       heroTitle: "買い物は一緒に、\n精算はスマートに。",
       heroSubtitle: "コストコやトレーダースの大容量商品가 負担なとき、\n近所の隣人と分け合って費用を自動計算しましょう。",
       feature1Title: "近くの隣人と集まり",
