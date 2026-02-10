@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { clientFetch } from "./useClientFetch";
+import { toast } from "react-hot-toast";
 
 interface LocationState {
   latitude: number | null;
   longitude: number | null;
-  region: string | null; // 예: 대구광역시
-  district: string | null; // 예: 수성구
+  region: string | null;
+  district: string | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -29,7 +30,6 @@ export function useLocation() {
   });
 
   const syncLocationWithBackend = useCallback(async (lat: number, lon: number, region?: string, district?: string) => {
-    // 로그인한 유저만 서버에 좌표를 저장하도록 체크
     const hasToken = typeof document !== 'undefined' && document.cookie.includes("accessToken");
     if (!hasToken) return;
 
@@ -44,16 +44,17 @@ export function useLocation() {
         },
       });
     } catch (err: any) {
-      // 401 에러(인증 만료 등) 시에는 콘솔 에러를 출력하지 않음
       if (err.message !== "Unauthorized") {
         console.error("Failed to sync location with backend", err);
       }
     }
   }, []);
 
-  const updateLocation = useCallback(() => {
+  const updateLocation = useCallback((isAuto = false) => {
     if (!navigator.geolocation) {
-      setLocation(prev => ({ ...prev, isLoading: false, error: "Geolocation not supported" }));
+      const errorMsg = "이 브라우저에서는 위치 정보를 사용할 수 없습니다.";
+      setLocation(prev => ({ ...prev, isLoading: false, error: errorMsg }));
+      if (!isAuto) toast.error(errorMsg);
       return;
     }
 
@@ -63,15 +64,13 @@ export function useLocation() {
       (position) => {
         const { latitude, longitude } = position.coords;
 
-        // 카카오 지도 API를 이용한 역지오코딩
         if (window.kakao && window.kakao.maps) {
           window.kakao.maps.load(() => {
             const geocoder = new window.kakao.maps.services.Geocoder();
 
             geocoder.coord2RegionCode(longitude, latitude, (result: any, status: any) => {
               if (status === window.kakao.maps.services.Status.OK) {
-                // 시/도 (region_1depth_name), 구/군 (region_2depth_name) 추출
-                const regionInfo = result.find((res: any) => res.region_type === "H"); // 행정동 기준
+                const regionInfo = result.find((res: any) => res.region_type === "H");
                 if (regionInfo) {
                   const region = regionInfo.region_1depth_name;
                   const district = regionInfo.region_2depth_name;
@@ -86,46 +85,54 @@ export function useLocation() {
                   };
 
                   setLocation(newState);
-
-                  // 백엔드와 동기화
                   syncLocationWithBackend(latitude, longitude, region, district);
-
-                  // 로컬 스토리지에 캐시
                   localStorage.setItem("userLocation", JSON.stringify(newState));
+
+                  if (!isAuto) toast.success(`현재 위치(${region} ${district})로 업데이트되었습니다.`);
                 }
               } else {
                 setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
                 syncLocationWithBackend(latitude, longitude);
+                if (!isAuto) toast.success("위치 좌표가 업데이트되었습니다.");
               }
             });
           });
         } else {
           setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
           syncLocationWithBackend(latitude, longitude);
+          if (!isAuto) toast.success("위치 좌표가 업데이트되었습니다.");
         }
       },
       (error) => {
-        setLocation(prev => ({ ...prev, isLoading: false, error: error.message }));
+        let msg = "위치 정보를 가져오는 데 실패했습니다.";
+        if (error.code === 1) msg = "위치 정보 권한이 거부되었습니다.";
+        else if (error.code === 3) msg = "위치 측정 시간이 초과되었습니다.";
+
+        setLocation(prev => ({ ...prev, isLoading: false, error: msg }));
+        if (!isAuto) toast.error(msg);
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
   }, [syncLocationWithBackend]);
 
   useEffect(() => {
-    // 1. 먼저 로컬 스토리지에서 캐시된 정보를 불러옴
     const cached = localStorage.getItem("userLocation");
     if (cached) {
-      const parsed = JSON.parse(cached);
-      setLocation({
-        ...parsed,
-        isLoading: false,
-        error: null,
-      });
+      try {
+        const parsed = JSON.parse(cached);
+        setLocation({
+          ...parsed,
+          isLoading: false,
+          error: null,
+        });
+      } catch (e) {
+        localStorage.removeItem("userLocation");
+      }
     }
 
-    // 2. 실제 위치 업데이트 시도
-    updateLocation();
+    // 마운트 시에는 자동 업데이트임을 표시
+    updateLocation(true);
   }, [updateLocation]);
 
-  return { ...location, updateLocation };
+  return { ...location, updateLocation: () => updateLocation(false) };
 }

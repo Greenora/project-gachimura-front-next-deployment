@@ -7,7 +7,7 @@ import { useLanguage } from "@/app/hooks/LanguageContext";
 export default function CallToAction() {
   const { texts } = useLanguage();
   return (
-    <section className="py-24 md:py-32 flex flex-col items-center justify-center bg-gradient-to-b from-white to-slate-50 border-t border-slate-100">
+    <section className="relative z-10 py-24 md:py-32 flex flex-col items-center justify-center bg-gradient-to-b from-white to-slate-50 border-t border-slate-100">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         whileInView={{ opacity: 1, scale: 1 }}

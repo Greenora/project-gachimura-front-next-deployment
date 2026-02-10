@@ -82,6 +82,8 @@ interface Translation {
     closed: string;
     anonymous: string;
     nowRecruiting: string;
+    nearbyParties: string;
+    farParties: string;
   };
   footer: {
     team: string;
@@ -196,6 +198,8 @@ export const menu: Record<Language, Translation> = {
       closed: "마감",
       anonymous: "익명",
       nowRecruiting: "지금 바로 참여 가능한 모임",
+      nearbyParties: "근처의 모임 (10km 이내)",
+      farParties: "조금 멀리 있는 모임",
     },
     footer: {
       team: "팀",
@@ -307,6 +311,8 @@ export const menu: Record<Language, Translation> = {
       closed: "終了",
       anonymous: "匿名",
       nowRecruiting: "今すぐ参加可能な集まり",
+      nearbyParties: "近くの集まり (10km以内)",
+      farParties: "少し遠い集まり",
     },
     footer: {
       team: "チーム",

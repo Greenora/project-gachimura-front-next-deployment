@@ -31,7 +31,7 @@ export default function PartyCard({ party }: PartyCardProps) {
 
   return (
     <Link
-      href={`/parties/${party.id}`}
+      href={`/party/${party.id}`}
       className="group flex flex-col gap-3 transition-all duration-300"
     >
       {/* 썸네일 이미지 영역 */}

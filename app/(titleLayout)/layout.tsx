@@ -13,7 +13,7 @@ export default function TitleLayout({
       <header className="h-[72px] border-gray-100/80 bg-white/70 backdrop-blur-md sticky top-0 z-[100] px-8">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between">
           {/* 왼쪽: 로고 */}
-          <Logo />
+          <Logo href="/home" />
 
           {/* 오른쪽: 유저 정보 & 로그아웃 */}
           <div className="flex items-center gap-6">
