@@ -38,7 +38,7 @@ export default function PartyDetailPage() {
       .catch((err) => {
         console.error(err);
         toast.error(t.loadingError);
-        router.push("/");
+        router.push("/home");
       })
       .finally(() => setLoading(false));
   }, [params.id, router, t.loadingError]);
