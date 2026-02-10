@@ -65,6 +65,35 @@ interface Translation {
     rejectConfirm: string;
     rejectSuccess: string;
   };
+  main: {
+    sidebarTitle: string;
+    latest: string;
+    imminent: string;
+    showCompleted: string;
+    searchPlaceholder: string;
+    currentLocation: string;
+    locating: string;
+    noParties: string;
+    firstPartyMsg: string;
+    startParty: string;
+    loadingParties: string;
+    shoppingDate: string;
+    recruiting: string;
+    closed: string;
+    anonymous: string;
+    nowRecruiting: string;
+  };
+  footer: {
+    team: string;
+    teamIntro: string;
+    teamGithub: string;
+    service: string;
+    serviceIntro: string;
+    feedback: string;
+    inquiry: string;
+    survey: string;
+    rights: string;
+  };
 }
 
 // 한국어와 일본어 모든 필드가 같이 들어있어야 함.(한쪽에만 있고 한쪽에는 없고 불가)
@@ -75,7 +104,7 @@ export const menu: Record<Language, Translation> = {
       signup: "회원가입",
       start: "시작하기",
     },
-    
+
     auth: {
       titleLogin: "가입 또는 로그인을 위해\n이메일을 입력해주세요.",
       titleRegister: "회원가입을 진행하려면\n아래 항목을 입력해주세요.",
@@ -133,6 +162,35 @@ export const menu: Record<Language, Translation> = {
       rejectConfirm: "님의 요청을 거절하시겠습니까?",
       rejectSuccess: "신청을 거절 처리했습니다.",
     },
+    main: {
+      sidebarTitle: "필터",
+      latest: "최신순",
+      imminent: "임박순",
+      showCompleted: "만료된 파티 보기",
+      searchPlaceholder: "어떤 품목을 같이 살까요?",
+      currentLocation: "현재 위치",
+      locating: "위치 찾는 중...",
+      noParties: "아직 생성된 모임이 없습니다.",
+      firstPartyMsg: "첫 번째 모임의 주인공이 되어보세요!",
+      startParty: "모임 시작하기",
+      loadingParties: "모임을 불러오는 중입니다...",
+      shoppingDate: "장보기 날짜",
+      recruiting: "모집중",
+      closed: "마감",
+      anonymous: "익명",
+      nowRecruiting: "지금 바로 참여 가능한 모임",
+    },
+    footer: {
+      team: "팀",
+      teamIntro: "팀 소개",
+      teamGithub: "팀 GitHub",
+      service: "서비스",
+      serviceIntro: "서비스 소개",
+      feedback: "의견",
+      inquiry: "1:1 문의",
+      survey: "설문조사",
+      rights: "©2026 All Rights reserved Team Greenora",
+    },
   },
   [Language.japanese]: {
     common: {
@@ -140,7 +198,7 @@ export const menu: Record<Language, Translation> = {
       signup: "会員登録",
       start: "始める",
     },
-    
+
     auth: {
       titleLogin: "登録またはログインのために\nメールアドレスを入力してください。",
       titleRegister: "会員登録を進めるには\n以下の項目を入力してください。",
@@ -169,7 +227,7 @@ export const menu: Record<Language, Translation> = {
       forgotPasswordMessage: "パスワード再設定機能は準備中です。",
     },
     home: {
-      gachimura: "ガチムラ",
+      gachimura: "カチムラ",
       heroTitle: "買い物は一緒に、\n精算はスマートに。",
       heroSubtitle: "コストコやトレーダースの大容量商品가 負担なとき、\n近所の隣人と分け合って費用を自動計算しましょう。",
       feature1Title: "近くの隣人と集まり",
@@ -197,6 +255,35 @@ export const menu: Record<Language, Translation> = {
       approveSuccess: "さんの参加を承認しました。",
       rejectConfirm: "さんの要請を拒否しますか？",
       rejectSuccess: "申請を拒否処理しました。",
+    },
+    main: {
+      sidebarTitle: "フィルター",
+      latest: "最新順",
+      imminent: "締め切り間近",
+      showCompleted: "終了した集まりを表示",
+      searchPlaceholder: "どんな商品を一緒に買いますか？",
+      currentLocation: "現在地",
+      locating: "位置を探しています...",
+      noParties: "まだ作成された集まりがありません。",
+      firstPartyMsg: "最初の集まりの主人公になってみてください！",
+      startParty: "集まりを始める",
+      loadingParties: "集まりを読み込んでいます...",
+      shoppingDate: "買い物日",
+      recruiting: "募集中",
+      closed: "終了",
+      anonymous: "匿名",
+      nowRecruiting: "今すぐ参加可能な集まり",
+    },
+    footer: {
+      team: "チーム",
+      teamIntro: "チーム紹介",
+      teamGithub: "チームGitHub",
+      service: "サービス",
+      serviceIntro: "サービス紹介",
+      feedback: "フィードバック",
+      inquiry: "1:1お問い合わせ",
+      survey: "アンケート",
+      rights: "©2026 All Rights reserved Team Greenora",
     },
   },
 };
