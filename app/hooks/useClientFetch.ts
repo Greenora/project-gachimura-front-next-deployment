@@ -7,9 +7,7 @@ interface FetchOptions {
   headers?: Record<string, string>;
 }
 
-/**
- * 헬퍼 함수: 모든 fetch 요청에서 공통으로 처리할 로직 (BASE_URL, JSON 처리 등)
- */
+// API 요청 헬퍼 함수 (BASE_URL, JSON 변환, Authorization 헤더 자동 추가)
 export async function clientFetch<T = any>(url: string, options: FetchOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options;
 
@@ -18,6 +16,8 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
     ? url
     : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
 
+  // 쿠키에서 accessToken 가져오는 함수
+  // cookie에서 token 추출
   const getCookieValue = (name: string) => {
     if (typeof document === "undefined") return null;
     const match = document.cookie.match(new RegExp(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`));
@@ -25,19 +25,28 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
   };
 
   const authToken = getCookieValue("accessToken");
+  
+  // FormData 여부에 따른 헤더 설정
+  const isFormData = body instanceof FormData;
   const finalHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : {"Content-Type": "application/json" }),
     ...headers,
   };
 
+  // 인증 토큰 주입
   if (authToken && !finalHeaders.Authorization) {
     finalHeaders.Authorization = `Bearer ${authToken}`;
   }
 
+  // body 처리 (FormData면 그대로, 아니면 문자열화)
   const response = await fetch(fullUrl, {
     method,
     headers: finalHeaders,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body === undefined
+      ? undefined
+      : isFormData
+      ? body
+      : JSON.stringify(body),
   });
 
   const result = await response.json();
@@ -49,9 +58,7 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
   return result;
 }
 
-/**
- * 커스텀 훅: 선언적으로 데이터를 가져올 때 사용 (컴포넌트 로드 시)
- */
+// 커스텀 훅: 컴포넌트 로드 시 자동으로 데이터 가져옴 (로딩, 에러 상태 관리)
 export function useClientFetch<T>(url: string, options: FetchOptions = {}) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState<boolean>(true);

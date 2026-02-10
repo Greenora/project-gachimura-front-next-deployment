@@ -94,6 +94,22 @@ interface Translation {
     survey: string;
     rights: string;
   };
+  partyForm: {
+    pageTitle: string;
+    title: string;
+    titlePlaceholder: string;
+    date: string;
+    dateSelect: string;
+    timeSelect: string;
+    errorDateTime: string;
+    image: string;
+    description: string;
+    descriptionPlaceholder: string;
+    store: string;
+    storePlaceholder: string;
+    storeEmpty: string;
+    submit: string;
+  };
 }
 
 // 한국어와 일본어 모든 필드가 같이 들어있어야 함.(한쪽에만 있고 한쪽에는 없고 불가)
@@ -115,7 +131,8 @@ export const menu: Record<Language, Translation> = {
       btnContinue: "계속",
       btnLogin: "로그인",
       btnRegister: "회원가입 하기",
-      btnKakao: "카카오 간편 로그인",
+      btnKakao: "카카오 로그인",
+      btnLine: "LINE 로그인",
       errorPassword: "영문과 숫자를 포함하여 6자 이상 입력해주세요.",
       errorEmail: "올바른 이메일 형식이 아닙니다.",
       errorLoginAuth: "이메일 혹은 비밀번호를 확인해주세요.",
@@ -191,6 +208,22 @@ export const menu: Record<Language, Translation> = {
       survey: "설문조사",
       rights: "©2026 All Rights reserved Team Greenora",
     },
+    partyForm: {
+      pageTitle: "모임 등록",
+      title: "제목",
+      titlePlaceholder: "제목을 입력해주세요",
+      date: "모임 날짜, 시간",
+      dateSelect: "날짜 선택",
+      timeSelect: "시간 선택",
+      errorDateTime: "날짜와 시간을 모두 선택해주세요",
+      image: "모임 대표사진(선택)",
+      description: "모임 설명",
+      descriptionPlaceholder: "구매할 물품과 기타 설명을 자세하게 작성해주세요. 정확한 모임 위치는 모임의 채팅방에서 공유해주세요!",
+      store: "마트",
+      storePlaceholder: "마트 이름을 검색하세요",
+      storeEmpty: "마트를 검색하여 선택해주세요",
+      submit: "모임 등록하기",
+    },
   },
   [Language.japanese]: {
     common: {
@@ -200,8 +233,8 @@ export const menu: Record<Language, Translation> = {
     },
 
     auth: {
-      titleLogin: "登録またはログインのために\nメールアドレスを入力してください。",
-      titleRegister: "会員登録を進めるには\n以下の項目を入力してください。",
+      titleLogin: "등록 또는 로그인のために\nメールアドレスを入力してください。",
+      titleRegister: "会員登録を進める에는\n以下の項目を入力してください。",
       emailPlaceholder: "メールアドレスを入力してください。",
       passwordPlaceholder: "パスワード (英数6文字以上)",
       birthPlaceholder: "生年月日 (例: 980101)",
@@ -209,12 +242,13 @@ export const menu: Record<Language, Translation> = {
       btnContinue: "次へ",
       btnLogin: "ログイン",
       btnRegister: "会員登録する",
-      btnKakao: "カカオで簡単ログイン",
+      btnKakao: "カカオでログイン",
+      btnLine: "LINEでログイン",
       errorPassword: "英字と数字を含めて6文字以上で入力してください。",
       errorLoginAuth: "メールアドレス、またはパスワードが違います。",
       errorEmail: "正しいメールアドレスの形式ではありません。",
       errorBirth: "生年月日6桁を入力してください。",
-      errorPhone: "正しい電話番号の形式ではありません。(例: 09012345678)",
+      errorPhone: "正しい電話번호の形式ではありません。(例: 09012345678)",
       welcomePrefix: "ようこそ！",
       welcomeSuffix: "さん、ログインしました。",
       alertLoginFail: "ログインリクエストに失敗しました。",
@@ -227,7 +261,7 @@ export const menu: Record<Language, Translation> = {
       forgotPasswordMessage: "パスワード再設定機能は準備中です。",
     },
     home: {
-      gachimura: "カチムラ",
+      gachimura: "カ치무라",
       heroTitle: "買い物は一緒に、\n精算はスマートに。",
       heroSubtitle: "コストコやトレーダースの大容量商品가 負担なとき、\n近所の隣人と分け合って費用を自動計算しましょう。",
       feature1Title: "近くの隣人と集まり",
@@ -265,7 +299,7 @@ export const menu: Record<Language, Translation> = {
       currentLocation: "現在地",
       locating: "位置を探しています...",
       noParties: "まだ作成された集まりがありません。",
-      firstPartyMsg: "最初の集まりの主人公になってみてください！",
+      firstPartyMsg: "最初の集まり의 주인공になってみてください！",
       startParty: "集まりを始める",
       loadingParties: "集まりを読み込んでいます...",
       shoppingDate: "買い物日",
@@ -284,6 +318,22 @@ export const menu: Record<Language, Translation> = {
       inquiry: "1:1お問い合わせ",
       survey: "アンケート",
       rights: "©2026 All Rights reserved Team Greenora",
+    },
+    partyForm: {
+      pageTitle: "集まりの登録",
+      title: "タイトル",
+      titlePlaceholder: "タイトルを入力してください",
+      date: "集まりの日付・時間",
+      dateSelect: "日付を選択",
+      timeSelect: "時間を選択",
+      errorDateTime: "日付と時間を選択してください",
+      image: "代表写真(任意)",
+      description: "集まりの説明",
+      descriptionPlaceholder: "購入する物品やその他の説明を詳しく記入してください。正確な場所はチャットルームで共有してください！",
+      store: "マート",
+      storePlaceholder: "マート名を検索してください",
+      storeEmpty: "マートを検索して選択してください。",
+      submit: "集まりを登録する",
     },
   },
 };
