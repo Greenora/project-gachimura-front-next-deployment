@@ -19,6 +19,7 @@ interface Translation {
     btnLogin: string;
     btnRegister: string;
     btnKakao: string;
+    btnLine: string;
     errorPassword: string;
     errorLoginAuth: string;
     errorBirth: string;
@@ -80,6 +81,23 @@ interface Translation {
     storePlaceholder: string;
     storeEmpty: string;
     submit: string;
+  };
+  partyDetail: {
+    meetingDate: string;
+    location: string;
+    noLocation: string;
+    joinButton: string;
+    alreadyJoined: string;
+    isHostMessage: string;
+    participantCount: string;
+    loadingError: string;
+    joinSuccess: string;
+    joinFail: string;
+    goToChat: string;
+  };
+  header: {
+    logout: string;
+    logoutSuccess: string;
   };
 }
 
@@ -166,6 +184,23 @@ export const menu: Record<Language, Translation> = {
       storeEmpty: "마트를 검색하여 선택해주세요",
       submit: "모임 등록하기",
     },
+    partyDetail: {
+      meetingDate: "모임 날짜",
+      location: "모임 위치",
+      noLocation: "위치 정보 없음",
+      joinButton: "모임 가입 신청하기",
+      alreadyJoined: "이미 참여한 모임입니다",
+      isHostMessage: "내가 만든 모임입니다",
+      participantCount: "현재 {count}명이 참여하고 있어요!",
+      loadingError: "정보를 불러오지 못했습니다.",
+      joinSuccess: "참여 완료!",
+      joinFail: "참여 실패",
+      goToChat: "채팅방으로 이동합니다.",
+    },
+    header: {
+      logout: "로그아웃",
+      logoutSuccess: "로그아웃되었습니다.",
+    },
   },
   [Language.japanese]: {
     common: {
@@ -247,6 +282,23 @@ export const menu: Record<Language, Translation> = {
       storePlaceholder: "マート名を検索してください",
       storeEmpty: "マートを検索して選択してください。",
       submit: "集まりを登録する",
+    },
+    partyDetail: {
+      meetingDate: "集まりの日付",
+      location: "集まりの場所",
+      noLocation: "位置情報なし",
+      joinButton: "集まりに参加する",
+      alreadyJoined: "すでに参加している集まりです",
+      isHostMessage: "自分が作った集まりです",
+      participantCount: "現在{count}人が参加しています！",
+      loadingError: "情報を読み込めませんでした。",
+      joinSuccess: "参加完了！",
+      joinFail: "参加に失敗しました",
+      goToChat: "チャットルームに移動します。",
+    },
+    header: {
+      logout: "ログアウト",
+      logoutSuccess: "ログアウトしました。",
     },
   },
 };
