@@ -7,28 +7,25 @@ import { useLanguage } from "@/app/hooks/LanguageContext";
 export default function CallToAction() {
   const { texts } = useLanguage();
   return (
-    <section className="h-screen flex flex-col items-center justify-center bg-white">
+    <section className="relative z-10 py-24 md:py-32 flex flex-col items-center justify-center bg-gradient-to-b from-white to-slate-50 border-t border-slate-100">
       <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="text-center"
+        initial={{ opacity: 0, scale: 0.95 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6 }}
+        className="text-center max-w-2xl px-6"
       >
-        <h2 className="text-4xl md:text-5xl font-bold mb-8">{texts.home.toAction}</h2>
-        <div className="flex flex-col md:flex-row gap-4 justify-center">
-          <Link
-            href="/login"
-            className="px-10 py-4 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-all text-lg"
-          >
-            {texts.common.login}
-          </Link>
-          <Link
-            href="/signup"
-            className="px-10 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-full font-bold hover:bg-slate-50 transition-all text-lg"
-          >
-            {texts.common.signup}
-          </Link>
-        </div>
+        <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-6 tracking-tight">
+          {texts.home.heroTitle.split('\n').join(' ')}
+        </h2>
+        <p className="text-lg text-slate-600 mb-10 leading-relaxed">
+          {texts.home.heroSubtitle.split('\n').join(' ')}
+        </p>
+        <Link
+          href="/login"
+          className="inline-block px-12 py-5 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-all text-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-95"
+        >
+          {texts.home.toAction}
+        </Link>
       </motion.div>
     </section>
   );
