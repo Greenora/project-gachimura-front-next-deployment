@@ -1,6 +1,7 @@
 import Logo from "@/components/common/Logo";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
-import UserMenu from "@/components/main/UserMenu";
+import LogoutButton from "@/components/common/LogoutButton";
+import HeaderUserInfo from "@/components/common/HeaderUserInfo";
 
 export default function TitleLayout({
   children,
@@ -19,7 +20,15 @@ export default function TitleLayout({
           <div className="flex items-center gap-6">
             <LanguageSwitcher />
             <div className="w-[1px] h-4 bg-gray-200" />
-            <UserMenu />
+
+            {/* 유저 프로필 */}
+            <HeaderUserInfo />
+
+            {/* 구분선 */}
+            <div className="w-[1px] h-4 bg-gray-200" />
+
+            {/* 로그아웃 버튼 */}
+            <LogoutButton />
           </div>
         </div>
       </header>
