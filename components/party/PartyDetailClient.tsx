@@ -19,7 +19,7 @@ interface PartyDetail {
   location: { name: string; address: string; lat: number; lng: number };
   capacity: number;
   currentCount: number;
-  host: { nickname: string; avatarUrl: string | null };
+  host: { nickname: string; nickname_jp?: string; avatarUrl: string | null };
   isJoined: boolean;
   isHost: boolean;
 }
@@ -107,7 +107,9 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
         <div className="flex items-start gap-3 mb-8">
           <Avatar nickname={party.host.nickname} avatarUrl={party.host.avatarUrl} size={40} />
           <div className="flex-1">
-            <p className="font-medium text-sm mb-2 text-gray-600">{party.host.nickname}</p>
+            <p className="font-medium text-sm mb-2 text-gray-600">
+              {lang === Language.japanese ? (party.host.nickname_jp || party.host.nickname) : party.host.nickname}
+            </p>
             <div className="bg-[#E8F4E8] border border-[#C8E6C9] rounded-2xl rounded-tl-none p-4 text-sm text-gray-700 leading-relaxed">
               {party.content}
             </div>

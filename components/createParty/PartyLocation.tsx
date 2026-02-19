@@ -176,7 +176,7 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
           autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
             fields: ['place_id', 'geometry', 'name'],
             types: ['establishment'], // 마트, 식당 등 업체 위주 검색
-            componentRestrictions: { country: 'kr' } // 한국 내 검색 제한,
+            componentRestrictions: { country: ['kr', 'jp'] } // 한국, 일본 내 검색
           });
 
           autocompleteRef.current.addListener('place_changed', async () => {
