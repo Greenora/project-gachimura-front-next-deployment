@@ -67,5 +67,23 @@ export function useDateFormatter() {
     }).format(date);
   }, [locale]);
 
-  return { formatFullDate, formatDividerDate, formatMessageTime };
+  // 카드용 24시간 형식 포맷팅 (오전/오후 제외)
+  const formatCardDate = useCallback((dateInput: string | Date | undefined) => {
+    if (!dateInput) return lang === Language.korean ? "날짜 정보 없음" : "日付情報なし";
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return lang === Language.korean ? "유효하지 않은 날짜" : "無効한 日付";
+
+    return getFormatter(locale, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      hourCycle: "h23",
+      timeZone: "Asia/Seoul",
+    }).format(date);
+  }, [lang, locale]);
+
+  return { formatFullDate, formatDividerDate, formatMessageTime, formatCardDate };
 }

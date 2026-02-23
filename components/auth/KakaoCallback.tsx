@@ -127,7 +127,7 @@ export default function KakaoCallback() {
             : data.user.nickname;
 
         toast.success(`${texts.auth.welcomePrefix} ${displayNickname}${texts.auth.welcomeSuffix}`);
-        router.push("/");
+        router.push("/home");
       })
       .catch((err) => {
         console.error(err);

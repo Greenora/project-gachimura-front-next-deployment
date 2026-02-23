@@ -89,7 +89,7 @@ export default function LoginForm() {
   useEffect(() => {
     const accessToken = Cookies.get("accessToken");
     if (accessToken) {
-      router.push("/");
+      router.push("/home");
     }
   }, [router]);
 
@@ -142,7 +142,7 @@ export default function LoginForm() {
       Cookies.set("refreshToken", result.refreshToken, { expires: 7, path: "/" });
 
       toast.success(`${texts.auth.welcomePrefix} ${result.user.nickname}${texts.auth.welcomeSuffix}`);
-      router.push("/"); // 메인 페이지로 이동
+      router.push("/home"); // 메인 페이지로 이동
     } catch {
       setError("passwordLogin", {
         type: "manual",

@@ -61,7 +61,7 @@ export default function LineCallback() {
             : data.user.nickname;
 
         toast.success(`${texts.auth.welcomePrefix} ${displayNickname}${texts.auth.welcomeSuffix}`);
-        router.push("/"); // 메인으로 이동
+        router.push("/home"); // 메인으로 이동
       })
       .catch((err) => {
         console.error(err);
