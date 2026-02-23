@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
+import Link from "next/link";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 
 export default function HeroSection() {
@@ -20,9 +21,21 @@ export default function HeroSection() {
       <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-tight mb-6 whitespace-pre-line">
         {texts.home.heroTitle}
       </h1>
-      <p className="text-lg md:text-xl text-slate-500 max-w-2xl mx-auto font-medium whitespace-pre-line">
+      <p className="text-lg md:text-xl text-slate-500 max-w-2xl mx-auto font-medium whitespace-pre-line mb-10">
         {texts.home.heroSubtitle}
       </p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.8 }}
+      >
+        <Link
+          href="/login"
+          className="inline-block px-10 py-4 bg-green-600 text-white rounded-full font-bold hover:bg-green-700 transition-all text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95"
+        >
+          {texts.home.toAction}
+        </Link>
+      </motion.div>
       <div className="absolute bottom-10 animate-bounce text-slate-300">
         <p className="text-sm mb-2">{texts.home.scrollMessage}</p>
         <svg
