@@ -129,6 +129,26 @@ interface Translation {
   header: {
     logout: string;
     logoutSuccess: string;
+    myPage: string;
+    editProfile: string;
+  };
+  userPage: {
+    userParties: string;
+    noParties: string;
+    userPosts: string;
+    noPosts: string;
+    treeScore: string;
+    levels: {
+      soil: string;
+      seed: string;
+      sprout: string;
+      sapling: string;
+      tree: string;
+      forest: string;
+    };
+    reviewsCount: string;
+    userNotFound: string;
+    userDeleteMsg: string;
   };
 }
 
@@ -262,6 +282,26 @@ export const menu: Record<Language, Translation> = {
     header: {
       logout: "로그아웃",
       logoutSuccess: "로그아웃되었습니다.",
+      myPage: "내 페이지 가기",
+      editProfile: "내 정보 수정하기",
+    },
+    userPage: {
+      userParties: "{nickname}님의 소분 모임",
+      noParties: "아직 생성한 모임이 없습니다.",
+      userPosts: "{nickname}님의 글",
+      noPosts: "작성한 게시글이 없습니다.",
+      treeScore: "가치 실현도",
+      levels: {
+        soil: "소일유저",
+        seed: "씨앗유저",
+        sprout: "새싹유저",
+        sapling: "묘목유저",
+        tree: "나무유저",
+        forest: "숲유저",
+      },
+      reviewsCount: "받은 평가 {count}개",
+      userNotFound: "사용자를 찾을 수 없습니다.",
+      userDeleteMsg: "존재하지 않거나 삭제된 유저입니다.",
     },
   },
   [Language.japanese]: {
@@ -272,8 +312,8 @@ export const menu: Record<Language, Translation> = {
     },
 
     auth: {
-      titleLogin: "등록 또는 로그인のために\nメールアドレスを入力してください。",
-      titleRegister: "会員登録を進める에는\n以下の項目を入力してください。",
+      titleLogin: "登録またはログインのために\nメールアドレスを入力してください。",
+      titleRegister: "会員登録を進めるには\n以下の項目を入力してください。",
       emailPlaceholder: "メールアドレスを入力してください。",
       passwordPlaceholder: "パスワード (英数6文字以上)",
       birthPlaceholder: "生年月日 (例: 980101)",
@@ -287,7 +327,7 @@ export const menu: Record<Language, Translation> = {
       errorLoginAuth: "メールアドレス、またはパスワードが違います。",
       errorEmail: "正しいメールアドレスの形式ではありません。",
       errorBirth: "生年月日6桁を入力してください。",
-      errorPhone: "正しい電話번호の形式ではありません。(例: 09012345678)",
+      errorPhone: "正しい電話番号の形式ではありません。(例: 09012345678)",
       welcomePrefix: "ようこそ！",
       welcomeSuffix: "さん、ログインしました。",
       alertLoginFail: "ログインリクエストに失敗しました。",
@@ -302,7 +342,7 @@ export const menu: Record<Language, Translation> = {
     home: {
       gachimura: "カチムラ",
       heroTitle: "買い物は一緒に、\n精算はスマートに。",
-      heroSubtitle: "コストコやトレーダースの大容量商品가 負担なとき、\n近所の隣人と分け合って費用を自動計算しましょう。",
+      heroSubtitle: "コストコやトレーダースの大容量商品が負担なとき、\n近所の隣人と分け合って費用を自動計算しましょう。",
       feature1Title: "近くの隣人と集まり",
       feature1Desc: "地図ベースで町内の買い物集まりを一目で確認しましょう。",
       feature2Title: "正確な割り勘",
@@ -338,7 +378,7 @@ export const menu: Record<Language, Translation> = {
       currentLocation: "現在地",
       locating: "位置を探しています...",
       noParties: "まだ作成された集まりがありません。",
-      firstPartyMsg: "最初の集まり의 주인공になってみてください！",
+      firstPartyMsg: "最初の集まりの主人公になってみてください！",
       startParty: "集まりを始める",
       loadingParties: "集まりを読み込んでいます...",
       shoppingDate: "買い物日",
@@ -392,6 +432,26 @@ export const menu: Record<Language, Translation> = {
     header: {
       logout: "ログアウト",
       logoutSuccess: "ログアウトしました。",
+      myPage: "マイページ",
+      editProfile: "プロフィール編集",
+    },
+    userPage: {
+      userParties: "{nickname}さんの共同購入",
+      noParties: "まだ作成した集まりがありません。",
+      userPosts: "{nickname}さんの投稿",
+      noPosts: "投稿した記事がありません。",
+      treeScore: "価値実現度",
+      levels: {
+        soil: "ソイルユーザー",
+        seed: "シードユーザー",
+        sprout: "若葉ユーザー",
+        sapling: "苗木ユーザー",
+        tree: "樹木ユーザー",
+        forest: "フォレストユーザー",
+      },
+      reviewsCount: "受け取ったレビュー {count}個",
+      userNotFound: "ユーザーが見つかりません。",
+      userDeleteMsg: "存在しないか、削除されたユーザーです。",
     },
   },
 };
