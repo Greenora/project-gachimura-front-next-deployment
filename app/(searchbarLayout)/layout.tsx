@@ -17,7 +17,7 @@ export default function SearchbarLayout({
   return (
     <div className="flex flex-col min-h-screen bg-gray-50/30">
       {/* 1단: 유저 탑 바 (가장 위) - 높이 60px로 조정 */}
-      <div className="bg-white border-b border-gray-50 h-[60px] px-8 hidden sm:block">
+      <div className="bg-white border-b border-gray-50 h-[60px] px-8 hidden sm:block" role="toolbar" aria-label="개인 설정">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-end gap-6">
           <LanguageSwitcher />
           <div className="w-[1px] h-3 bg-gray-200" />
@@ -26,7 +26,7 @@ export default function SearchbarLayout({
       </div>
 
       {/* 2단: 검색 & 로고 메인 헤더 */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50 px-8 py-4">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50 px-8 py-4" role="banner">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* 왼쪽: 로고 */}
           <Logo href="/home" className="flex-shrink-0" />
@@ -47,7 +47,7 @@ export default function SearchbarLayout({
         <Sidebar />
 
         {/* 오른쪽: 정렬 및 파티 그리드 */}
-        <main className="flex-1">
+        <main className="flex-1" id="main-content">
           {children}
         </main>
       </div>
@@ -55,8 +55,10 @@ export default function SearchbarLayout({
       <Footer />
 
       {/* 플로팅 버튼 (모임 시작하기 / 채팅 목록) */}
-      <ChatListButton />
-      <CreatePartyButton />
+      <div className="fixed bottom-10 right-10 flex flex-col gap-4 z-[100]" role="complementary" aria-label="빠른 실행 메뉴">
+        <ChatListButton />
+        <CreatePartyButton />
+      </div>
     </div>
   );
 }

@@ -68,7 +68,7 @@ export default function ChatListButton() {
               </h3>
             </div>
 
-            <div className="max-h-[360px] overflow-y-auto p-2">
+            <div className="max-h-[360px] overflow-y-auto p-2" aria-live="polite">
               {loading ? (
                 <div className="py-10 text-center text-gray-400 text-sm">
                   <div className="animate-spin inline-block w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full mb-2"></div>
@@ -79,18 +79,20 @@ export default function ChatListButton() {
                   {lang === Language.japanese ? "参加中のチャットがありません。" : "참여 중인 채팅이 없습니다."}
                 </div>
               ) : (
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1" role="list">
                   {chats.map((chat) => (
                     <Link
                       key={chat.id}
                       href={`/chat/${chat.id}`}
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-all group active:scale-[0.98]"
+                      role="listitem"
+                      aria-label={`${chat.title} 채팅방`}
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-all group active:scale-[0.98] focus:outline-none focus:bg-gray-50"
                     >
                       <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden relative shadow-sm">
                         <Image
                           src={`https://picsum.photos/seed/${chat.id}/200/200`}
-                          alt={chat.title}
+                          alt={`${chat.title} 썸네일`}
                           fill
                           className="object-cover group-hover:scale-110 transition-transform"
                         />
@@ -100,7 +102,7 @@ export default function ChatListButton() {
                           {chat.title}
                         </h4>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[11px] font-bold text-[#166534] bg-green-50 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">
+                          <span className="text-[11px] font-bold text-[#166534] bg-green-50 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter" aria-label="개설자">
                             Host
                           </span>
                           <p className="text-[12px] text-gray-500 truncate">
@@ -119,11 +121,14 @@ export default function ChatListButton() {
 
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2.5 px-6 py-3 shadow-2xl text-white rounded-full transition-all hover:scale-105 active:scale-95 group ${isOpen ? "bg-gray-900 shadow-xl" : "bg-[#166534] hover:bg-[#14532d] shadow-green-900/10"
+        aria-label={texts.main.myChats}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        className={`flex items-center gap-2.5 px-6 py-3 shadow-2xl text-white rounded-full transition-all hover:scale-105 active:scale-95 group focus:outline-none focus:ring-4 focus:ring-gray-200 ${isOpen ? "bg-gray-900 shadow-xl" : "bg-[#166534] hover:bg-[#14532d] shadow-green-900/10"
           }`}
       >
         <div className="relative">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={isOpen ? "rotate-12" : ""}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={isOpen ? "rotate-12" : ""} aria-hidden="true">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
         </div>
