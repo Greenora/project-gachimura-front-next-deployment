@@ -11,12 +11,12 @@ export default function FeaturesSection() {
         <FeatureItem
           title={texts.home.feature1Title}
           description={texts.home.feature1Desc}
-          image="/map-preview.png"
+          image="/neighborhood-sharing.png"
         />
         <FeatureItem
           title={texts.home.feature2Title}
           description={texts.home.feature2Desc}
-          image="/settle-preview.png"
+          image="/smart-split.png"
           reverse
         />
       </div>
