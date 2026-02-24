@@ -7,6 +7,7 @@ import Footer from "@/components/common/Footer";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import LocationSelector from "@/components/main/LocationSelector";
 import CreatePartyButton from "@/components/main/CreatePartyButton";
+import ChatListButton from "@/components/main/ChatListButton";
 
 export default function SearchbarLayout({
   children,
@@ -53,7 +54,8 @@ export default function SearchbarLayout({
 
       <Footer />
 
-      {/* 플로팅 버튼 (모임 시작하기) */}
+      {/* 플로팅 버튼 (모임 시작하기 / 채팅 목록) */}
+      <ChatListButton />
       <CreatePartyButton />
     </div>
   );

@@ -4,12 +4,26 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
-async function getChatData(partyId: number) {
+async function getChatData(partyId: number, token?: string) {
   try {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const [msgRes, memberRes, partyRes] = await Promise.all([
-      fetch(`${API_CONFIG.INTERNAL_BASE_URL}/chat-message/${partyId}`, { cache: 'no-store' }),
-      fetch(`${API_CONFIG.INTERNAL_BASE_URL}/party-members/${partyId}`, { cache: 'no-store' }),
-      fetch(`${API_CONFIG.INTERNAL_BASE_URL}/parties/${partyId}`, { cache: 'no-store' })
+      fetch(`${API_CONFIG.INTERNAL_BASE_URL}/chat-message/${partyId}`, {
+        headers,
+        cache: 'no-store'
+      }),
+      fetch(`${API_CONFIG.INTERNAL_BASE_URL}/party-members/${partyId}`, {
+        headers,
+        cache: 'no-store'
+      }),
+      fetch(`${API_CONFIG.INTERNAL_BASE_URL}/parties/${partyId}`, {
+        headers,
+        cache: 'no-store'
+      })
     ]);
 
     const [messages, members, party] = await Promise.all([
@@ -38,7 +52,7 @@ async function getChatData(partyId: number) {
     return {
       formattedMessages,
       formattedMembers,
-      hostId: party.hostId,
+      hostId: party.host?.id, // party.hostId에서 party.host.id로 수정
       partyInfo: party
     };
   } catch (error) {
@@ -83,8 +97,8 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
     redirect(`/login?callbackUrl=/chat/${id}`);
   }
 
-  // 2. 채팅 데이터 가져오기
-  const { formattedMessages, formattedMembers, hostId, partyInfo } = await getChatData(currentPartyId);
+  // 2. 채팅 데이터 가져오기 (인증 토큰 포함)
+  const { formattedMessages, formattedMembers, hostId, partyInfo } = await getChatData(currentPartyId, token);
 
   // 3. 멤버인지 확인 (보안 강화)
   const isMember = formattedMembers.some((m: any) => m.id === userProfile.id && m.status === 'APPROVED');
