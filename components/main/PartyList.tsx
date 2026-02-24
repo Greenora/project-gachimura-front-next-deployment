@@ -91,7 +91,7 @@ export default function PartyList() {
 
   if (fetching || isLocationLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
+      <div className="flex flex-col items-center justify-center py-20 gap-4" aria-busy="true" aria-live="polite">
         <Spinner />
         <p className="text-gray-500 font-medium">{texts.main.loadingParties}</p>
       </div>
@@ -100,7 +100,7 @@ export default function PartyList() {
 
   if (parties.length === 0) {
     return (
-      <div className="text-center py-20">
+      <div className="text-center py-20" aria-live="polite">
         <p className="text-gray-500 font-bold text-lg">{texts.main.noParties}</p>
         <p className="text-gray-400 mt-2">{texts.main.firstPartyMsg}</p>
       </div>
@@ -111,22 +111,21 @@ export default function PartyList() {
     <div className="flex flex-col gap-12">
       {/* 10km 이내 근처 모임 */}
       {nearby.length > 0 && (
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-4">
-          </div>
+        <section className="flex flex-col gap-6" aria-labelledby="nearby-parties-title">
+          <h2 id="nearby-parties-title" className="sr-only">{texts.main.nearbyParties}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
             {nearby.map((party) => (
               <PartyCard key={party.id} party={party} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* 구분선 및 멀리 있는 모임 */}
       {far.length > 0 && (
-        <div className="flex flex-col gap-6">
+        <section className="flex flex-col gap-6" aria-labelledby="far-parties-title">
           <div className="flex items-center gap-4">
-            <h2 className="text-[16px] font-bold text-gray-400 shrink-0">
+            <h2 id="far-parties-title" className="text-[16px] font-bold text-gray-400 shrink-0">
               {texts.main.farParties}
             </h2>
             <div className="h-[1px] flex-1 bg-gray-100" />
@@ -136,7 +135,7 @@ export default function PartyList() {
               <PartyCard key={party.id} party={party} />
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

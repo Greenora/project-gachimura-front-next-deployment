@@ -85,6 +85,13 @@ interface Translation {
     nowRecruiting: string;
     nearbyParties: string;
     farParties: string;
+    myChats: string;
+    locationPermissionDenied: string;
+    locationPermissionGuide: string;
+    locationTimeout: string;
+    locationError: string;
+    locationSuccess: string;
+    locationCoordsSuccess: string;
   };
   footer: {
     team: string;
@@ -238,6 +245,13 @@ export const menu: Record<Language, Translation> = {
       nowRecruiting: "지금 바로 참여 가능한 모임",
       nearbyParties: "근처의 모임 (10km 이내)",
       farParties: "조금 멀리 있는 모임",
+      myChats: "참여 중인 채팅",
+      locationPermissionDenied: "위치 권한이 거부되었습니다.",
+      locationPermissionGuide: "주소창 왼쪽의 '자물쇠' 아이콘을 클릭하여 위치 권한을 '허용'으로 변경해주세요.",
+      locationTimeout: "위치 측정 시간이 초과되었습니다.",
+      locationError: "위치 정보를 가져오는 데 실패했습니다.",
+      locationSuccess: "현재 위치({region} {district})로 업데이트되었습니다.",
+      locationCoordsSuccess: "위치 좌표가 업데이트되었습니다.",
     },
     footer: {
       team: "팀",
@@ -388,6 +402,13 @@ export const menu: Record<Language, Translation> = {
       nowRecruiting: "今すぐ参加可能な集まり",
       nearbyParties: "近くの集まり (10km以内)",
       farParties: "少し遠い集まり",
+      myChats: "参加中のチャット",
+      locationPermissionDenied: "位置情報の利用権限が拒否されました。",
+      locationPermissionGuide: "アドレスバー左側の「鍵」アイコンをクリックし、位置情報の権限を「許可」に変更してください。",
+      locationTimeout: "位置情報の取得がタイムアウトしました。",
+      locationError: "位置情報の取得に失敗しました。",
+      locationSuccess: "現在地({region} {district})に更新されました。",
+      locationCoordsSuccess: "位置座標が更新されました。",
     },
     footer: {
       team: "チーム",

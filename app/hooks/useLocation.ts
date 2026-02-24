@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { clientFetch } from "./useClientFetch";
 import { toast } from "react-hot-toast";
+import { useLanguage } from "./LanguageContext";
 
 interface LocationState {
   latitude: number | null;
@@ -20,6 +21,7 @@ declare global {
 }
 
 export function useLocation() {
+  const { texts } = useLanguage();
   const [location, setLocation] = useState<LocationState>({
     latitude: null,
     longitude: null,
@@ -88,28 +90,53 @@ export function useLocation() {
                   syncLocationWithBackend(latitude, longitude, region, district);
                   localStorage.setItem("userLocation", JSON.stringify(newState));
 
-                  if (!isAuto) toast.success(`현재 위치(${region} ${district})로 업데이트되었습니다.`);
+                  if (!isAuto) {
+                    const successMsg = texts.main.locationSuccess
+                      .replace("{region}", region)
+                      .replace("{district}", district);
+                    toast.success(successMsg);
+                  }
                 }
               } else {
                 setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
                 syncLocationWithBackend(latitude, longitude);
-                if (!isAuto) toast.success("위치 좌표가 업데이트되었습니다.");
+                if (!isAuto) toast.success(texts.main.locationCoordsSuccess);
               }
             });
           });
         } else {
           setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
           syncLocationWithBackend(latitude, longitude);
-          if (!isAuto) toast.success("위치 좌표가 업데이트되었습니다.");
+          if (!isAuto) toast.success(texts.main.locationCoordsSuccess);
         }
       },
       (error) => {
-        let msg = "위치 정보를 가져오는 데 실패했습니다.";
-        if (error.code === 1) msg = "위치 정보 권한이 거부되었습니다.";
-        else if (error.code === 3) msg = "위치 측정 시간이 초과되었습니다.";
+        let msg = texts.main.locationError;
+        let description = "";
+
+        if (error.code === 1) {
+          msg = texts.main.locationPermissionDenied;
+          description = texts.main.locationPermissionGuide;
+        } else if (error.code === 3) {
+          msg = texts.main.locationTimeout;
+        }
 
         setLocation(prev => ({ ...prev, isLoading: false, error: msg }));
-        if (!isAuto) toast.error(msg);
+
+        if (!isAuto) {
+          if (error.code === 1) {
+            toast.error(`${msg}\n${description}`, {
+              duration: 6000,
+              style: {
+                minWidth: '300px',
+                fontSize: '14px',
+                lineHeight: '1.5',
+              },
+            });
+          } else {
+            toast.error(msg);
+          }
+        }
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
