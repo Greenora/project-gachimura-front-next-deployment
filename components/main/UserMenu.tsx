@@ -41,9 +41,27 @@ export default function UserMenu() {
   const handleLogout = async () => {
     try {
       await clientFetch("/auth/logout", { method: "POST" });
+      // 모든 인증 관련 쿠키 삭제
+      document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      // localStorage/sessionStorage 초기화 (필요시)
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        sessionStorage.clear();
+      }
       window.location.href = "/login";
     } catch (error) {
       console.error("Logout failed:", error);
+      // 에러가 나도 쿠키 삭제 후 이동
+      document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        sessionStorage.clear();
+      }
+      window.location.href = "/login";
     }
   };
 
