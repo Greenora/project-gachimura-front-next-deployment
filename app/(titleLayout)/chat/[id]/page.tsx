@@ -52,8 +52,12 @@ async function getChatData(partyId: number, token?: string) {
     return {
       formattedMessages,
       formattedMembers,
-      hostId: party.host?.id, // party.hostId에서 party.host.id로 수정
-      partyInfo: party
+      hostId: party.host?.id,
+      partyInfo: {
+        ...party,
+        meetDate: party.meetingDate,
+        storeName: party.location?.name
+      }
     };
   } catch (error) {
     console.error("데이터 페칭 실패:", error);
