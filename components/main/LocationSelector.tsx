@@ -4,7 +4,7 @@ import { useLocation } from "@/app/hooks/useLocation";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 
 export default function LocationSelector() {
-  const { region, district, isLoading, updateLocation } = useLocation();
+  const { region, district, isLoading, error, updateLocation } = useLocation();
   const { texts } = useLanguage();
 
   return (
@@ -25,7 +25,11 @@ export default function LocationSelector() {
           {isLoading ? (
             <span className="animate-pulse">{texts.main.locating}</span>
           ) : (
-            `${region || texts.main.locating} · ${district || ""}`
+            error ? (
+              <span className="text-red-500 text-[12px]">{texts.main.locating === "위치 찾는 중..." ? "권한 확인 필요" : "要権限"}</span>
+            ) : (
+              `${region || texts.main.locating} · ${district || ""}`
+            )
           )}
         </span>
       </div>
