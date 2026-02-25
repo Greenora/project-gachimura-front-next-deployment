@@ -13,13 +13,20 @@ export default function ChatListButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(new RegExp(`(^|;)\\s*accessToken\\s*=\\s*([^;]+)`));
+      return !!match;
+    }
+    return false;
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isLoggedIn) {
       loadChats();
     }
-  }, [isOpen]);
+  }, [isOpen, isLoggedIn]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -30,6 +37,8 @@ export default function ChatListButton() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  if (!isLoggedIn) return null;
 
   const loadChats = async () => {
     setLoading(true);
