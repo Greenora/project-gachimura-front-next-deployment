@@ -22,6 +22,8 @@ interface PartyDetail {
   host: { nickname: string; nickname_jp?: string; avatarUrl: string | null };
   isJoined: boolean;
   isHost: boolean;
+  isAccepted?: boolean; // 참가 승인 여부 (백엔드에서 내려줘야 함)
+  isRejected?: boolean; // 참가 거절 여부 (백엔드에서 내려줘야 함)
 }
 
 interface PartyDetailClientProps {
@@ -62,6 +64,11 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
     }
   };
 
+  const handleGoToChat = () => {
+    if (!party) return;
+    router.push(`/chat/${party.id}`);
+  };
+
   if (loading)
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -77,6 +84,29 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
     }
     return `${t.meetingDate} ${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
   };
+
+  // 버튼 상태 및 텍스트/스타일 결정
+  let buttonText = "모임 참여 신청하기";
+  let buttonDisabled = false;
+  let buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all bg-[#166534] hover:bg-[#14532d] active:scale-95";
+  let buttonOnClick: (() => Promise<void>) | undefined = handleJoin;
+
+  if (party.isHost) {
+    buttonText = t.isHostMessage;
+    buttonDisabled = true;
+    buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base bg-gray-400 cursor-default";
+    buttonOnClick = undefined;
+  } else if (party.isAccepted) {
+    buttonText = "채팅방으로 이동하기";
+    buttonDisabled = false;
+    buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all bg-[#166534] hover:bg-[#14532d] active:scale-95";
+    buttonOnClick = async () => handleGoToChat();
+  } else if (party.isRejected || party.isJoined) {
+    buttonText = "이미 신청한 모임입니다";
+    buttonDisabled = true;
+    buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base bg-gray-400 cursor-default";
+    buttonOnClick = undefined;
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -134,16 +164,14 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
           </div>
         </div>
 
-        {/* 가입 버튼 */}
+        {/* 가입/채팅방 이동/신청완료 버튼 */}
         <div className="pt-4 pb-8">
           <button
-            onClick={handleJoin}
-            disabled={party.isHost || (party.status !== "RECRUITING" && !party.isJoined)}
-            className={`w-full py-4 rounded-xl font-bold text-white text-base transition-all
-              ${party.isHost || party.isJoined ? "bg-gray-400 cursor-default" : "bg-[#4CAF50] hover:bg-[#43A047] active:scale-[0.99]"}
-            `}
+            className={buttonClass}
+            disabled={buttonDisabled}
+            onClick={buttonOnClick}
           >
-            {party.isHost ? t.isHostMessage : party.isJoined ? t.alreadyJoined : t.joinButton}
+            {buttonText}
           </button>
           <p className="text-center mt-3 text-sm text-gray-500">
             {t.participantCount.replace("{count}", String(party.currentCount))}

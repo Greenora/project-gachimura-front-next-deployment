@@ -29,20 +29,22 @@ export default function SearchBar() {
   };
 
   return (
-    <form onSubmit={handleSearch} className="flex-1 max-w-2xl px-8">
+    <form onSubmit={handleSearch} className="flex-1 max-w-2xl px-8" role="search">
       <div className="relative group">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={texts.main.searchPlaceholder}
+          aria-label={texts.main.searchPlaceholder}
           className="w-full h-[52px] pl-6 pr-14 bg-white border-2 border-gray-100 rounded-full text-[15px] font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-green-600 focus:ring-4 focus:ring-green-50 transition-all shadow-sm group-hover:border-gray-200"
         />
         <button
           type="submit"
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-green-700 transition-colors"
+          aria-label={texts.main.searchPlaceholder}
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-green-700 transition-colors focus:outline-none focus:text-green-700"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
