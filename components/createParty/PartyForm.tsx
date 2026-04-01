@@ -96,8 +96,8 @@ export default function PartyForm() {
 
     try {
       await clientFetch("/parties", { method: "POST", body: formData });
-      toast.success(texts.auth.alertRegisterSuccess || "모임이 등록되었습니다.");
-      router.push("/"); // 등록 성공 시 메인으로 이동
+      toast.success(pf.submitSuccess || "모임이 등록되었습니다.");
+      router.push("/home"); // 등록 성공 시 메인으로 이동
     } catch (error: any) {
       console.error("등록 실패:", error);
       toast.error(error.message || "등록에 실패했습니다.");

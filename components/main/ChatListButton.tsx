@@ -8,19 +8,29 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { Language } from "@/app/common/types";
 
+interface JoinedChat {
+  id: number;
+  title: string;
+  host?: {
+    nickname?: string;
+    nickname_jp?: string;
+  } | null;
+}
+
 export default function ChatListButton() {
   const { lang, texts } = useLanguage();
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [chats, setChats] = useState<any[]>([]);
+  const [chats, setChats] = useState<JoinedChat[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    if (typeof document !== "undefined") {
-      const match = document.cookie.match(new RegExp(`(^|;)\\s*accessToken\\s*=\\s*([^;]+)`));
-      return !!match;
-    }
-    return false;
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    const match = document.cookie.match(new RegExp(`(^|;)\\s*accessToken\\s*=\\s*([^;]+)`));
+    setIsLoggedIn(!!match);
+  }, []);
 
   useEffect(() => {
     if (isOpen && isLoggedIn) {
@@ -38,6 +48,7 @@ export default function ChatListButton() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  if (!mounted) return null;
   if (!isLoggedIn) return null;
 
   const loadChats = async () => {
@@ -52,7 +63,7 @@ export default function ChatListButton() {
     }
   };
 
-  const getNickname = (chat: any) => {
+  const getNickname = (chat: JoinedChat) => {
     const host = chat.host;
     if (!host) return texts.main.anonymous;
     return lang === Language.japanese && host.nickname_jp ? host.nickname_jp : host.nickname;

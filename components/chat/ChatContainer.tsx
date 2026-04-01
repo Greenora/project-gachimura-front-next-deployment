@@ -24,6 +24,11 @@ interface ChatContainerProps {
   };
 }
 
+interface SettlementInfo {
+  id: number;
+  status: string;
+}
+
 // 1. 개별 메시지 최적화 - 프롭스 안바뀌면 다시 안그림
 const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts }: any) => {
   return (
@@ -255,7 +260,7 @@ const Sidebar = memo(
 Sidebar.displayName = "Sidebar";
 
 // 4. 헤더
-const ChatHeader = memo(({ isHost, partyInfo, texts, formatFullDate, onOpenSidebar }: any) => {
+const ChatHeader = memo(({ isHost, canOpenSettlement, partyInfo, texts, formatFullDate, onOpenSidebar, onSettle }: any) => {
   return (
     <header className="px-8 py-5 border-b border-gray-50 bg-white shrink-0 z-20">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -278,16 +283,34 @@ const ChatHeader = memo(({ isHost, partyInfo, texts, formatFullDate, onOpenSideb
           </div>
         </div>
 
-        {isHost && (
-          <div className="flex gap-2">
-            <button className="px-5 py-2 text-[13px] font-black border border-gray-100 rounded-xl hover:bg-gray-50 transition-all font-sans">
-              {texts.chat.settle}
-            </button>
-            <button className="px-5 py-2 text-[13px] font-black border border-gray-100 rounded-xl hover:bg-gray-50 transition-all font-sans">
+        <div className="flex gap-2">
+          <button
+            onClick={onSettle}
+            disabled={!isHost && !canOpenSettlement}
+            className={`min-w-[124px] px-5 py-2 text-[13px] font-black rounded-xl transition-all font-sans ${isHost
+              ? "bg-[#33612E] text-white hover:bg-[#2a5025] shadow-sm"
+              : canOpenSettlement
+                ? "bg-[#33612E] text-white hover:bg-[#2a5025] shadow-sm"
+                : "border border-gray-100 bg-white text-gray-300 cursor-not-allowed"
+              }`}
+            title={isHost
+              ? "정산을 시작하거나 확인합니다"
+              : canOpenSettlement
+                ? "정산 페이지로 이동합니다"
+                : "호스트가 정산을 시작하면 활성화됩니다"}
+          >
+            {isHost
+              ? (texts.chat.settle || "정산하기")
+              : canOpenSettlement
+                ? (texts.chat.joinSettlement || "정산 참여하기")
+                : (texts.chat.settlementWaiting || "정산 대기중")}
+          </button>
+          {isHost && (
+            <button className="px-5 py-2 text-[13px] font-black rounded-xl transition-all font-sans bg-[#F05B5B] text-white hover:bg-[#d94a4a] shadow-sm">
               {texts.chat.end}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );
@@ -345,6 +368,7 @@ export default function ChatContainer({
   const [members, setMembers] = useState(initialMembers);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [settlementInfo, setSettlementInfo] = useState<SettlementInfo | null>(null);
 
   const router = useRouter();
   const { texts } = useLanguage();
@@ -359,11 +383,37 @@ export default function ChatContainer({
 
   const { formatFullDate, formatDividerDate, formatMessageTime } = useDateFormatter();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isHost = currentUser.id === hostId;
 
   // 멤버 목록 업데이트 (초기값 설정)
   useEffect(() => {
     setMembers(initialMembers);
   }, [initialMembers]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchSettlementInfo = async () => {
+      try {
+        const data = await clientFetch<SettlementInfo | null>(`/settlements/party/${partyId}`);
+        if (!cancelled) {
+          setSettlementInfo(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setSettlementInfo(null);
+        }
+      }
+    };
+
+    fetchSettlementInfo();
+    const interval = setInterval(fetchSettlementInfo, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [partyId]);
 
   // 자동 스크롤 하단 고정 로직
   useEffect(() => {
@@ -409,6 +459,8 @@ export default function ChatContainer({
   const handleSendMessage = useCallback((msg: string) => sendMessage(msg), [sendMessage]);
   const handleOpenDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const handleCloseDrawer = useCallback(() => setIsDrawerOpen(false), []);
+  const handleSettle = useCallback(() => router.push(`/settlement/${partyId}`), [router, partyId]);
+  const canOpenSettlement = Boolean(isHost || (settlementInfo && settlementInfo.status !== "DRAFT"));
 
   const handleKick = useCallback(
     async (targetId: number, nickname: string) => {
@@ -468,11 +520,13 @@ export default function ChatContainer({
 
       {/* 2. 헤더 */}
       <ChatHeader
-        isHost={currentUser.id === hostId}
+        isHost={isHost}
+        canOpenSettlement={canOpenSettlement}
         partyInfo={partyInfo}
         texts={texts}
         formatFullDate={formatFullDate}
         onOpenSidebar={handleOpenDrawer}
+        onSettle={handleSettle}
       />
 
       {/* 3. 채팅 영역 */}
