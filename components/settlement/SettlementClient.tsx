@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useDateFormatter } from "@/app/hooks/useDateFormatter";
+import { Language } from "@/app/common/types";
 import toast from "react-hot-toast";
 
 interface SettlementItem {
@@ -64,8 +65,29 @@ export default function SettlementClient({
   initialPayments,
 }: SettlementClientProps) {
   const router = useRouter();
-  const { texts } = useLanguage();
+  const { texts, lang } = useLanguage();
   const { formatFullDate } = useDateFormatter();
+  const settlementTexts = texts.settlement;
+  const isKorean = lang === Language.korean;
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(isKorean ? "ko-KR" : "ja-JP", {
+        style: "currency",
+        currency: isKorean ? "KRW" : "JPY",
+        maximumFractionDigits: 0,
+      }),
+    [isKorean]
+  );
+
+  const formatMoney = useCallback(
+    (amount: number) => {
+      const displayAmount = isKorean ? amount : amount / 10;
+      return currencyFormatter.format(Math.max(0, Math.round(displayAmount)));
+    },
+    [currencyFormatter, isKorean]
+  );
+
 
   const [settlement, setSettlement] = useState<Settlement | null>(initialSettlement);
   const [payments, setPayments] = useState<Payment[]>(initialPayments);
@@ -123,13 +145,13 @@ export default function SettlementClient({
         body: { partyId },
       });
       setSettlement(result);
-      toast.success("정산이 생성되었습니다.");
+      toast.success(settlementTexts.settlementCreated);
     } catch (err: any) {
-      toast.error(err.message || "정산 생성 실패");
+      toast.error(err.message || settlementTexts.settlementCreateFail);
     } finally {
       setLoading(false);
     }
-  }, [partyId]);
+  }, [partyId, settlementTexts]);
 
   // 품목 추가
   const handleAddItem = useCallback(() => {
@@ -165,7 +187,7 @@ export default function SettlementClient({
     if (!settlement) return;
     const validItems = editItems.filter((i) => i.name.trim() && i.price > 0);
     if (validItems.length === 0) {
-      toast.error("최소 1개 이상의 품목을 입력해주세요.");
+      toast.error(settlementTexts.minItemRequired);
       return;
     }
     setLoading(true);
@@ -178,13 +200,13 @@ export default function SettlementClient({
         }
       );
       setSettlement(result);
-      toast.success("품목이 저장되었습니다.");
+      toast.success(settlementTexts.itemsSaved);
     } catch (err: any) {
-      toast.error(err.message || "품목 저장 실패");
+      toast.error(err.message || settlementTexts.itemsSaveFail);
     } finally {
       setLoading(false);
     }
-  }, [settlement, editItems]);
+  }, [settlement, editItems, settlementTexts]);
 
   // 정산 시작하기 (DRAFT → SELECTING)
   const handleStartSelecting = useCallback(async () => {
@@ -196,13 +218,13 @@ export default function SettlementClient({
         { method: "PATCH" }
       );
       setSettlement(result);
-      toast.success("정산이 시작되었습니다! 멤버들에게 알림이 전송되었습니다.");
+      toast.success(settlementTexts.settlementStarted);
     } catch (err: any) {
-      toast.error(err.message || "정산 시작 실패");
+      toast.error(err.message || settlementTexts.settlementStartFail);
     } finally {
       setLoading(false);
     }
-  }, [settlement]);
+  }, [settlement, settlementTexts]);
 
   // 수정하기 (SELECTING → DRAFT 되돌리기)
   const handleRevertToDraft = useCallback(async () => {
@@ -222,13 +244,13 @@ export default function SettlementClient({
           quantity: i.quantity,
         })) || []
       );
-      toast.success("수정 모드로 전환되었습니다.");
+      toast.success(settlementTexts.revertedToDraft);
     } catch (err: any) {
-      toast.error(err.message || "수정 전환 실패");
+      toast.error(err.message || settlementTexts.revertFail);
     } finally {
       setLoading(false);
     }
-  }, [settlement]);
+  }, [settlement, settlementTexts]);
 
   // 게스트: 품목 선택/해제
   const handleToggleItem = useCallback((itemId: number) => {
@@ -252,18 +274,18 @@ export default function SettlementClient({
         }
       );
       setSettlement(result);
-      toast.success("품목 선택이 완료되었습니다!");
+      toast.success(settlementTexts.selectionSaved);
     } catch (err: any) {
-      toast.error(err.message || "선택 저장 실패");
+      toast.error(err.message || settlementTexts.selectionSaveFail);
     } finally {
       setLoading(false);
     }
-  }, [settlement, selectedItemIds]);
+  }, [settlement, selectedItemIds, settlementTexts]);
 
   // 호스트: 최종 확정
   const handleConfirm = useCallback(async () => {
     if (!settlement) return;
-    if (!confirm("정산을 확정하시겠습니까? 확정 후에는 변경할 수 없습니다.")) return;
+    if (!confirm(settlementTexts.confirmPrompt)) return;
     setLoading(true);
     try {
       const result = await clientFetch<Settlement>(
@@ -276,13 +298,13 @@ export default function SettlementClient({
         `/settlements/${settlement.id}/payments`
       );
       setPayments(paymentData);
-      toast.success("정산이 확정되었습니다!");
+      toast.success(settlementTexts.settlementConfirmed);
     } catch (err: any) {
-      toast.error(err.message || "확정 실패");
+      toast.error(err.message || settlementTexts.confirmFail);
     } finally {
       setLoading(false);
     }
-  }, [settlement]);
+  }, [settlement, settlementTexts]);
 
   // 호스트: 입금 확인
   const handlePaymentConfirm = useCallback(
@@ -297,14 +319,14 @@ export default function SettlementClient({
         setPayments((prev) =>
           prev.map((p) => (p.userId === userId ? { ...p, status: "PAID" } : p))
         );
-        toast.success("입금이 확인되었습니다.");
+        toast.success(settlementTexts.paymentConfirmed);
       } catch (err: any) {
-        toast.error(err.message || "입금 확인 실패");
+        toast.error(err.message || settlementTexts.paymentConfirmFail);
       } finally {
         setLoading(false);
       }
     },
-    [settlement]
+    [settlement, settlementTexts]
   );
 
   // 영수증 업로드 핸들러 (OCR 결과 자동 반영)
@@ -342,26 +364,26 @@ export default function SettlementClient({
         if (result.items && result.items.length > 0) {
           setEditItems(result.items);
           toast.success(
-            `영수증 인식 완료! ${result.items.length}개 품목이 자동 입력되었습니다.`
+            settlementTexts.receiptRecognized.replace("{count}", String(result.items.length))
           );
         } else {
-          toast.success("영수증이 업로드되었습니다. 품목을 직접 입력해주세요.");
+          toast.success(settlementTexts.receiptUploaded);
         }
       } catch (err: any) {
-        toast.error(err.message || "업로드 실패");
+        toast.error(err.message || settlementTexts.uploadFail);
       } finally {
         setScanLoading(false);
         setLoading(false);
       }
     },
-    [settlement, partyId]
+    [settlement, partyId, settlementTexts]
   );
 
   // 카카오톡 정산 메시지 공유
   const handleKakaoShare = useCallback(() => {
     const Kakao = (window as any).Kakao;
     if (!Kakao) {
-      toast.error("카카오 SDK를 불러올 수 없습니다.");
+      toast.error(settlementTexts.kakaoNotReady);
       return;
     }
 
@@ -369,9 +391,7 @@ export default function SettlementClient({
     if (!Kakao.isInitialized()) {
       const jsKey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
       if (!jsKey) {
-        toast.error(
-          "카카오 JavaScript 키가 설정되지 않았습니다. .env.local에 NEXT_PUBLIC_KAKAO_JS_KEY를 설정해주세요."
-        );
+        toast.error(settlementTexts.kakaoNotReady);
         return;
       }
       Kakao.init(jsKey);
@@ -381,19 +401,19 @@ export default function SettlementClient({
     const perPerson = memberCount > 0 ? Math.ceil((settlement?.totalAmount || 0) / memberCount) : 0;
     const pendingPayments = payments.filter((p) => p.status === "PENDING");
     const paymentLines = pendingPayments
-      .map((p) => `${p.user?.nickname}: ${p.amount.toLocaleString()}원`)
+      .map((p) => `${p.user?.nickname}: ${formatMoney(p.amount)}`)
       .join("\n");
 
     const description = paymentLines
-      ? `1인당 ${perPerson.toLocaleString()}원\n\n${paymentLines}`
-      : `1인당 ${perPerson.toLocaleString()}원`;
+      ? `${settlementTexts.perPerson} ${formatMoney(perPerson)}\n\n${paymentLines}`
+      : `${settlementTexts.perPerson} ${formatMoney(perPerson)}`;
 
     try {
       Kakao.Share.sendDefault({
         objectType: "feed",
         content: {
-          title: `[가치무라 정산] ${partyData?.title || "모임"}`,
-          description: `총 ${(settlement?.totalAmount || 0).toLocaleString()}원 / ${memberCount}명\n${description}`,
+          title: `${settlementTexts.kakaoShareTitle} ${partyData?.title || settlementTexts.title}`,
+          description: `${formatMoney(settlement?.totalAmount || 0)} / ${memberCount}${settlementTexts.memberSuffix}\n${description}`,
           imageUrl: `${window.location.origin}/images/gachimura_logo.png`,
           link: {
             mobileWebUrl: `${window.location.origin}/settlement/${partyId}`,
@@ -402,7 +422,7 @@ export default function SettlementClient({
         },
         buttons: [
           {
-            title: "정산 확인하기",
+            title: settlementTexts.kakaoShareButton,
             link: {
               mobileWebUrl: `${window.location.origin}/settlement/${partyId}`,
               webUrl: `${window.location.origin}/settlement/${partyId}`,
@@ -411,9 +431,9 @@ export default function SettlementClient({
         ],
       });
     } catch {
-      toast.error("카카오톡 공유에 실패했습니다.");
+      toast.error(settlementTexts.kakaoShareFail);
     }
-  }, [settlement, payments, partyData, partyId, memberCount]);
+  }, [settlement, payments, partyData, partyId, memberCount, formatMoney, settlementTexts]);
 
   // 총 가격 계산
   const totalPrice = editItems.reduce(
@@ -452,8 +472,8 @@ export default function SettlementClient({
           {scanLoading ? (
             <div className="flex flex-col items-center gap-4">
               <div className="w-10 h-10 border-4 border-[#33612E] border-t-transparent rounded-full animate-spin" />
-              <p className="text-base font-bold text-gray-700">영수증 스캔중...</p>
-              <p className="text-sm text-gray-400">잠시만 기다려주세요</p>
+              <p className="text-base font-bold text-gray-700">{settlementTexts.receiptScanning}</p>
+              <p className="text-sm text-gray-400">{settlementTexts.pleaseWait}</p>
             </div>
           ) : (
             <>
@@ -463,7 +483,7 @@ export default function SettlementClient({
                   <polyline points="17 8 12 3 7 8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                영수증 업로드하기
+                {texts.settlement.uploadReceipt}
                 <input
                   type="file"
                   accept="image/*"
@@ -476,7 +496,7 @@ export default function SettlementClient({
                 className="block mx-auto mt-4 text-sm text-gray-500 underline hover:text-gray-700 transition-colors"
                 disabled={loading}
               >
-                직접 작성하기
+                {texts.settlement.writeManually}
               </button>
             </>
           )}
@@ -486,7 +506,7 @@ export default function SettlementClient({
       {/* 정산 미생성 상태 (게스트) */}
       {!settlement && !isHost && (
         <div className="text-center py-16 text-gray-400">
-          아직 정산이 시작되지 않았습니다.
+          {texts.settlement.notStarted}
         </div>
       )}
 
@@ -496,15 +516,15 @@ export default function SettlementClient({
           {scanLoading && (
             <div className="flex flex-col items-center gap-3 py-8 mb-4">
               <div className="w-10 h-10 border-4 border-[#33612E] border-t-transparent rounded-full animate-spin" />
-              <p className="text-base font-bold text-gray-700">영수증 스캔중...</p>
+              <p className="text-base font-bold text-gray-700">{settlementTexts.receiptScanning}</p>
             </div>
           )}
 
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-gray-900">구매품목</h3>
+            <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
             <div className="flex items-center gap-3">
               <label className="text-sm text-gray-400 cursor-pointer hover:text-gray-600">
-                📷 영수증 스캔
+                {texts.settlement.uploadReceipt}
                 <input
                   type="file"
                   accept="image/*"
@@ -516,7 +536,7 @@ export default function SettlementClient({
                 onClick={handleAddItem}
                 className="text-sm text-[#33612E] font-bold hover:underline"
               >
-                + 품목 추가
+                {texts.settlement.addItem}
               </button>
             </div>
           </div>
@@ -533,7 +553,7 @@ export default function SettlementClient({
                   onChange={(e) =>
                     handleItemChange(index, "name", e.target.value)
                   }
-                  placeholder="품목명"
+                  placeholder={texts.settlement.itemName}
                   className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#33612E]"
                 />
                 <input
@@ -542,7 +562,7 @@ export default function SettlementClient({
                   onChange={(e) =>
                     handleItemChange(index, "quantity", e.target.value)
                   }
-                  placeholder="수량"
+                  placeholder={texts.settlement.quantity}
                   className="w-16 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-center outline-none focus:border-[#33612E]"
                   min={1}
                 />
@@ -552,11 +572,11 @@ export default function SettlementClient({
                   onChange={(e) =>
                     handleItemChange(index, "price", e.target.value)
                   }
-                  placeholder="가격"
+                  placeholder={texts.settlement.price}
                   className="w-24 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-right outline-none focus:border-[#33612E]"
                   min={0}
                 />
-                <span className="text-sm text-gray-500">원</span>
+                <span className="text-sm text-gray-500">{isKorean ? "원" : "円"}</span>
                 <button
                   onClick={() => handleRemoveItem(index)}
                   className="p-1 text-gray-400 hover:text-red-500 transition-colors"
@@ -572,15 +592,15 @@ export default function SettlementClient({
 
           {editItems.length === 0 && (
             <div className="text-center py-8 text-gray-400 text-sm">
-              품목을 추가해주세요.
+              {settlementTexts.addItemHint}
             </div>
           )}
 
           {/* 총 가격 */}
           <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-            <span className="text-base font-bold text-gray-900">총 가격</span>
+            <span className="text-base font-bold text-gray-900">{texts.settlement.totalPrice}</span>
             <span className="text-base font-bold text-gray-900">
-              {totalPrice.toLocaleString()}원
+              {formatMoney(totalPrice)}
             </span>
           </div>
 
@@ -591,7 +611,7 @@ export default function SettlementClient({
               disabled={loading || editItems.length === 0}
               className="flex-1 py-3 rounded-full font-bold text-[#33612E] border-2 border-[#33612E] hover:bg-[#33612E]/5 transition-all disabled:opacity-50"
             >
-              품목 저장
+              {texts.settlement.saveItems}
             </button>
             <button
               onClick={async () => {
@@ -601,7 +621,7 @@ export default function SettlementClient({
               disabled={loading || editItems.length === 0}
               className="flex-1 py-3 rounded-full font-bold text-white bg-[#33612E] hover:bg-[#2a5025] transition-all disabled:opacity-50"
             >
-              정산 시작하기
+              {texts.settlement.startSettlement}
             </button>
           </div>
         </div>
@@ -610,7 +630,7 @@ export default function SettlementClient({
       {/* === DRAFT: 게스트 대기 화면 === */}
       {settlement && settlement.status === "DRAFT" && !isHost && (
         <div className="text-center py-16 text-gray-400">
-          호스트가 품목을 등록하고 있습니다...
+          {texts.settlement.waitingHost}
         </div>
       )}
 
@@ -618,8 +638,8 @@ export default function SettlementClient({
       {settlement && settlement.status === "SELECTING" && !isHost && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-gray-900">구매품목</h3>
-            <span className="text-xs text-gray-400">본인이 가져갈 품목을 선택하세요</span>
+            <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
+            <span className="text-xs text-gray-400">{texts.settlement.selectHint}</span>
           </div>
 
           <div className="space-y-2">
@@ -650,11 +670,11 @@ export default function SettlementClient({
                       )}
                     </div>
                     <span className="text-sm font-medium text-gray-800">
-                      {item.name} {item.quantity > 1 ? `${item.quantity}개` : ""}
+                      {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
                     </span>
                   </div>
                   <span className="text-sm font-bold text-gray-700">
-                    {(item.price * item.quantity).toLocaleString()}원
+                    {formatMoney(item.price * item.quantity)}
                   </span>
                 </button>
               );
@@ -663,11 +683,9 @@ export default function SettlementClient({
 
           {/* 예상 금액 */}
           <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-            <span className="text-base font-bold text-gray-900">
-              나의 예상 금액
-            </span>
+            <span className="text-base font-bold text-gray-900">{texts.settlement.myEstimate}</span>
             <span className="text-base font-bold text-[#33612E]">
-              {estimatedAmount.toLocaleString()}원
+              {formatMoney(estimatedAmount)}
             </span>
           </div>
 
@@ -676,7 +694,7 @@ export default function SettlementClient({
             disabled={loading || selectedItemIds.length === 0}
             className="w-full mt-6 py-3 rounded-full font-bold text-white bg-[#33612E] hover:bg-[#2a5025] transition-all disabled:opacity-50"
           >
-            선택 완료
+            {texts.settlement.submitSelection}
           </button>
         </div>
       )}
@@ -685,16 +703,16 @@ export default function SettlementClient({
       {settlement && settlement.status === "SELECTING" && isHost && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-gray-900">구매품목</h3>
+            <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
             <div className="flex items-center gap-3">
               <button
                 onClick={handleRevertToDraft}
                 disabled={loading}
                 className="text-xs text-[#33612E] font-bold hover:underline"
               >
-                수정하기
+                {settlementTexts.editSettlement}
               </button>
-              <span className="text-xs text-gray-400">멤버들이 선택 중...</span>
+              <span className="text-xs text-gray-400">{texts.settlement.membersSelecting}</span>
             </div>
           </div>
 
@@ -706,7 +724,7 @@ export default function SettlementClient({
               >
                 <div>
                   <span className="text-sm font-medium text-gray-800">
-                    {item.name} {item.quantity > 1 ? `${item.quantity}개` : ""}
+                    {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
                   </span>
                   <div className="flex gap-1 mt-1">
                     {item.members?.map((m) => (
@@ -720,16 +738,16 @@ export default function SettlementClient({
                   </div>
                 </div>
                 <span className="text-sm font-bold text-gray-700">
-                  {(item.price * item.quantity).toLocaleString()}원
+                  {formatMoney(item.price * item.quantity)}
                 </span>
               </div>
             ))}
           </div>
 
           <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-            <span className="text-base font-bold text-gray-900">총 가격</span>
+            <span className="text-base font-bold text-gray-900">{texts.settlement.totalPrice}</span>
             <span className="text-base font-bold text-gray-900">
-              {settlement.totalAmount.toLocaleString()}원 / {memberCount}명
+              {formatMoney(settlement.totalAmount)} / {memberCount}{settlementTexts.memberSuffix}
             </span>
           </div>
 
@@ -738,7 +756,7 @@ export default function SettlementClient({
             disabled={loading}
             className="w-full mt-6 py-3 rounded-full font-bold text-white bg-[#33612E] hover:bg-[#2a5025] transition-all disabled:opacity-50"
           >
-            정산 확정하기
+            {texts.settlement.confirmSettlement}
           </button>
         </div>
       )}
@@ -748,7 +766,7 @@ export default function SettlementClient({
         (settlement.status === "CONFIRMED" || settlement.status === "COMPLETED") && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-gray-900">구매품목</h3>
+              <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
             </div>
 
             <div className="space-y-2">
@@ -758,10 +776,10 @@ export default function SettlementClient({
                   className="flex items-center justify-between py-3 border-b border-gray-50"
                 >
                   <span className="text-sm text-gray-700">
-                    {item.name} {item.quantity > 1 ? `${item.quantity}개` : ""}
+                    {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
                   </span>
                   <span className="text-sm font-bold text-gray-900">
-                    {(item.price * item.quantity).toLocaleString()}원
+                    {formatMoney(item.price * item.quantity)}
                   </span>
                 </div>
               ))}
@@ -769,22 +787,19 @@ export default function SettlementClient({
 
             {/* 총 가격 & 1인당 금액 */}
             <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-              <span className="text-base font-bold text-gray-900">총 가격</span>
+              <span className="text-base font-bold text-gray-900">{texts.settlement.totalPrice}</span>
               <span className="text-base font-bold text-gray-900">
-                {settlement.totalAmount.toLocaleString()}원 / {memberCount}명 = 1인 당{" "}
+                {formatMoney(settlement.totalAmount)} / {memberCount}{settlementTexts.memberSuffix} = {settlementTexts.perPerson} {" "}
                 {memberCount > 0
-                  ? Math.ceil(settlement.totalAmount / memberCount).toLocaleString()
+                  ? formatMoney(Math.ceil(settlement.totalAmount / memberCount))
                   : 0}
-                원
               </span>
             </div>
 
             {/* 입금 현황 */}
             {payments.length > 0 && (
               <div className="mt-8">
-                <h3 className="text-base font-bold text-gray-900 mb-4">
-                  입금 현황
-                </h3>
+                <h3 className="text-base font-bold text-gray-900 mb-4">{texts.settlement.paymentStatus}</h3>
                 <div className="space-y-2">
                   {payments.map((payment) => (
                     <div
@@ -806,11 +821,11 @@ export default function SettlementClient({
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-gray-700">
-                          {payment.amount.toLocaleString()}원
+                          {formatMoney(payment.amount)}
                         </span>
                         {payment.status === "PAID" ? (
                           <span className="px-3 py-1 text-xs font-bold text-green-600 bg-green-50 rounded-full">
-                            완료
+                            {texts.settlement.paid}
                           </span>
                         ) : isHost ? (
                           <button
@@ -820,11 +835,11 @@ export default function SettlementClient({
                             disabled={loading}
                             className="px-3 py-1 text-xs font-bold text-white bg-[#33612E] rounded-full hover:bg-[#2a5025] transition-all disabled:opacity-50"
                           >
-                            입금 확인
+                            {texts.settlement.confirmPayment}
                           </button>
                         ) : (
                           <span className="px-3 py-1 text-xs font-bold text-orange-600 bg-orange-50 rounded-full">
-                            미입금
+                            {texts.settlement.unpaid}
                           </span>
                         )}
                       </div>
@@ -838,7 +853,7 @@ export default function SettlementClient({
             {settlement.status === "COMPLETED" && (
               <div className="mt-8 text-center">
                 <div className="inline-block px-6 py-3 bg-[#33612E] text-white rounded-full font-bold text-sm">
-                  정산 메세지를 전송했어요!
+                  {texts.settlement.sentMessage}
                 </div>
               </div>
             )}
@@ -849,13 +864,13 @@ export default function SettlementClient({
                 onClick={() => router.push(`/chat/${partyId}`)}
                 className="flex-1 py-3 rounded-full font-bold text-[#33612E] border-2 border-[#33612E] hover:bg-[#33612E]/5 transition-all"
               >
-                채팅방으로
+                {settlementTexts.chatRoom}
               </button>
               <button
                 className="flex-1 py-3 rounded-full font-bold text-white bg-[#F7C948] hover:bg-[#F0B429] transition-all"
                 onClick={handleKakaoShare}
               >
-                카카오톡 정산하기
+                {texts.settlement.kakaoSettle}
               </button>
             </div>
           </div>
