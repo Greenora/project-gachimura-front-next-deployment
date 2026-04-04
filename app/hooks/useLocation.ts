@@ -66,49 +66,67 @@ export function useLocation() {
       (position) => {
         const { latitude, longitude } = position.coords;
 
-        if (window.kakao && window.kakao.maps) {
-          window.kakao.maps.load(() => {
-            const geocoder = new window.kakao.maps.services.Geocoder();
+        console.log("Geolocation success:", { latitude, longitude });
 
-            geocoder.coord2RegionCode(longitude, latitude, (result: any, status: any) => {
-              if (status === window.kakao.maps.services.Status.OK) {
-                const regionInfo = result.find((res: any) => res.region_type === "H");
-                if (regionInfo) {
-                  const region = regionInfo.region_1depth_name;
-                  const district = regionInfo.region_2depth_name;
-
-                  const newState = {
-                    latitude,
-                    longitude,
-                    region,
-                    district,
-                    isLoading: false,
-                    error: null,
-                  };
-
-                  setLocation(newState);
-                  syncLocationWithBackend(latitude, longitude, region, district);
-                  localStorage.setItem("userLocation", JSON.stringify(newState));
-
-                  if (!isAuto) {
-                    const successMsg = texts.main.locationSuccess
-                      .replace("{region}", region)
-                      .replace("{district}", district);
-                    toast.success(successMsg);
-                  }
-                }
-              } else {
-                setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
-                syncLocationWithBackend(latitude, longitude);
-                if (!isAuto) toast.success(texts.main.locationCoordsSuccess);
-              }
-            });
+        const processLocation = (retryCount = 0) => {
+          console.log(`Checking window.kakao (attempt ${retryCount + 1}):`, {
+            hasKakao: !!window.kakao,
+            hasMaps: window.kakao ? !!window.kakao.maps : false
           });
-        } else {
-          setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
-          syncLocationWithBackend(latitude, longitude);
-          if (!isAuto) toast.success(texts.main.locationCoordsSuccess);
-        }
+
+          if (window.kakao && window.kakao.maps) {
+            window.kakao.maps.load(() => {
+              const geocoder = new window.kakao.maps.services.Geocoder();
+
+              geocoder.coord2RegionCode(longitude, latitude, (result: any, status: any) => {
+                console.log("Geocoder result:", status, result);
+                if (status === window.kakao.maps.services.Status.OK) {
+                  const regionInfo = result.find((res: any) => res.region_type === "H");
+                  if (regionInfo) {
+                    const region = regionInfo.region_1depth_name;
+                    const district = regionInfo.region_2depth_name;
+
+                    const newState = {
+                      latitude,
+                      longitude,
+                      region,
+                      district,
+                      isLoading: false,
+                      error: null,
+                    };
+
+                    setLocation(newState);
+                    syncLocationWithBackend(latitude, longitude, region, district);
+                    localStorage.setItem("userLocation", JSON.stringify(newState));
+
+                    if (!isAuto) {
+                      const successMsg = texts.main.locationSuccess
+                        .replace("{region}", region)
+                        .replace("{district}", district);
+                      toast.success(successMsg);
+                    }
+                  }
+                } else {
+                  console.warn("Geocoder failed status:", status);
+                  setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
+                  syncLocationWithBackend(latitude, longitude);
+                  if (!isAuto) toast.success(texts.main.locationCoordsSuccess);
+                }
+              });
+            });
+          } else if (retryCount < 10) {
+            // 카카오 지도 스크립트가 아직 로딩되지 않았을 가능성이 높으므로 0.5초 후 재시도
+            setTimeout(() => processLocation(retryCount + 1), 500);
+          } else {
+            console.warn("Kakao maps SDK not loaded correctly after retries. window.kakao:", window.kakao);
+            setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
+            syncLocationWithBackend(latitude, longitude);
+            if (!isAuto) toast.success(texts.main.locationCoordsSuccess);
+          }
+        };
+
+        // 위치 처리를 시작
+        processLocation();
       },
       (error) => {
         let msg = texts.main.locationError;

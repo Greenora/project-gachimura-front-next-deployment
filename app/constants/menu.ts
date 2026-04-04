@@ -58,8 +58,6 @@ interface Translation {
     date: string;
     settle: string;
     end: string;
-    settlementWaiting: string;
-    joinSettlement: string;
     placeholder: string;
     me: string;
     newMessage: string;
@@ -82,6 +80,7 @@ interface Translation {
     loadingParties: string;
     shoppingDate: string;
     recruiting: string;
+    settling: string;
     closed: string;
     anonymous: string;
     nowRecruiting: string;
@@ -121,7 +120,6 @@ interface Translation {
     storePlaceholder: string;
     storeEmpty: string;
     submit: string;
-    submitSuccess: string;
   };
   partyDetail: {
     meetingDate: string;
@@ -160,68 +158,27 @@ interface Translation {
     userNotFound: string;
     userDeleteMsg: string;
   };
-  settlement: {
+  review: {
+    closedMessage: string;
+    goReview: string;
+    reportProblem: string;
+  };
+  reviewPage: {
     title: string;
-    uploadReceipt: string;
-    writeManually: string;
-    receiptScanning: string;
-    pleaseWait: string;
-    purchaseItems: string;
-    addItem: string;
-    addItemHint: string;
-    itemName: string;
-    quantity: string;
-    price: string;
-    totalPrice: string;
-    saveItems: string;
-    startSettlement: string;
-    selectItems: string;
-    selectHint: string;
-    myEstimate: string;
-    submitSelection: string;
-    membersSelecting: string;
-    confirmSettlement: string;
-    confirmMessage: string;
-    paymentStatus: string;
-    paid: string;
-    unpaid: string;
-    confirmPayment: string;
-    perPerson: string;
-    kakaoSettle: string;
-    kakaoNotReady: string;
-    sentMessage: string;
-    waitingHost: string;
-    waitingItems: string;
-    notStarted: string;
-    settlementWaiting: string;
-    joinSettlement: string;
-    reportMember: string;
-    editSettlement: string;
-    chatRoom: string;
-    quantitySuffix: string;
-    memberSuffix: string;
-    receiptRecognized: string;
-    receiptUploaded: string;
-    settlementCreated: string;
-    settlementCreateFail: string;
-    minItemRequired: string;
-    itemsSaved: string;
-    itemsSaveFail: string;
-    settlementStarted: string;
-    settlementStartFail: string;
-    revertedToDraft: string;
-    revertFail: string;
-    selectionSaved: string;
-    selectionSaveFail: string;
-    confirmPrompt: string;
-    settlementConfirmed: string;
-    confirmFail: string;
-    paymentConfirmed: string;
-    paymentConfirmFail: string;
-    uploadFail: string;
-    kakaoShareFail: string;
-    kakaoShareTitle: string;
-    kakaoShareButton: string;
+    description: string;
+    question1: string;
+    question2: string;
+    question3: string;
+    submit: string;
+    footer: string;
+    success: string;
+    veryUnsatisfied: string;
+    unsatisfied: string;
+    satisfied: string;
+    verySatisfied: string;
+    allFieldsRequired: string;
+    submitError: string;
+    notFound: string;
   };
 }
 
@@ -284,8 +241,6 @@ export const menu: Record<Language, Translation> = {
       date: "모임 날짜",
       settle: "정산하기",
       end: "모임 종료",
-      settlementWaiting: "정산 대기중",
-      joinSettlement: "정산 참여하기",
       placeholder: "메시지를 입력하세요...",
       me: "나",
       newMessage: "새 메시지 ↓",
@@ -308,6 +263,7 @@ export const menu: Record<Language, Translation> = {
       loadingParties: "모임을 불러오는 중입니다...",
       shoppingDate: "장보기 날짜",
       recruiting: "모집중",
+      settling: "정산중",
       closed: "마감",
       anonymous: "익명",
       nowRecruiting: "지금 바로 참여 가능한 모임",
@@ -347,7 +303,6 @@ export const menu: Record<Language, Translation> = {
       storePlaceholder: "마트 이름을 검색하세요",
       storeEmpty: "마트를 검색하여 선택해주세요",
       submit: "모임 등록하기",
-      submitSuccess: "모임이 등록되었습니다!",
     },
     partyDetail: {
       meetingDate: "모임 날짜",
@@ -386,68 +341,27 @@ export const menu: Record<Language, Translation> = {
       userNotFound: "사용자를 찾을 수 없습니다.",
       userDeleteMsg: "존재하지 않거나 삭제된 유저입니다.",
     },
-    settlement: {
-      title: "정산하기",
-      uploadReceipt: "영수증 업로드하기",
-      writeManually: "직접 작성하기",
-      receiptScanning: "영수증 스캔중...",
-      pleaseWait: "잠시만 기다려주세요",
-      purchaseItems: "구매품목",
-      addItem: "+ 품목 추가",
-      addItemHint: "품목을 추가해주세요.",
-      itemName: "품목명",
-      quantity: "수량",
-      price: "가격",
-      totalPrice: "총 가격",
-      saveItems: "품목 저장",
-      startSettlement: "정산 시작하기",
-      selectItems: "품목 선택",
-      selectHint: "본인이 가져갈 품목을 선택하세요",
-      myEstimate: "나의 예상 금액",
-      submitSelection: "선택 완료",
-      membersSelecting: "멤버들이 선택 중...",
-      confirmSettlement: "정산 확정하기",
-      confirmMessage: "정산을 확정하시겠습니까? 확정 후에는 변경할 수 없습니다.",
-      paymentStatus: "입금 현황",
-      paid: "완료",
-      unpaid: "미입금",
-      confirmPayment: "입금 확인",
-      perPerson: "1인 당",
-      kakaoSettle: "카카오톡 정산하기",
-      kakaoNotReady: "카카오톡 정산 기능은 준비 중입니다.",
-      sentMessage: "정산 메세지를 전송했어요!",
-      waitingHost: "호스트가 품목을 등록하고 있습니다...",
-      waitingItems: "아직 품목이 없습니다.",
-      notStarted: "아직 정산이 시작되지 않았습니다.",
-      settlementWaiting: "정산 대기중",
-      joinSettlement: "정산 참여하기",
-      reportMember: "미정산 멤버 신고하기",
-      editSettlement: "수정하기",
-      chatRoom: "채팅방으로",
-      quantitySuffix: "개",
-      memberSuffix: "명",
-      receiptRecognized: "영수증 인식 완료! {count}개 품목이 자동 입력되었습니다.",
-      receiptUploaded: "영수증이 업로드되었습니다. 품목을 직접 입력해주세요.",
-      settlementCreated: "정산이 생성되었습니다.",
-      settlementCreateFail: "정산 생성 실패",
-      minItemRequired: "최소 1개 이상의 품목을 입력해주세요.",
-      itemsSaved: "품목이 저장되었습니다.",
-      itemsSaveFail: "품목 저장 실패",
-      settlementStarted: "정산이 시작되었습니다! 멤버들에게 알림이 전송되었습니다.",
-      settlementStartFail: "정산 시작 실패",
-      revertedToDraft: "수정 모드로 전환되었습니다.",
-      revertFail: "수정 전환 실패",
-      selectionSaved: "품목 선택이 완료되었습니다!",
-      selectionSaveFail: "선택 저장 실패",
-      confirmPrompt: "정산을 확정하시겠습니까? 확정 후에는 변경할 수 없습니다.",
-      settlementConfirmed: "정산이 확정되었습니다!",
-      confirmFail: "확정 실패",
-      paymentConfirmed: "입금이 확인되었습니다.",
-      paymentConfirmFail: "입금 확인 실패",
-      uploadFail: "업로드 실패",
-      kakaoShareFail: "카카오톡 공유에 실패했습니다.",
-      kakaoShareTitle: "가치무라 정산",
-      kakaoShareButton: "정산 확인하기",
+    review: {
+      closedMessage: "해당 모임은 종료되었습니다. 함께한 멤버들에 대해 평가를 남겨주세요!",
+      goReview: "평가하기",
+      reportProblem: "모임 진행 중 문제가 있었나요? 신고하기",
+    },
+    reviewPage: {
+      title: "모임 리뷰",
+      description: "에 대한 리뷰를 작성해주세요.",
+      question1: "모임은 원활하게 진행되었다고 생각하시나요?",
+      question2: "참여자 모두가 시간약속을 잘 지켰다고 생각하시나요?",
+      question3: "비용 정산은 잘 이루어졌다고 생각하시나요?",
+      submit: "제출하기",
+      footer: "해당 리뷰는 참여자의 프로필 점수에 반영됩니다.",
+      success: "평가가 완료되었습니다!",
+      veryUnsatisfied: "매우 불만족",
+      unsatisfied: "불만족",
+      satisfied: "만족",
+      verySatisfied: "매우 만족",
+      allFieldsRequired: "모든 항목에 대해 평가를 선택해주세요.",
+      submitError: "평가 제출 중 오류가 발생했습니다.",
+      notFound: "모임을 찾을 수 없습니다.",
     },
   },
   [Language.japanese]: {
@@ -507,8 +421,6 @@ export const menu: Record<Language, Translation> = {
       date: "集まりの日付",
       settle: "精算する",
       end: "集まりを終了",
-      settlementWaiting: "精算待機中",
-      joinSettlement: "精算に参加する",
       placeholder: "メッセージを入力してください...",
       me: "自分",
       newMessage: "新しいメッセージ ↓",
@@ -531,6 +443,7 @@ export const menu: Record<Language, Translation> = {
       loadingParties: "集まりを読み込んでいます...",
       shoppingDate: "買い物日",
       recruiting: "募集中",
+      settling: "精算中",
       closed: "終了",
       anonymous: "匿名",
       nowRecruiting: "今すぐ参加可能な集まり",
@@ -570,7 +483,6 @@ export const menu: Record<Language, Translation> = {
       storePlaceholder: "マート名を検索してください",
       storeEmpty: "マートを検索して選択してください。",
       submit: "集まりを登録する",
-      submitSuccess: "集まりが登録されました！",
     },
     partyDetail: {
       meetingDate: "集まりの日付",
@@ -609,68 +521,27 @@ export const menu: Record<Language, Translation> = {
       userNotFound: "ユーザーが見つかりません。",
       userDeleteMsg: "存在しないか、削除されたユーザーです。",
     },
-    settlement: {
-      title: "精算する",
-      uploadReceipt: "レシートをアップロード",
-      writeManually: "直接入力する",
-      receiptScanning: "レシートを読み取り中...",
-      pleaseWait: "少々お待ちください",
-      purchaseItems: "購入品目",
-      addItem: "+ 品目追加",
-      addItemHint: "品目を追加してください。",
-      itemName: "品名",
-      quantity: "数量",
-      price: "価格",
-      totalPrice: "合計金額",
-      saveItems: "品目を保存",
-      startSettlement: "精算を開始する",
-      selectItems: "品目を選択",
-      selectHint: "自分が持ち帰る品目を選択してください",
-      myEstimate: "自分の予想金額",
-      submitSelection: "選択完了",
-      membersSelecting: "メンバーが選択中...",
-      confirmSettlement: "精算を確定する",
-      confirmMessage: "精算を確定しますか？確定後は変更できません。",
-      paymentStatus: "入金状況",
-      paid: "完了",
-      unpaid: "未入金",
-      confirmPayment: "入金確認",
-      perPerson: "1人当たり",
-      kakaoSettle: "カカオトークで精算",
-      kakaoNotReady: "カカオトーク精算機能は準備中です。",
-      sentMessage: "精算メッセージを送信しました！",
-      waitingHost: "ホストが品目を登録しています...",
-      waitingItems: "まだ品目がありません。",
-      notStarted: "まだ精算が開始されていません。",
-      settlementWaiting: "精算待機中",
-      joinSettlement: "精算に参加する",
-      reportMember: "未精算メンバーを報告する",
-      editSettlement: "修正する",
-      chatRoom: "チャットへ戻る",
-      quantitySuffix: "個",
-      memberSuffix: "人",
-      receiptRecognized: "レシート認識完了！{count}件の品目が自動入力されました。",
-      receiptUploaded: "レシートがアップロードされました。品目を直接入力してください。",
-      settlementCreated: "精算が作成されました。",
-      settlementCreateFail: "精算の作成に失敗しました。",
-      minItemRequired: "少なくとも1つ以上の品目を入力してください。",
-      itemsSaved: "品目を保存しました。",
-      itemsSaveFail: "品目の保存に失敗しました。",
-      settlementStarted: "精算を開始しました！メンバーに通知を送信しました。",
-      settlementStartFail: "精算の開始に失敗しました。",
-      revertedToDraft: "修正モードに切り替えました。",
-      revertFail: "修正モードへの切り替えに失敗しました。",
-      selectionSaved: "品目の選択が完了しました！",
-      selectionSaveFail: "選択の保存に失敗しました。",
-      confirmPrompt: "精算を確定しますか？確定後は変更できません。",
-      settlementConfirmed: "精算が確定しました！",
-      confirmFail: "確定に失敗しました。",
-      paymentConfirmed: "入金を確認しました。",
-      paymentConfirmFail: "入金確認に失敗しました。",
-      uploadFail: "アップロードに失敗しました。",
-      kakaoShareFail: "カカオトーク共有に失敗しました。",
-      kakaoShareTitle: "カチムラ精算",
-      kakaoShareButton: "精算を確認する",
+    review: {
+      closedMessage: "この集まりは終了しました! 一緒に参加한メンバーの評価をお送りください。",
+      goReview: "評価する",
+      reportProblem: "集まりの進行中に問題がありましたか？ 通報する",
+    },
+    reviewPage: {
+      title: "集まりのレビュー",
+      description: "に対するレビューを作成してください。",
+      question1: "集まりはスムーズに進行したと思いますか？",
+      question2: "参加者全員が時間を守ったと思いますか？",
+      question3: "費用の精算は適切に行われたと思いますか？",
+      submit: "提出する",
+      footer: "このレビューは参加者のプロフィールスコアに反映されます。",
+      success: "評価が完了しました！",
+      veryUnsatisfied: "非常に不満足",
+      unsatisfied: "不満足",
+      satisfied: "満足",
+      verySatisfied: "非常に満足",
+      allFieldsRequired: "すべての項目の評価を選択してください。",
+      submitError: "評価の提出中にエラーが発生しました。",
+      notFound: "集まりが見つかりません。",
     },
   },
 };

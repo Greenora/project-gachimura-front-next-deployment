@@ -54,9 +54,10 @@ export default function SearchbarLayout({
 
       <Footer />
 
-      {/* 플로팅 버튼 (모임 시작하기 / 채팅 목록) */}
-      <div className="fixed bottom-10 right-10 flex flex-col gap-4 z-[100]" role="complementary" aria-label="빠른 실행 메뉴">
-        <ChatListButton />
+      <ChatListButton />
+
+      {/* 플로팅 버튼 (모임 시작하기) */}
+      <div className="fixed bottom-10 right-10 z-[100]" role="complementary" aria-label="빠른 실행 메뉴">
         <CreatePartyButton />
       </div>
     </div>

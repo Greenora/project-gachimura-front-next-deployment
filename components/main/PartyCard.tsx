@@ -65,11 +65,17 @@ export default function PartyCard({ party }: PartyCardProps) {
         <div className="absolute top-3 right-3">
           <span className={`px-2.5 py-1 rounded-md text-[10px] font-black tracking-tight uppercase shadow-sm ${party.status === 'RECRUITING'
             ? 'bg-green-600 text-white'
-            : 'bg-gray-600 text-white'
+            : party.status === 'SETTLING'
+              ? 'bg-orange-500 text-white'
+              : 'bg-gray-600 text-white'
             }`}
             aria-hidden="true"
           >
-            {party.status === 'RECRUITING' ? texts.main.recruiting : texts.main.closed}
+            {party.status === 'RECRUITING'
+              ? texts.main.recruiting
+              : party.status === 'SETTLING'
+                ? texts.main.settling
+                : texts.main.closed}
           </span>
         </div>
       </div>
