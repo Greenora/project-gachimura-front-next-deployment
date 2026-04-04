@@ -172,6 +172,13 @@ interface Translation {
     submit: string;
     footer: string;
     success: string;
+    veryUnsatisfied: string;
+    unsatisfied: string;
+    satisfied: string;
+    verySatisfied: string;
+    allFieldsRequired: string;
+    submitError: string;
+    notFound: string;
   };
 }
 
@@ -348,6 +355,13 @@ export const menu: Record<Language, Translation> = {
       submit: "제출하기",
       footer: "해당 리뷰는 참여자의 프로필 점수에 반영됩니다.",
       success: "평가가 완료되었습니다!",
+      veryUnsatisfied: "매우 불만족",
+      unsatisfied: "불만족",
+      satisfied: "만족",
+      verySatisfied: "매우 만족",
+      allFieldsRequired: "모든 항목에 대해 평가를 선택해주세요.",
+      submitError: "평가 제출 중 오류가 발생했습니다.",
+      notFound: "모임을 찾을 수 없습니다.",
     },
   },
   [Language.japanese]: {
@@ -514,13 +528,20 @@ export const menu: Record<Language, Translation> = {
     },
     reviewPage: {
       title: "集まりのレビュー",
-      description: "に対するレビューを 작성해 주세요.",
+      description: "に対するレビューを作成してください。",
       question1: "集まりはスムーズに進行したと思いますか？",
       question2: "参加者全員が時間を守ったと思いますか？",
       question3: "費用の精算は適切に行われたと思いますか？",
       submit: "提出する",
       footer: "このレビューは参加者のプロフィールスコアに反映されます。",
       success: "評価が完了しました！",
+      veryUnsatisfied: "非常に不満足",
+      unsatisfied: "不満足",
+      satisfied: "満足",
+      verySatisfied: "非常に満足",
+      allFieldsRequired: "すべての項目の評価を選択してください。",
+      submitError: "評価の提出中にエラーが発生しました。",
+      notFound: "集まりが見つかりません。",
     },
   },
 };

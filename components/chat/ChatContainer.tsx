@@ -26,7 +26,27 @@ interface ChatContainerProps {
 }
 
 // 1. 개별 메시지 최적화 - 프롭스 안바뀌면 다시 안그림
-const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onReviewClick, onReportClick }: any) => {
+const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus }: any) => {
+  // 기본값 설정
+  const canReview = reviewStatus?.canReview === true;
+  const hasReviewed = reviewStatus?.hasReviewed === true;
+  
+  // 평가 완료 상태: canReview가 true이고 hasReviewed가 true일 때만
+  const isReviewCompleted = canReview && hasReviewed;
+  const isReviewDisabled = !canReview || isReviewCompleted;
+
+  const handleReviewClick = async () => {
+    if (isReviewDisabled) {
+      if (!canReview) {
+        alert("모임이 종료된 후 평가할 수 있습니다.");
+      } else if (isReviewCompleted) {
+        alert("이미 이 모임에 대한 평가를 완료했습니다.");
+      }
+      return;
+    }
+    onReviewClick();
+  };
+
   return (
     <React.Fragment>
       {msg.showDivider && (
@@ -58,20 +78,27 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
               </svg>
             </div>
             <span className="text-[15px] font-black text-green-900 text-center leading-relaxed">
-              {msg.message}
+              {isReviewCompleted ? "이미 평가를 완료했습니다" : msg.message}
             </span>
-            <button
-              onClick={onReviewClick}
-              className="mt-2 px-8 py-3.5 bg-[#33612E] text-white text-[14px] font-black rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-green-950/20"
-            >
-              {texts.goReview}
-            </button>
-            <button
-              onClick={onReportClick}
-              className="mt-1 text-[13px] font-bold text-gray-400 hover:text-red-500 underline underline-offset-4 transition-colors"
-            >
-              {texts.reportProblem}
-            </button>
+            {reviewStatus?.totalMembers > 0 && (
+              <>
+                <button
+                  onClick={handleReviewClick}
+                  disabled={isReviewDisabled}
+                  className={`mt-2 px-8 py-3.5 rounded-full text-[14px] font-black transition-all shadow-lg ${isReviewDisabled 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                    : 'bg-[#33612E] text-white hover:scale-105 active:scale-95 shadow-green-950/20'}`}
+                >
+                  {isReviewCompleted ? "평가 완료" : texts.goReview}
+                </button>
+                <button
+                  onClick={onReportClick}
+                  className="mt-1 text-[13px] font-bold text-gray-400 hover:text-red-500 underline underline-offset-4 transition-colors"
+                >
+                  {texts.reportProblem}
+                </button>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -118,7 +145,7 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
 MessageItem.displayName = "MessageItem";
 
 // 2. 메시지 리스트
-const MessageList = memo(({ messages, myId, formatMessageTime, texts, onReviewClick, onReportClick }: any) => {
+const MessageList = memo(({ messages, myId, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus }: any) => {
   return (
     <div className="max-w-4xl mx-auto p-10 space-y-10">
       {messages.map((msg: any, index: number) => (
@@ -131,6 +158,7 @@ const MessageList = memo(({ messages, myId, formatMessageTime, texts, onReviewCl
           texts={texts}
           onReviewClick={onReviewClick}
           onReportClick={onReportClick}
+          reviewStatus={reviewStatus}
         />
       ))}
     </div>
@@ -197,7 +225,7 @@ const Sidebar = memo(
                   >
                     <div
                       className="flex items-center gap-4 cursor-pointer flex-1"
-                      onClick={() => routerPush(`/profile/${member.id}`)}
+                      onClick={() => routerPush(`/user/${member.id}`)}
                     >
                       <img
                         src={member.profileImage || "/images/gachimura_logo.png"}
@@ -417,9 +445,34 @@ export default function ChatContainer({
   const [currentParty, setCurrentParty] = useState(partyInfo);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState<any>({ hasReviewed: false, canReview: false });
 
   const router = useRouter();
   const { texts } = useLanguage();
+
+  // 평가 여부 확인
+  useEffect(() => {
+    async function checkReviewStatus() {
+      try {
+        const status = await clientFetch(`/reviews/check/${partyId}`);
+        console.log(`파티 ${partyId} 평가 상태:`, status);
+        // canReview 필드가 없으면 기본값 설정
+        const safeStatus = {
+          hasReviewed: status?.hasReviewed === true,
+          canReview: status?.canReview === true,
+          reviewCount: status?.reviewCount ?? 0,
+          totalMembers: status?.totalMembers ?? 0,
+        };
+        console.log(`파티 ${partyId} 안전한 상태:`, safeStatus);
+        setReviewStatus(safeStatus);
+      } catch (error) {
+        // 에러 발생 시 기본값으로 설정 (평가하지 않은 상태, 평가 불가능)
+        console.error(`파티 ${partyId} 평가 상태 확인 실패:`, error);
+        setReviewStatus({ hasReviewed: false, canReview: false, reviewCount: 0, totalMembers: 0 });
+      }
+    }
+    if (partyId) checkReviewStatus();
+  }, [partyId]);
 
   // props로 받은 currentUser 정보를 바로 사용
   const { messages: realTimeMessages, sendMessage } = useChat(
@@ -602,6 +655,7 @@ export default function ChatContainer({
           texts={{ ...texts.chat, ...texts.review }}
           onReviewClick={() => router.push(`/party/${partyId}/review`)}
           onReportClick={() => alert("신고 페이지는 현재 준비 중입니다.")}
+          reviewStatus={reviewStatus}
         />
 
         {/* 최신 메세지로 스크롤 버튼 */}
