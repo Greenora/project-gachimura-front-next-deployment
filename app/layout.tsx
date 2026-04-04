@@ -49,22 +49,17 @@ export default async function RootLayout({
   return (
     //suppressHydrationWarning: 브라우저 환경 간섭 제거
     <html lang={validLang} suppressHydrationWarning>
+      <head>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_JS_KEY}&libraries=services&autoload=false`}></script>
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <LanguageProvider texts={texts} lang={validLang}>
           <Toaster position="top-center" reverseOrder={false} />
           {children}
         </LanguageProvider>
-
-        <Script
-          src="https://developers.kakao.com/sdk/js/kakao.min.js"
-          strategy="beforeInteractive"
-        />
-
-        <Script
-          src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_JS_KEY}&libraries=services&autoload=false`}
-          strategy="beforeInteractive"
-        />
-
       </body>
     </html>
   );

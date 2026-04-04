@@ -7,7 +7,7 @@ export default function CreatePartyButton() {
   const { texts } = useLanguage();
 
   return (
-    <div className="fixed bottom-10 right-10 z-[100]">
+    <div className="relative">
       <Link
         href="/create-party"
         aria-label={texts.main.startParty}

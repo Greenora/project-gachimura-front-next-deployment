@@ -8,7 +8,7 @@ export interface ChatPayload {
   message: string;
   nickname: string;
   profileImage?: string | null;
-  messageType?: "TALK" | "SYSTEM";
+  messageType?: "TALK" | "SYSTEM" | "SYSTEM_REVIEW";
   createdAt?: string;
 }
 
