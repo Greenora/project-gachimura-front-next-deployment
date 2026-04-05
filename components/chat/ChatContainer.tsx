@@ -663,7 +663,8 @@ export default function ChatContainer({
     const deduped = merged.filter((msg) => {
       const normalizedType = msg.messageType ?? "TALK";
       const normalizedTimestamp = msg.createdAt ? String(new Date(msg.createdAt).getTime()) : "";
-      const key = `${normalizedTimestamp}|${msg.userId ?? ""}|${normalizedType}|${msg.message}`;
+      const normalizedUserId = msg.userId ?? 0;
+      const key = `${normalizedTimestamp}|${normalizedUserId}|${normalizedType}|${msg.message}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

@@ -19,7 +19,8 @@ export function useChat(userId: number, nickname: string, partyId: number, profi
   const buildMessageKey = (payload: ChatPayload) => {
     const normalizedType = payload.messageType ?? "TALK";
     const normalizedTimestamp = payload.createdAt ? String(new Date(payload.createdAt).getTime()) : "";
-    return `${normalizedTimestamp}|${payload.userId}|${normalizedType}|${payload.message}`;
+    const normalizedUserId = payload.userId ?? 0;
+    return `${normalizedTimestamp}|${normalizedUserId}|${normalizedType}|${payload.message}`;
   };
 
   useEffect(() => {

@@ -33,7 +33,7 @@ async function getChatData(partyId: number, token?: string) {
     ]);
 
     const formattedMessages = messages.map((m: any) => ({
-      userId: m.senderId,
+      userId: m.senderId ?? 0,
       nickname: m.sender?.nickname || "알 수 없음",
       nickname_jp: m.sender?.nickname_jp,
       profileImage: m.sender?.profileImage,
