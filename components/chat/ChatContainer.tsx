@@ -45,9 +45,9 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
   const handleReviewClick = async () => {
     if (isReviewDisabled) {
       if (!canReview) {
-        alert("모임이 종료된 후 평가할 수 있습니다.");
+        alert(texts.reviewUnavailable);
       } else if (isReviewCompleted) {
-        alert("이미 이 모임에 대한 평가를 완료했습니다.");
+        alert(texts.reviewAlreadyDone);
       }
       return;
     }
@@ -85,7 +85,7 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
               </svg>
             </div>
             <span className="text-[15px] font-black text-green-900 text-center leading-relaxed">
-              {isReviewCompleted ? "이미 평가를 완료했습니다" : msg.message}
+              {isReviewCompleted ? texts.reviewAlreadyDone : msg.message}
             </span>
             {reviewStatus?.totalMembers > 0 && (
               <>
@@ -96,7 +96,7 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                     : 'bg-[#33612E] text-white hover:scale-105 active:scale-95 shadow-green-950/20'}`}
                 >
-                  {isReviewCompleted ? "평가 완료" : texts.goReview}
+                  {isReviewCompleted ? texts.reviewDone : texts.goReview}
                 </button>
                 <button
                   onClick={onReportClick}
@@ -381,19 +381,19 @@ const ChatHeader = memo(({ isHost, canOpenSettlement, isNavigatingSettlement, pa
                 : "border border-gray-100 bg-white text-gray-300 cursor-not-allowed"
                 }`}
               title={canOpenSettlement
-                ? "정산 페이지로 이동합니다"
-                : "호스트가 정산을 시작하면 활성화됩니다"}
+                ? texts.chat.settlementGoTitle
+                : texts.chat.settlementWaitTitle}
             >
               {isNavigatingSettlement
                 ? (
                   <span className="inline-flex items-center gap-2">
                     <span className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    {texts.auth.loading || "이동 중..."}
+                    {texts.chat.moving}
                   </span>
                 )
                 : canOpenSettlement
-                ? (texts.chat.joinSettlement || "정산 참여하기")
-                : (texts.chat.settlementWaiting || "정산 대기중")}
+                ? texts.chat.joinSettlement
+                : texts.chat.settlementWaiting}
             </button>
           )}
 
@@ -410,7 +410,7 @@ const ChatHeader = memo(({ isHost, canOpenSettlement, isNavigatingSettlement, pa
               {isNavigatingSettlement ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  {texts.auth.loading || "이동 중..."}
+                  {texts.chat.moving}
                 </span>
               ) : texts.chat.settle}
             </button>
@@ -435,7 +435,17 @@ ChatHeader.displayName = "ChatHeader";
 
 // 5. 입력창 (상태 격리 - 타이핑 시 부모 전체 리렌더링 방지용)
 const ChatInputArea = memo(
-  ({ onSendMessage, placeholder, isDisabled }: { onSendMessage: (msg: string) => void; placeholder: string; isDisabled?: boolean }) => {
+  ({
+    onSendMessage,
+    placeholder,
+    isDisabled,
+    disabledPlaceholder,
+  }: {
+    onSendMessage: (msg: string) => void;
+    placeholder: string;
+    isDisabled?: boolean;
+    disabledPlaceholder: string;
+  }) => {
     const [input, setInput] = useState("");
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -456,7 +466,7 @@ const ChatInputArea = memo(
                 ? "cursor-not-allowed text-gray-400"
                 : "focus:border-[#33612E] focus:bg-white"
                 }`}
-              placeholder={isDisabled ? "종료된 모임입니다." : placeholder}
+              placeholder={isDisabled ? disabledPlaceholder : placeholder}
             />
             <button
               type="submit"
@@ -500,9 +510,9 @@ export default function ChatContainer({
   const getLocalizedNickname = useCallback(
     (nicknameKo?: string, nicknameJp?: string) =>
       lang === Language.japanese
-        ? (nicknameJp || nicknameKo || "알 수 없음")
-        : (nicknameKo || nicknameJp || "알 수 없음"),
-    [lang]
+        ? (nicknameJp || nicknameKo || texts.chat.unknownNickname)
+        : (nicknameKo || nicknameJp || texts.chat.unknownNickname),
+    [lang, texts.chat.unknownNickname]
   );
 
   const resolveNickname = useCallback(
@@ -523,6 +533,50 @@ export default function ChatContainer({
 
   const renderSystemMessage = useCallback(
     (rawMessage: string) => {
+      const formatAmount = (value: number) => {
+        const unit = lang === Language.japanese ? "円" : "원";
+        return `${value.toLocaleString()}${unit}`;
+      };
+
+      const formatConfirmedMessage = (total: number, details: Array<{ userId: number; amount: number }>) => {
+        const summary = `${texts.chat.systemSettlementConfirmedTitle} ${texts.chat.systemSettlementTotalLabel}: ${formatAmount(total)}`;
+
+        if (!details.length) {
+          return summary;
+        }
+
+        const detailText = details
+          .map(({ userId, amount }) => {
+            const member = members.find((m: any) => m.id === userId);
+            const nickname = member
+              ? getLocalizedNickname(member.nickname, member.nickname_jp)
+              : texts.chat.unknownNickname;
+
+            return texts.chat.systemSettlementPerMemberTemplate
+              .replace("{nickname}", nickname)
+              .replace("{amount}", formatAmount(amount));
+          })
+          .join(", ");
+
+        return `${summary} · ${detailText}`;
+      };
+
+      if (rawMessage === '📋 정산이 시작되었습니다! 정산 페이지에서 본인이 구매한 품목을 선택해주세요.') {
+        return texts.chat.systemSettlementStart;
+      }
+      if (rawMessage === '✏️ 호스트가 품목을 수정 중입니다. 잠시만 기다려주세요.') {
+        return texts.chat.systemSettlementEditing;
+      }
+      if (rawMessage === '✅ 품목 수정이 완료되었습니다! 정산 페이지에서 본인이 구매한 품목을 선택해주세요.') {
+        return texts.chat.systemSettlementResumed;
+      }
+
+      const confirmedLegacyMatch = rawMessage.match(/^💰\s*정산이 확정되었습니다!\s*총 금액:\s*([\d,]+)원/);
+      if (confirmedLegacyMatch) {
+        const total = Number(confirmedLegacyMatch[1].replace(/,/g, "")) || 0;
+        return formatConfirmedMessage(total, []);
+      }
+
       const joinedLegacyMatch = rawMessage.match(/^(.*)님이 모임에 합류했습니다!?$/);
       if (joinedLegacyMatch) {
         const nickname = joinedLegacyMatch[1];
@@ -560,10 +614,37 @@ export default function ChatContainer({
       if (event === "LEAVE") {
         return texts.chat.systemLeaveTemplate.replace("{nickname}", nickname);
       }
+      if (event === "SETTLEMENT_START") {
+        return texts.chat.systemSettlementStart;
+      }
+      if (event === "SETTLEMENT_EDITING") {
+        return texts.chat.systemSettlementEditing;
+      }
+      if (event === "SETTLEMENT_RESUMED") {
+        return texts.chat.systemSettlementResumed;
+      }
+      if (event === "SETTLEMENT_CONFIRMED") {
+        const total = Number(rest[0] || "0");
+        const detailRaw = rest[1] || "";
+        const details = detailRaw
+          .split(",")
+          .map((chunk) => chunk.trim())
+          .filter(Boolean)
+          .map((chunk) => {
+            const [userIdRaw, amountRaw] = chunk.split(":");
+            return {
+              userId: Number(userIdRaw),
+              amount: Number(amountRaw),
+            };
+          })
+          .filter((row) => Number.isFinite(row.userId) && Number.isFinite(row.amount));
+
+        return formatConfirmedMessage(total, details);
+      }
 
       return rawMessage;
     },
-    [texts, getLocalizedNickname]
+    [texts, getLocalizedNickname, lang, members]
   );
 
   // 평가 여부 확인
@@ -709,7 +790,7 @@ export default function ChatContainer({
     if (isHost && currentParty?.status !== 'SETTLING' && currentParty?.status !== 'CLOSED') {
       const confirmKey = `settlement-start-confirmed:${partyId}`;
       if (!sessionStorage.getItem(confirmKey)) {
-        const ok = confirm('정산을 시작할까요?');
+        const ok = confirm(texts.chat.confirmStartSettlement);
         if (!ok) return;
         sessionStorage.setItem(confirmKey, '1');
       }
@@ -730,12 +811,12 @@ export default function ChatContainer({
     }).catch((error) => {
       console.error('정산 상태 변경 실패:', error);
     });
-  }, [isNavigatingSettlement, isHost, currentParty?.status, partyId, router]);
+  }, [isNavigatingSettlement, isHost, currentParty?.status, partyId, router, texts.chat.confirmStartSettlement]);
   const canOpenSettlement = Boolean(currentUser.id === hostId || (settlementInfo && settlementInfo.status !== "DRAFT"));
 
   const handleUpdateStatus = useCallback(
     async (newStatus: string) => {
-      if (newStatus === 'CLOSED' && !confirm('모임이 종료되었나요?')) return;
+      if (newStatus === 'CLOSED' && !confirm(texts.chat.confirmCloseParty)) return;
 
       try {
         const result = await clientFetch(`/parties/${partyId}/status`, {
@@ -746,10 +827,10 @@ export default function ChatContainer({
           setCurrentParty((prev: any) => (prev ? { ...prev, status: newStatus } : null));
         }
       } catch (error: any) {
-        alert(error.message || '상태 변경 처리 중 오류가 발생했습니다.');
+        alert(error.message || texts.chat.statusUpdateError);
       }
     },
-    [partyId]
+    [partyId, texts.chat.confirmCloseParty, texts.chat.statusUpdateError]
   );
 
   const handleKick = useCallback(
@@ -759,10 +840,10 @@ export default function ChatContainer({
         const result = await clientFetch(`/party-members/${partyId}/${targetId}`, { method: 'DELETE' });
         if (result.success) setMembers((prev) => prev.filter((m) => m.id !== targetId));
       } catch (error: any) {
-        alert(error.message || '오류 발생');
+        alert(error.message || texts.chat.genericError);
       }
     },
-    [partyId, texts?.chat?.kickConfirm]
+    [partyId, texts.chat.kickConfirm, texts.chat.genericError]
   );
 
   const handleApprove = useCallback(
@@ -772,10 +853,10 @@ export default function ChatContainer({
         alert(`${nickname}${texts.chat.approveSuccess}`);
         setMembers((prev) => prev.map((m) => (m.id === targetId ? { ...m, status: 'APPROVED' } : m)));
       } catch (error: any) {
-        alert(error.message || '실패');
+        alert(error.message || texts.chat.genericFail);
       }
     },
-    [partyId, texts?.chat?.approveSuccess]
+    [partyId, texts.chat.approveSuccess, texts.chat.genericFail]
   );
 
   const handleReject = useCallback(
@@ -786,10 +867,10 @@ export default function ChatContainer({
         alert(texts.chat.rejectSuccess);
         setMembers((prev) => prev.filter((m) => m.id !== targetId));
       } catch (error: any) {
-        alert(error.message || '실패');
+        alert(error.message || texts.chat.genericFail);
       }
     },
-    [partyId, texts?.chat?.rejectConfirm, texts?.chat?.rejectSuccess]
+    [partyId, texts.chat.rejectConfirm, texts.chat.rejectSuccess, texts.chat.genericFail]
   );
 
   return (
@@ -839,7 +920,7 @@ export default function ChatContainer({
           texts={{ ...texts.chat, ...texts.review }}
           resolveNickname={resolveNickname}
           onReviewClick={() => router.push(`/party/${partyId}/review`)}
-          onReportClick={() => alert("신고 페이지는 현재 준비 중입니다.")}
+          onReportClick={() => alert(texts.chat.reportComingSoon)}
           reviewStatus={reviewStatus}
           renderSystemMessage={renderSystemMessage}
         />
@@ -862,6 +943,7 @@ export default function ChatContainer({
         onSendMessage={handleSendMessage}
         placeholder={texts.chat.placeholder}
         isDisabled={currentParty?.status === 'CLOSED'}
+        disabledPlaceholder={texts.chat.closedPartyPlaceholder}
       />
     </div>
   );

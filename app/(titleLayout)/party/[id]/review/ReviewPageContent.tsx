@@ -51,7 +51,7 @@ export default function ReviewPageContent({ partyId }: ReviewPageContentProps) {
         // 이미 평가했으면 true로 설정
         if (reviewStatus?.hasReviewed) {
           setHasAlreadyReviewed(true);
-          toast.error("이미 이 모임에 대한 평가를 완료했습니다.");
+          toast.error(texts.reviewPage.alreadyReviewed);
           setTimeout(() => router.push("/"), 1500);
         }
       } catch (error) {

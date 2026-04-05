@@ -2,8 +2,10 @@ import SettlementClient from "@/components/settlement/SettlementClient";
 import { API_CONFIG } from "@/config/api";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { Language } from "@/app/common/types";
+import { menu } from "@/app/constants/menu";
 
-async function getSettlementData(partyId: number, token: string) {
+async function getSettlementData(partyId: number, token: string, unknownNickname: string) {
   try {
     const [settlementRes, partyRes, membersRes] = await Promise.all([
       fetch(`${API_CONFIG.INTERNAL_BASE_URL}/settlements/party/${partyId}`, {
@@ -47,7 +49,7 @@ async function getSettlementData(partyId: number, token: string) {
           .filter((m: any) => m.status === "APPROVED")
           .map((m: any) => ({
             id: m.userId,
-            nickname: m.user?.nickname || "알 수 없음",
+            nickname: m.user?.nickname || unknownNickname,
             profileImage: m.user?.profileImage,
           }))
       : [];
@@ -108,15 +110,18 @@ export default async function SettlementPage({
   const { id } = await params;
   const partyId = parseInt(id, 10);
 
-  if (isNaN(partyId)) {
-    return <div className="p-8 text-center text-gray-500">유효하지 않은 모임 번호입니다.</div>;
-  }
-
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
+  const lang = (cookieStore.get("language")?.value as Language) || Language.korean;
+  const validLang = Object.values(Language).includes(lang) ? lang : Language.korean;
+  const texts = menu[validLang];
 
   if (!token) {
     redirect(`/login?callbackUrl=/settlement/${id}`);
+  }
+
+  if (isNaN(partyId)) {
+    return <div className="p-8 text-center text-gray-500">{texts.settlement.invalidPartyId}</div>;
   }
 
   const userProfile = await getUserProfile(token);
@@ -124,7 +129,7 @@ export default async function SettlementPage({
     redirect(`/login?callbackUrl=/settlement/${id}`);
   }
 
-  const { settlement, party, members } = await getSettlementData(partyId, token);
+  const { settlement, party, members } = await getSettlementData(partyId, token, texts.chat.unknownNickname);
 
   let payments: any[] = [];
   if (settlement?.id) {

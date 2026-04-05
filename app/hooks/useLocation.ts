@@ -54,7 +54,7 @@ export function useLocation() {
 
   const updateLocation = useCallback((isAuto = false) => {
     if (!navigator.geolocation) {
-      const errorMsg = "이 브라우저에서는 위치 정보를 사용할 수 없습니다.";
+      const errorMsg = texts.main.locationError;
       setLocation(prev => ({ ...prev, isLoading: false, error: errorMsg }));
       if (!isAuto) toast.error(errorMsg);
       return;
@@ -158,7 +158,15 @@ export function useLocation() {
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
-  }, [syncLocationWithBackend]);
+  }, [
+    syncLocationWithBackend,
+    texts.main.locationError,
+    texts.main.locationSuccess,
+    texts.main.locationCoordsSuccess,
+    texts.main.locationPermissionDenied,
+    texts.main.locationPermissionGuide,
+    texts.main.locationTimeout,
+  ]);
 
   useEffect(() => {
     const cached = localStorage.getItem("userLocation");

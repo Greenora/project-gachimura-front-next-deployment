@@ -27,7 +27,7 @@ export default function LocationSelector() {
             <span className="animate-pulse">{texts.main.locating}</span>
           ) : (
             error ? (
-              <span className="text-red-500 text-[12px]">{texts.main.locating === "위치 찾는 중..." ? "권한 확인 필요" : "要権限"}</span>
+              <span className="text-red-500 text-[12px]">{texts.main.locationPermissionRequired}</span>
             ) : (
               `${region || texts.main.locating} · ${district || ""}`
             )

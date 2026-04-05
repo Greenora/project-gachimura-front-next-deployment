@@ -95,6 +95,10 @@ export default function SettlementClient({
   const [scanLoading, setScanLoading] = useState(false);
   const [partyData, setPartyData] = useState<PartyInfo | null>(partyInfo);
   const [isPageReady, setIsPageReady] = useState(false);
+  const startFlowLockRef = React.useRef(false);
+  const startSelectingLockRef = React.useRef(false);
+  const revertLockRef = React.useRef(false);
+  const resumedFromEditRef = React.useRef(false);
 
   React.useEffect(() => {
     const rafId = requestAnimationFrame(() => setIsPageReady(true));
@@ -189,12 +193,12 @@ export default function SettlementClient({
   );
 
   // 품목 저장
-  const handleSaveItems = useCallback(async () => {
+  const handleSaveItems = useCallback(async (showSuccessToast = true) => {
     if (!settlement) return;
     const validItems = editItems.filter((i) => i.name.trim() && i.price > 0);
     if (validItems.length === 0) {
       toast.error(settlementTexts.minItemRequired);
-      return;
+      return false;
     }
     setLoading(true);
     try {
@@ -206,9 +210,13 @@ export default function SettlementClient({
         }
       );
       setSettlement(result);
-      toast.success(settlementTexts.itemsSaved);
+      if (showSuccessToast) {
+        toast.success(settlementTexts.itemsSaved);
+      }
+      return true;
     } catch (err: any) {
       toast.error(err.message || settlementTexts.itemsSaveFail);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -216,25 +224,32 @@ export default function SettlementClient({
 
   // 정산 시작하기 (DRAFT → SELECTING)
   const handleStartSelecting = useCallback(async () => {
-    if (!settlement) return;
+    if (!settlement || startSelectingLockRef.current) return;
+    startSelectingLockRef.current = true;
     setLoading(true);
     try {
       const result = await clientFetch<Settlement>(
         `/settlements/${settlement.id}/start`,
-        { method: "PATCH" }
+        {
+          method: "PATCH",
+          body: { resumedFromEdit: resumedFromEditRef.current },
+        }
       );
       setSettlement(result);
       toast.success(settlementTexts.settlementStarted);
+      resumedFromEditRef.current = false;
     } catch (err: any) {
       toast.error(err.message || settlementTexts.settlementStartFail);
     } finally {
       setLoading(false);
+      startSelectingLockRef.current = false;
     }
   }, [settlement, settlementTexts]);
 
   // 수정하기 (SELECTING → DRAFT 되돌리기)
   const handleRevertToDraft = useCallback(async () => {
-    if (!settlement) return;
+    if (!settlement || revertLockRef.current) return;
+    revertLockRef.current = true;
     setLoading(true);
     try {
       const result = await clientFetch<Settlement>(
@@ -250,13 +265,27 @@ export default function SettlementClient({
           quantity: i.quantity,
         })) || []
       );
+      resumedFromEditRef.current = true;
       toast.success(settlementTexts.revertedToDraft);
     } catch (err: any) {
       toast.error(err.message || settlementTexts.revertFail);
     } finally {
       setLoading(false);
+      revertLockRef.current = false;
     }
   }, [settlement, settlementTexts]);
+
+  const handleSaveAndStart = useCallback(async () => {
+    if (startFlowLockRef.current) return;
+    startFlowLockRef.current = true;
+    try {
+      const saved = await handleSaveItems(false);
+      if (!saved) return;
+      await handleStartSelecting();
+    } finally {
+      startFlowLockRef.current = false;
+    }
+  }, [handleSaveItems, handleStartSelecting]);
 
   // 게스트: 품목 선택/해제
   const handleToggleItem = useCallback((itemId: number) => {
@@ -623,17 +652,16 @@ export default function SettlementClient({
           {/* 버튼 영역 */}
           <div className="flex gap-3 mt-8">
             <button
-              onClick={handleSaveItems}
+              onClick={() => {
+                void handleSaveItems();
+              }}
               disabled={loading || editItems.length === 0}
               className="flex-1 py-3 rounded-full font-bold text-[#33612E] border-2 border-[#33612E] hover:bg-[#33612E]/5 transition-all disabled:opacity-50"
             >
               {texts.settlement.saveItems}
             </button>
             <button
-              onClick={async () => {
-                await handleSaveItems();
-                await handleStartSelecting();
-              }}
+              onClick={handleSaveAndStart}
               disabled={loading || editItems.length === 0}
               className="flex-1 py-3 rounded-full font-bold text-white bg-[#33612E] hover:bg-[#2a5025] transition-all disabled:opacity-50"
             >

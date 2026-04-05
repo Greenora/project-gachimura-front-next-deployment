@@ -8,16 +8,24 @@ import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import LocationSelector from "@/components/main/LocationSelector";
 import CreatePartyButton from "@/components/main/CreatePartyButton";
 import ChatListButton from "@/components/main/ChatListButton";
+import { cookies } from "next/headers";
+import { Language } from "@/app/common/types";
+import { menu } from "@/app/constants/menu";
 
-export default function SearchbarLayout({
+export default async function SearchbarLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get("language")?.value as Language) || Language.korean;
+  const validLang = Object.values(Language).includes(lang) ? lang : Language.korean;
+  const texts = menu[validLang];
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50/30">
       {/* 1단: 유저 탑 바 (가장 위) - 높이 60px로 조정 */}
-      <div className="bg-white border-b border-gray-50 h-[60px] px-8 hidden sm:block" role="toolbar" aria-label="개인 설정">
+      <div className="bg-white border-b border-gray-50 h-[60px] px-8 hidden sm:block" role="toolbar" aria-label={texts.main.personalSettingsAria}>
         <div className="max-w-7xl mx-auto h-full flex items-center justify-end gap-6">
           <LanguageSwitcher />
           <div className="w-[1px] h-3 bg-gray-200" />
@@ -57,7 +65,7 @@ export default function SearchbarLayout({
       <ChatListButton />
 
       {/* 플로팅 버튼 (모임 시작하기) */}
-      <div className="fixed bottom-10 right-10 z-[100]" role="complementary" aria-label="빠른 실행 메뉴">
+      <div className="fixed bottom-10 right-10 z-[100]" role="complementary" aria-label={texts.main.quickActionsAria}>
         <CreatePartyButton />
       </div>
     </div>
