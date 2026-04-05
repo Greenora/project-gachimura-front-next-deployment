@@ -8,6 +8,15 @@ import { Language } from "@/app/common/types";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
 
+type LineLoginResponse = {
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    nickname: string;
+    nickname_jp?: string;
+  };
+};
+
 // LINE OAuth 콜백 컴포넌트 (인가 코드 받아서 백엔드로 전송)
 export default function LineCallback() {
   const router = useRouter();
@@ -41,7 +50,7 @@ export default function LineCallback() {
     }
     const langCode = currentLang === Language.japanese ? 'jp' : 'ko';
     
-    const redirectUri = window.location.origin + "/line/callback";
+    const redirectUri = `${window.location.origin}/line/callback`;
 
     // 백엔드로 인가 코드 전송 (백엔드가 LINE 서버와 토큰 교환)
     clientFetch("/auth/line", {
@@ -52,7 +61,7 @@ export default function LineCallback() {
         language: langCode // 회원가입일 경우 닉네임 생성용
       },
     })
-      .then((data: any) => {
+      .then((data: LineLoginResponse) => {
         Cookies.set("accessToken", data.accessToken, { expires: 1 });
         Cookies.set("refreshToken", data.refreshToken, { expires: 7 });
         

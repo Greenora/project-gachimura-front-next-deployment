@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { useChat, ChatPayload } from "@/app/hooks/useChat";
 import { useDateFormatter } from "@/app/hooks/useDateFormatter";
 import { useLanguage } from "@/app/hooks/LanguageContext";
+import { Language } from "@/app/common/types";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 
 interface ChatContainerProps {
   partyId: number;
   initialMessages?: ChatPayload[];
-  initialMembers?: { id: number; nickname: string; profileImage: string; status?: string }[];
+  initialMembers?: { id: number; nickname: string; nickname_jp?: string; profileImage: string; status?: string }[];
   hostId?: number | null;
   partyInfo?: {
     title: string;
@@ -21,12 +22,18 @@ interface ChatContainerProps {
   currentUser: {
     id: number;
     nickname: string;
+    nickname_jp?: string;
     profileImage?: string;
   };
 }
 
+interface SettlementInfo {
+  id: number;
+  status: string;
+}
+
 // 1. 개별 메시지 최적화 - 프롭스 안바뀌면 다시 안그림
-const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus }: any) => {
+const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus, renderSystemMessage }: any) => {
   // 기본값 설정
   const canReview = reviewStatus?.canReview === true;
   const hasReviewed = reviewStatus?.hasReviewed === true;
@@ -65,7 +72,7 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
       {msg.messageType === 'SYSTEM' ? (
         <div className="flex justify-center my-10">
           <span className="text-[13px] text-gray-400 font-semibold tracking-tight bg-gray-100/50 px-6 py-1.5 rounded-full border border-gray-100/30">
-            {msg.message}
+            {renderSystemMessage(msg.message)}
           </span>
         </div>
       ) : msg.messageType === 'SYSTEM_REVIEW' ? (
@@ -145,7 +152,7 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
 MessageItem.displayName = "MessageItem";
 
 // 2. 메시지 리스트
-const MessageList = memo(({ messages, myId, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus }: any) => {
+const MessageList = memo(({ messages, myId, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus, renderSystemMessage, resolveNickname }: any) => {
   return (
     <div className="max-w-4xl mx-auto p-10 space-y-10">
       {messages.map((msg: any, index: number) => (
@@ -153,12 +160,13 @@ const MessageList = memo(({ messages, myId, formatMessageTime, texts, onReviewCl
           key={`${msg.createdAt}-${index}`}
           msg={msg}
           isMe={msg.userId === myId}
-          nickname={msg.nickname}
+          nickname={resolveNickname(msg)}
           formatMessageTime={formatMessageTime}
           texts={texts}
           onReviewClick={onReviewClick}
           onReportClick={onReportClick}
           reviewStatus={reviewStatus}
+          renderSystemMessage={renderSystemMessage}
         />
       ))}
     </div>
@@ -168,7 +176,7 @@ MessageList.displayName = "MessageList";
 
 // 사이드바 (Lazy Rendering 적용)
 const Sidebar = memo(
-  ({ isOpen, onClose, members, myId, hostId, texts, onKick, onApprove, onReject, routerPush }: any) => {
+  ({ isOpen, onClose, members, myId, hostId, texts, onKick, onApprove, onReject, routerPush, lang }: any) => {
     // 실제 렌더링 여부를 결정하는 내부 상태 (닫을 때 애니메이션을 위해 조금 늦게 비움)
     const [shouldRenderContent, setShouldRenderContent] = useState(isOpen);
 
@@ -234,7 +242,7 @@ const Sidebar = memo(
                       />
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-gray-800 text-base">{member.nickname}</span>
+                          <span className="font-bold text-gray-800 text-base">{lang === Language.japanese ? (member.nickname_jp || member.nickname) : member.nickname}</span>
                           {member.id === hostId && (
                             <span className="w-3.5 h-3.5 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center">
                               <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
@@ -250,7 +258,7 @@ const Sidebar = memo(
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onKick(member.id, member.nickname);
+                          onKick(member.id, lang === Language.japanese ? (member.nickname_jp || member.nickname) : member.nickname);
                         }}
                         className="px-2 py-1 text-[10px] font-bold text-gray-400 border border-gray-50 rounded-md hover:bg-red-50 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
                       >
@@ -275,13 +283,13 @@ const Sidebar = memo(
                             className={`w-10 h-10 rounded-full opacity-60 ${!member.profileImage ? "object-contain p-1.5 bg-gray-50/30" : "object-cover"}`}
                             alt=""
                           />
-                          <span className="font-bold text-gray-400 text-[14px]">{member.nickname}</span>
+                          <span className="font-bold text-gray-400 text-[14px]">{lang === Language.japanese ? (member.nickname_jp || member.nickname) : member.nickname}</span>
                         </div>
                         <div className="flex gap-1.5">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onApprove(member.id, member.nickname);
+                              onApprove(member.id, lang === Language.japanese ? (member.nickname_jp || member.nickname) : member.nickname);
                             }}
                             className="px-2 py-1 text-[11px] font-black bg-[#33612E] text-white rounded-md"
                           >
@@ -290,7 +298,7 @@ const Sidebar = memo(
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onReject(member.id, member.nickname);
+                              onReject(member.id, lang === Language.japanese ? (member.nickname_jp || member.nickname) : member.nickname);
                             }}
                             className="px-2 py-1 text-[11px] font-black border border-gray-200 text-gray-400 rounded-md"
                           >
@@ -314,14 +322,17 @@ Sidebar.displayName = "Sidebar";
 // 4. 헤더
 interface ChatHeaderProps {
   isHost: boolean;
+  canOpenSettlement: boolean;
+  isNavigatingSettlement: boolean;
   partyInfo: any;
   texts: any;
   formatFullDate: (date: any) => string;
   onOpenSidebar: () => void;
+  onSettle: () => void;
   onUpdateStatus: (status: string) => void;
 }
 
-const ChatHeader = memo(({ isHost, partyInfo, texts, formatFullDate, onOpenSidebar, onUpdateStatus }: ChatHeaderProps) => {
+const ChatHeader = memo(({ isHost, canOpenSettlement, isNavigatingSettlement, partyInfo, texts, formatFullDate, onOpenSidebar, onSettle, onUpdateStatus }: ChatHeaderProps) => {
   return (
     <header className="px-8 py-5 border-b border-gray-50 bg-white shadow-sm shrink-0 z-20">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -360,28 +371,62 @@ const ChatHeader = memo(({ isHost, partyInfo, texts, formatFullDate, onOpenSideb
           </div>
         </div>
 
-        {isHost && (
-          <div className="flex gap-2">
+        <div className="flex gap-2">
+          {!isHost && (
             <button
-              onClick={() => onUpdateStatus('SETTLING')}
+              onClick={onSettle}
+              disabled={!canOpenSettlement || isNavigatingSettlement}
+              className={`min-w-[124px] px-5 py-2 text-[13px] font-black rounded-xl transition-all font-sans ${canOpenSettlement && !isNavigatingSettlement
+                ? "bg-[#33612E] text-white hover:bg-[#2a5025] shadow-sm"
+                : "border border-gray-100 bg-white text-gray-300 cursor-not-allowed"
+                }`}
+              title={canOpenSettlement
+                ? "정산 페이지로 이동합니다"
+                : "호스트가 정산을 시작하면 활성화됩니다"}
+            >
+              {isNavigatingSettlement
+                ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    {texts.auth.loading || "이동 중..."}
+                  </span>
+                )
+                : canOpenSettlement
+                ? (texts.chat.joinSettlement || "정산 참여하기")
+                : (texts.chat.settlementWaiting || "정산 대기중")}
+            </button>
+          )}
+
+          {isHost && (
+            <>
+            <button
+              onClick={onSettle}
+              disabled={isNavigatingSettlement}
               className={`px-5 py-2 text-[13px] font-black border rounded-xl transition-all font-sans ${partyInfo?.status === 'SETTLING'
                 ? 'bg-orange-50 border-orange-200 text-orange-600'
                 : 'border-gray-100 hover:bg-gray-50 text-gray-700'
                 }`}
             >
-              {texts.chat.settle}
+              {isNavigatingSettlement ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  {texts.auth.loading || "이동 중..."}
+                </span>
+              ) : texts.chat.settle}
             </button>
             <button
               onClick={() => onUpdateStatus('CLOSED')}
+              disabled={partyInfo?.status === 'CLOSED'}
               className={`px-5 py-2 text-[13px] font-black border rounded-xl transition-all font-sans ${partyInfo?.status === 'CLOSED'
-                ? 'bg-gray-100 border-gray-200 text-gray-600'
+                ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
                 : 'border-gray-100 hover:bg-gray-50 text-gray-700'
                 }`}
             >
               {texts.chat.end}
             </button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -445,10 +490,81 @@ export default function ChatContainer({
   const [currentParty, setCurrentParty] = useState(partyInfo);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isNavigatingSettlement, setIsNavigatingSettlement] = useState(false);
+  const [settlementInfo, setSettlementInfo] = useState<SettlementInfo | null>(null);
   const [reviewStatus, setReviewStatus] = useState<any>({ hasReviewed: false, canReview: false });
 
   const router = useRouter();
-  const { texts } = useLanguage();
+  const { texts, lang } = useLanguage();
+
+  const getLocalizedNickname = useCallback(
+    (nicknameKo?: string, nicknameJp?: string) =>
+      lang === Language.japanese
+        ? (nicknameJp || nicknameKo || "알 수 없음")
+        : (nicknameKo || nicknameJp || "알 수 없음"),
+    [lang]
+  );
+
+  const resolveNickname = useCallback(
+    (msg: any) => {
+      if (msg.userId === currentUser.id) {
+        return getLocalizedNickname(currentUser.nickname, currentUser.nickname_jp);
+      }
+
+      const member = members.find((m: any) => m.id === msg.userId);
+      if (member) {
+        return getLocalizedNickname(member.nickname, member.nickname_jp);
+      }
+
+      return getLocalizedNickname(msg.nickname, msg.nickname_jp);
+    },
+    [members, currentUser.id, currentUser.nickname, currentUser.nickname_jp, getLocalizedNickname]
+  );
+
+  const renderSystemMessage = useCallback(
+    (rawMessage: string) => {
+      const joinedLegacyMatch = rawMessage.match(/^(.*)님이 모임에 합류했습니다!?$/);
+      if (joinedLegacyMatch) {
+        const nickname = joinedLegacyMatch[1];
+        return texts.chat.systemJoinTemplate.replace("{nickname}", nickname);
+      }
+
+      const leftLegacyMatch = rawMessage.match(/^(.*)님이 모임[를을] 떠났습니다\.$/);
+      if (leftLegacyMatch) {
+        const nickname = leftLegacyMatch[1];
+        return texts.chat.systemLeaveTemplate.replace("{nickname}", nickname);
+      }
+
+      if (!rawMessage || !rawMessage.startsWith("__SYS__|")) {
+        return rawMessage;
+      }
+
+      const [, event, ...rest] = rawMessage.split("|");
+
+      const decodeSafe = (value?: string) => {
+        if (!value) return "";
+        try {
+          return decodeURIComponent(value);
+        } catch {
+          return value;
+        }
+      };
+
+      const nicknameKo = decodeSafe(rest[0]);
+      const nicknameJp = decodeSafe(rest[1]);
+      const nickname = getLocalizedNickname(nicknameKo, nicknameJp);
+
+      if (event === "JOIN") {
+        return texts.chat.systemJoinTemplate.replace("{nickname}", nickname);
+      }
+      if (event === "LEAVE") {
+        return texts.chat.systemLeaveTemplate.replace("{nickname}", nickname);
+      }
+
+      return rawMessage;
+    },
+    [texts, getLocalizedNickname]
+  );
 
   // 평가 여부 확인
   useEffect(() => {
@@ -477,7 +593,7 @@ export default function ChatContainer({
   // props로 받은 currentUser 정보를 바로 사용
   const { messages: realTimeMessages, sendMessage } = useChat(
     currentUser.id,
-    currentUser.nickname,
+    getLocalizedNickname(currentUser.nickname, currentUser.nickname_jp),
     partyId,
     currentUser.profileImage
   );
@@ -490,6 +606,31 @@ export default function ChatContainer({
     setMembers(initialMembers);
     setCurrentParty(partyInfo);
   }, [initialMembers, partyInfo]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchSettlementInfo = async () => {
+      try {
+        const data = await clientFetch<SettlementInfo | null>(`/settlements/party/${partyId}`);
+        if (!cancelled) {
+          setSettlementInfo(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setSettlementInfo(null);
+        }
+      }
+    };
+
+    fetchSettlementInfo();
+    const interval = setInterval(fetchSettlementInfo, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [partyId]);
 
   // 자동 스크롤 하단 고정 로직
   useEffect(() => {
@@ -518,8 +659,17 @@ export default function ChatContainer({
   // 메시지 날짜 연산 최적화 (렌더링 중 계산 방지)
   const processedMessages = useMemo(() => {
     const merged = [...initialMessages, ...realTimeMessages];
+    const seen = new Set<string>();
+    const deduped = merged.filter((msg) => {
+      const normalizedType = msg.messageType ?? "TALK";
+      const normalizedTimestamp = msg.createdAt ? String(new Date(msg.createdAt).getTime()) : "";
+      const key = `${normalizedTimestamp}|${msg.userId ?? ""}|${normalizedType}|${msg.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     let lastDate = "";
-    const list = merged.map((msg) => {
+    const list = deduped.map((msg) => {
       const currentDate = msg.createdAt ? new Date(msg.createdAt).toLocaleDateString("ko-KR") : "";
       const showDivider = currentDate !== lastDate;
       lastDate = currentDate;
@@ -544,17 +694,47 @@ export default function ChatContainer({
     }
 
     return list;
-  }, [initialMessages, realTimeMessages, formatDividerDate, currentParty?.status, texts]);
+  }, [initialMessages, realTimeMessages, formatDividerDate, currentParty?.status, texts, partyId]);
 
   // 핸들러들 useCallback으로 고정
   const handleSendMessage = useCallback((msg: string) => sendMessage(msg), [sendMessage]);
   const handleOpenDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const handleCloseDrawer = useCallback(() => setIsDrawerOpen(false), []);
+  const isHost = currentUser.id === hostId;
+  const handleSettle = useCallback(() => {
+    if (isNavigatingSettlement) return;
+
+    // 호스트가 정산을 처음 시작할 때만 1회 확인
+    if (isHost && currentParty?.status !== 'SETTLING' && currentParty?.status !== 'CLOSED') {
+      const confirmKey = `settlement-start-confirmed:${partyId}`;
+      if (!sessionStorage.getItem(confirmKey)) {
+        const ok = confirm('정산을 시작할까요?');
+        if (!ok) return;
+        sessionStorage.setItem(confirmKey, '1');
+      }
+    }
+
+    setIsNavigatingSettlement(true);
+
+    // UX 우선: 먼저 정산 페이지로 이동하고, 상태 변경은 백그라운드로 시도
+    router.push(`/settlement/${partyId}`);
+
+    if (!isHost || currentParty?.status === 'SETTLING' || currentParty?.status === 'CLOSED') {
+      return;
+    }
+
+    void clientFetch(`/parties/${partyId}/status`, {
+      method: 'PATCH',
+      body: { status: 'SETTLING' },
+    }).catch((error) => {
+      console.error('정산 상태 변경 실패:', error);
+    });
+  }, [isNavigatingSettlement, isHost, currentParty?.status, partyId, router]);
+  const canOpenSettlement = Boolean(currentUser.id === hostId || (settlementInfo && settlementInfo.status !== "DRAFT"));
 
   const handleUpdateStatus = useCallback(
     async (newStatus: string) => {
-      const confirmMsg = newStatus === 'SETTLING' ? '정산 상태로 변경하시겠습니까?' : '모임이 종료되었나요?';
-      if (!confirm(confirmMsg)) return;
+      if (newStatus === 'CLOSED' && !confirm('모임이 종료되었나요?')) return;
 
       try {
         const result = await clientFetch(`/parties/${partyId}/status`, {
@@ -563,7 +743,6 @@ export default function ChatContainer({
         });
         if (result) {
           setCurrentParty((prev: any) => (prev ? { ...prev, status: newStatus } : null));
-          alert('상태가 변경되었습니다.');
         }
       } catch (error: any) {
         alert(error.message || '상태 변경 처리 중 오류가 발생했습니다.');
@@ -622,6 +801,7 @@ export default function ChatContainer({
         myId={currentUser.id}
         hostId={hostId}
         texts={texts}
+        lang={lang}
         onKick={handleKick}
         onApprove={handleApprove}
         onReject={handleReject}
@@ -630,11 +810,14 @@ export default function ChatContainer({
 
       {/* 2. 헤더 */}
       <ChatHeader
-        isHost={currentUser.id === hostId}
+        isHost={isHost}
+        canOpenSettlement={canOpenSettlement}
+        isNavigatingSettlement={isNavigatingSettlement}
         partyInfo={currentParty}
         texts={texts}
         formatFullDate={formatFullDate}
         onOpenSidebar={handleOpenDrawer}
+        onSettle={handleSettle}
         onUpdateStatus={handleUpdateStatus}
       />
 
@@ -653,9 +836,11 @@ export default function ChatContainer({
           myId={currentUser.id}
           formatMessageTime={formatMessageTime}
           texts={{ ...texts.chat, ...texts.review }}
+          resolveNickname={resolveNickname}
           onReviewClick={() => router.push(`/party/${partyId}/review`)}
           onReportClick={() => alert("신고 페이지는 현재 준비 중입니다.")}
           reviewStatus={reviewStatus}
+          renderSystemMessage={renderSystemMessage}
         />
 
         {/* 최신 메세지로 스크롤 버튼 */}

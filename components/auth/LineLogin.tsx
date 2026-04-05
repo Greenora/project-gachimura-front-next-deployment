@@ -15,7 +15,6 @@ export default function LineLogin({ buttonText }: Props) {
   const [isLoading, setIsLoading] = useState(false);
 
   const LINE_CLIENT_ID = process.env.NEXT_PUBLIC_LINE_CLIENT_ID;
-  const REDIRECT_URI = "http://localhost:3000/line/callback"; // LINE 콘솔 등록 URL과 일치해야 함
   
   const generateRandomString = () => Math.random().toString(36).substring(2, 15);
 
@@ -32,7 +31,9 @@ export default function LineLogin({ buttonText }: Props) {
     const state = generateRandomString();
     sessionStorage.setItem("line_auth_state", state); // CSRF 검증용
 
-    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}&scope=profile%20openid%20email`;
+    const redirectUri = `${window.location.origin}/line/callback`;
+
+    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=profile%20openid%20email`;
 
     window.location.href = lineAuthUrl;
   };
