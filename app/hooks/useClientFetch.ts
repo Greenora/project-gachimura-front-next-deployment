@@ -49,9 +49,19 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
       : JSON.stringify(body),
   });
 
-  const result = await response.json();
+  const text = await response.text();
+  const result = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
+    // 401 Unauthorized → 토큰 만료/무효 → 쿠키 정리 후 로그인으로
+    if (response.status === 401 && typeof document !== "undefined") {
+      document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      // 이미 로그인 페이지면 리다이렉트하지 않음
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
     throw new Error(result.message || `Error: ${response.status}`);
   }
 

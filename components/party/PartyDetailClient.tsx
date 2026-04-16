@@ -36,6 +36,7 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   const t = texts.partyDetail;
   const [party, setParty] = useState<PartyDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isNavigatingChat, setIsNavigatingChat] = useState(false);
 
   useEffect(() => {
     clientFetch(`/parties/${partyId}`)
@@ -48,6 +49,11 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
       .finally(() => setLoading(false));
   }, [partyId, router, t.loadingError]);
 
+  useEffect(() => {
+    if (!party?.id || !party.isAccepted) return;
+    router.prefetch(`/chat/${party.id}`);
+  }, [party?.id, party?.isAccepted, router]);
+
   const handleJoin = async () => {
     if (!party) return;
     if (party.isJoined) {
@@ -57,15 +63,29 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
     try {
       await clientFetch(`/parties/${party.id}/join`, { method: "POST" });
       toast.success(t.joinSuccess);
-      window.location.reload();
+      setParty((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          isJoined: true,
+          isAccepted: false,
+          isRejected: false,
+          currentCount: prev.currentCount + 1,
+        };
+      });
     } catch (err) {
       console.error("Join error:", err);
       toast.error(t.joinFail);
     }
   };
 
-  const handleGoToChat = () => {
+  const handleGoToChat = async () => {
     if (!party) return;
+    if (isNavigatingChat) return;
+    setIsNavigatingChat(true);
+    toast.loading(t.movingToChat, { id: "go-chat" });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    toast.dismiss("go-chat");
     router.push(`/chat/${party.id}`);
   };
 
@@ -86,7 +106,7 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   };
 
   // 버튼 상태 및 텍스트/스타일 결정
-  let buttonText = "모임 참여 신청하기";
+  let buttonText = t.joinButton;
   let buttonDisabled = false;
   let buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all bg-[#166534] hover:bg-[#14532d] active:scale-95";
   let buttonOnClick: (() => Promise<void>) | undefined = handleJoin;
@@ -97,12 +117,12 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
     buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base bg-gray-400 cursor-default";
     buttonOnClick = undefined;
   } else if (party.isAccepted) {
-    buttonText = "채팅방으로 이동하기";
-    buttonDisabled = false;
-    buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all bg-[#166534] hover:bg-[#14532d] active:scale-95";
-    buttonOnClick = async () => handleGoToChat();
+    buttonText = isNavigatingChat ? t.movingToChat : t.goToChatButton;
+    buttonDisabled = isNavigatingChat;
+    buttonClass = `flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all ${isNavigatingChat ? "bg-[#14532d] opacity-90" : "bg-[#166534] hover:bg-[#14532d] active:scale-95"}`;
+    buttonOnClick = handleGoToChat;
   } else if (party.isRejected || party.isJoined) {
-    buttonText = "이미 신청한 모임입니다";
+    buttonText = t.alreadyJoined;
     buttonDisabled = true;
     buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base bg-gray-400 cursor-default";
     buttonOnClick = undefined;

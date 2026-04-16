@@ -3,8 +3,10 @@ import { API_CONFIG } from "@/config/api";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Language } from "@/app/common/types";
+import { menu } from "@/app/constants/menu";
 
-async function getChatData(partyId: number, token?: string) {
+async function getChatData(partyId: number, token: string, unknownNickname: string) {
   try {
     const headers: Record<string, string> = {};
     if (token) {
@@ -33,8 +35,9 @@ async function getChatData(partyId: number, token?: string) {
     ]);
 
     const formattedMessages = messages.map((m: any) => ({
-      userId: m.senderId,
-      nickname: m.sender?.nickname || "알 수 없음",
+      userId: m.senderId ?? 0,
+      nickname: m.sender?.nickname || unknownNickname,
+      nickname_jp: m.sender?.nickname_jp,
       profileImage: m.sender?.profileImage,
       message: m.content,
       partyId: m.partyId,
@@ -44,7 +47,8 @@ async function getChatData(partyId: number, token?: string) {
 
     const formattedMembers = members.map((m: any) => ({
       id: m.userId,
-      nickname: m.user?.nickname || "알 수 없음",
+      nickname: m.user?.nickname || unknownNickname,
+      nickname_jp: m.user?.nickname_jp,
       profileImage: m.user?.profileImage,
       status: m.status
     }));
@@ -84,13 +88,16 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const currentPartyId = parseInt(id, 10);
 
-  if (isNaN(currentPartyId)) {
-    return <div>유효하지 않은 모임 번호입니다.</div>;
-  }
-
   // 1. 토큰 확인 및 유저 정보 가져오기
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
+  const lang = (cookieStore.get("language")?.value as Language) || Language.korean;
+  const validLang = Object.values(Language).includes(lang) ? lang : Language.korean;
+  const texts = menu[validLang];
+
+  if (isNaN(currentPartyId)) {
+    return <div>{texts.chat.invalidPartyId}</div>;
+  }
 
   if (!token) {
     redirect(`/login?callbackUrl=/chat/${id}`);
@@ -102,7 +109,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   }
 
   // 2. 채팅 데이터 가져오기 (인증 토큰 포함)
-  const { formattedMessages, formattedMembers, hostId, partyInfo } = await getChatData(currentPartyId, token);
+  const { formattedMessages, formattedMembers, hostId, partyInfo } = await getChatData(currentPartyId, token, texts.chat.unknownNickname);
 
   // 3. 멤버인지 확인 (보안 강화)
   const isMember = formattedMembers.some((m: any) => m.id === userProfile.id && m.status === 'APPROVED');
@@ -111,13 +118,13 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   if (!isMember && !isHost) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <h1 className="text-2xl font-bold">접근 권한 없음</h1>
-        <p className="text-gray-500">이 채팅방의 회원이 아닙니다. 모임에 가입 신청을 먼저 해주세요.</p>
+        <h1 className="text-2xl font-bold">{texts.chat.noAccessTitle}</h1>
+        <p className="text-gray-500">{texts.chat.noAccessDescription}</p>
         <Link
           href="/"
           className="px-6 py-2 bg-[#166534] text-white rounded-lg font-medium"
         >
-          홈으로 돌아가기
+          {texts.chat.backToHome}
         </Link>
       </div>
     );

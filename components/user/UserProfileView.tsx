@@ -54,7 +54,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
                 <span>{level.name}</span>
               </div>
               <div className="text-[12px] font-bold text-gray-400">
-                {texts.userPage.reviewsCount.replace("{count}", "0")}
+                {texts.userPage.reviewsCount.replace("{count}", String(user.reviewsCount || 0))}
               </div>
             </div>
 

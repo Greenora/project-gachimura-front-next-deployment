@@ -13,13 +13,21 @@ export default function ChatListButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    setMounted(true);
+    const match = document.cookie.match(new RegExp(`(^|;)\\s*accessToken\\s*=\\s*([^;]+)`));
+    setIsLoggedIn(!!match);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && isLoggedIn) {
       loadChats();
     }
-  }, [isOpen]);
+  }, [isOpen, isLoggedIn]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -30,6 +38,8 @@ export default function ChatListButton() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  if (!mounted || !isLoggedIn) return null;
 
   const loadChats = async () => {
     setLoading(true);
@@ -76,7 +86,7 @@ export default function ChatListButton() {
                 </div>
               ) : chats.length === 0 ? (
                 <div className="py-10 px-4 text-center text-gray-400 text-sm italic">
-                  {lang === Language.japanese ? "参加中のチャットがありません。" : "참여 중인 채팅이 없습니다."}
+                  {texts.main.noJoinedChats}
                 </div>
               ) : (
                 <div className="flex flex-col gap-1" role="list">
@@ -86,13 +96,13 @@ export default function ChatListButton() {
                       href={`/chat/${chat.id}`}
                       onClick={() => setIsOpen(false)}
                       role="listitem"
-                      aria-label={`${chat.title} 채팅방`}
+                      aria-label={`${chat.title} ${texts.main.chatRoomAriaSuffix}`}
                       className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-all group active:scale-[0.98] focus:outline-none focus:bg-gray-50"
                     >
                       <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden relative shadow-sm">
                         <Image
                           src={`https://picsum.photos/seed/${chat.id}/200/200`}
-                          alt={`${chat.title} 썸네일`}
+                          alt={`${chat.title} ${texts.main.thumbnailAltSuffix}`}
                           fill
                           className="object-cover group-hover:scale-110 transition-transform"
                         />
@@ -102,8 +112,8 @@ export default function ChatListButton() {
                           {chat.title}
                         </h4>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[11px] font-bold text-[#166534] bg-green-50 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter" aria-label="개설자">
-                            Host
+                          <span className="text-[11px] font-bold text-[#166534] bg-green-50 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter" aria-label={texts.main.hostAriaLabel}>
+                            {texts.main.hostLabel}
                           </span>
                           <p className="text-[12px] text-gray-500 truncate">
                             {getNickname(chat)}

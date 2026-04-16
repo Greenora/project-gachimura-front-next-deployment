@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // 로그인이 꼭 필요한 페이지들 목록
-const protectedRoutes = ["/chat", "/home"];
+const protectedRoutes = ["/chat", "/home", "/settlement"];
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("accessToken")?.value;

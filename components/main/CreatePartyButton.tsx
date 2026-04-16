@@ -7,9 +7,9 @@ export default function CreatePartyButton() {
   const { texts } = useLanguage();
 
   return (
-    <div className="fixed bottom-10 right-10 z-[100]">
+    <div className="relative">
       <Link
-        href="/createParty"
+        href="/create-party"
         aria-label={texts.main.startParty}
         className="flex items-center gap-2.5 px-6 py-3 bg-[#166534] hover:bg-[#14532d] shadow-2xl shadow-green-900/20 text-white rounded-full transition-all hover:scale-105 active:scale-95 group focus:outline-none focus:ring-4 focus:ring-green-100 focus:ring-offset-2"
       >

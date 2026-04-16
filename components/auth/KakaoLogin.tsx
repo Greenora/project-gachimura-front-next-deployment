@@ -16,7 +16,6 @@ export default function KakaoLogin({ buttonText }: Props) {
   const displayText = buttonText || texts.auth.kakaoLogin || "카카오로 로그인";
 
   const KAKAO_REST_API_KEY = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
-  const REDIRECT_URI = "http://localhost:3000/kakao/callback"; // 카카오 콘솔 등록 URL과 일치해야 함
 
   const handleLogin = () => {
     if (isLoading) return;
@@ -28,7 +27,9 @@ export default function KakaoLogin({ buttonText }: Props) {
       return;
     }
 
-    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code`;
+    const redirectUri = `${window.location.origin}/kakao/callback`;
+
+    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
     
     window.location.href = kakaoAuthUrl;
   };
