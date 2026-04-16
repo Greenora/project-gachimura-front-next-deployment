@@ -94,6 +94,12 @@ export default function SettlementClient({
   const [loading, setLoading] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [partyData, setPartyData] = useState<PartyInfo | null>(partyInfo);
+  const [isPageReady, setIsPageReady] = useState(false);
+
+  React.useEffect(() => {
+    const rafId = requestAnimationFrame(() => setIsPageReady(true));
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   // 서버에서 partyInfo를 못 가져왔으면 클라이언트에서 재시도
   React.useEffect(() => {
@@ -450,11 +456,21 @@ export default function SettlementClient({
     }, 0) || 0;
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8">
+    <div
+      className={`max-w-2xl mx-auto px-6 py-8 transition-all duration-200 ${
+        isPageReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+      }`}
+    >
       {/* 제목 */}
-      <h1 className="text-2xl font-black text-gray-900 text-center mb-6">
-        {texts.chat.settle}
-      </h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black text-gray-900">{texts.chat.settle}</h1>
+        <button
+          onClick={() => router.push(`/chat/${partyId}`)}
+          className="px-4 py-2 rounded-full text-sm font-bold text-[#33612E] border border-[#33612E] hover:bg-[#33612E]/5 transition-all"
+        >
+          {settlementTexts.chatRoom}
+        </button>
+      </div>
 
       {/* 모임 정보 */}
       {partyData && (

@@ -16,6 +16,13 @@ export function useChat(userId: number, nickname: string, partyId: number, profi
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<ChatPayload[]>([]);
 
+  const buildMessageKey = (payload: ChatPayload) => {
+    const normalizedType = payload.messageType ?? "TALK";
+    const normalizedTimestamp = payload.createdAt ? String(new Date(payload.createdAt).getTime()) : "";
+    const normalizedUserId = payload.userId ?? 0;
+    return `${normalizedTimestamp}|${normalizedUserId}|${normalizedType}|${payload.message}`;
+  };
+
   useEffect(() => {
     // 1. 소켓 연결
     const newSocket = io(API_CONFIG.SOCKET_URL, { transports: ["websocket"] });
@@ -30,8 +37,13 @@ export function useChat(userId: number, nickname: string, partyId: number, profi
 
     // 3. 메시지 수신 (Payload 객체로 받음)
     newSocket.on("message", (payload: ChatPayload) => {
-      // 내 방 메시지인지 확인하거나, 소켓 룸 기능을 믿고 업데이트
-      setMessages((prev) => [...prev, payload]);
+      // 중복 수신 방지: 동일 메시지 키가 있으면 추가하지 않음
+      setMessages((prev) => {
+        const nextKey = buildMessageKey(payload);
+        const isDuplicate = prev.some((msg) => buildMessageKey(msg) === nextKey);
+        if (isDuplicate) return prev;
+        return [...prev, { ...payload, messageType: payload.messageType ?? "TALK" }];
+      });
     });
 
     // 4. 에러 수신

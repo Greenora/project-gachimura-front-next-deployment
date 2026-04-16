@@ -8,6 +8,15 @@ import { Language } from "@/app/common/types";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
 
+type KakaoLoginResponse = {
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    nickname: string;
+    nickname_jp?: string;
+  };
+};
+
 export default function KakaoCallback() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,7 +36,7 @@ export default function KakaoCallback() {
     if (processedRef.current) return;
     processedRef.current = true;
 
-    let currentLang = lang;
+    let currentLang: Language | string | undefined = lang;
     if (!currentLang) {
        const cookieLang = Cookies.get("language");
        if (cookieLang) {
@@ -36,7 +45,8 @@ export default function KakaoCallback() {
     }
 
     // Enum(Language.japanese) 또는 문자열('jp') 둘 다 체크하여 안전성 확보
-    const isJapanese = currentLang === 'jp' || currentLang === Language.japanese;
+    const isJapanese =
+      currentLang === "jp" || currentLang === Language.japanese || currentLang === "japanese";
     const langCode = isJapanese ? 'jp' : 'ko';
     
     console.log("Kakao Callback 최종 전송 언어:", langCode);
@@ -44,7 +54,7 @@ export default function KakaoCallback() {
     // 카카오 REST API로 액세스 토큰 받기
     const KAKAO_REST_API_KEY = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
     const KAKAO_CLIENT_SECRET = process.env.NEXT_PUBLIC_KAKAO_CLIENT_SECRET;
-    const redirectUri = "http://localhost:3000/kakao/callback";
+    const redirectUri = `${window.location.origin}/kakao/callback`;
 
     if (!KAKAO_REST_API_KEY) {
       toast.error("카카오 클라이언트 ID가 설정되지 않았습니다");
@@ -117,7 +127,7 @@ export default function KakaoCallback() {
           },
         });
       })
-      .then((data: any) => {
+      .then((data: KakaoLoginResponse) => {
         // 성공 시 쿠키 저장 및 메인 이동
         Cookies.set("accessToken", data.accessToken, { expires: 1 });
         Cookies.set("refreshToken", data.refreshToken, { expires: 7 });
