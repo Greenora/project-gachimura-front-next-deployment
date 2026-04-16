@@ -71,7 +71,7 @@ export function useDateFormatter() {
   const formatCardDate = useCallback((dateInput: string | Date | undefined) => {
     if (!dateInput) return lang === Language.korean ? "날짜 정보 없음" : "日付情報なし";
     const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return lang === Language.korean ? "유효하지 않은 날짜" : "無効한 日付";
+    if (isNaN(date.getTime())) return lang === Language.korean ? "유효하지 않은 날짜" : "無効な日付";
 
     return getFormatter(locale, {
       year: "numeric",

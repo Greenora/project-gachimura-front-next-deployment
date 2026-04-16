@@ -18,7 +18,7 @@ export default function Logo({ className = "", showText = true, href = "/" }: Lo
       <div className="relative w-12 h-12 transition-transform group-hover:rotate-12">
         <Image
           src="/images/gachimura_logo.png"
-          alt="가치무라 로고"
+          alt={texts.home.gachimura}
           fill
           className="object-contain"
         />

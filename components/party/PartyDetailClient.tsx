@@ -106,7 +106,7 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   };
 
   // 버튼 상태 및 텍스트/스타일 결정
-  let buttonText = "모임 참여 신청하기";
+  let buttonText = t.joinButton;
   let buttonDisabled = false;
   let buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all bg-[#166534] hover:bg-[#14532d] active:scale-95";
   let buttonOnClick: (() => Promise<void>) | undefined = handleJoin;
@@ -122,7 +122,7 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
     buttonClass = `flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all ${isNavigatingChat ? "bg-[#14532d] opacity-90" : "bg-[#166534] hover:bg-[#14532d] active:scale-95"}`;
     buttonOnClick = handleGoToChat;
   } else if (party.isRejected || party.isJoined) {
-    buttonText = "이미 신청한 모임입니다";
+    buttonText = t.alreadyJoined;
     buttonDisabled = true;
     buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base bg-gray-400 cursor-default";
     buttonOnClick = undefined;

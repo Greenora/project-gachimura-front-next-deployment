@@ -69,6 +69,30 @@ interface Translation {
     rejectSuccess: string;
     systemJoinTemplate: string;
     systemLeaveTemplate: string;
+    systemSettlementStart: string;
+    systemSettlementEditing: string;
+    systemSettlementResumed: string;
+    systemSettlementConfirmedTitle: string;
+    systemSettlementTotalLabel: string;
+    systemSettlementPerMemberTemplate: string;
+    reviewUnavailable: string;
+    reviewAlreadyDone: string;
+    reviewDone: string;
+    settlementGoTitle: string;
+    settlementWaitTitle: string;
+    moving: string;
+    closedPartyPlaceholder: string;
+    unknownNickname: string;
+    confirmStartSettlement: string;
+    confirmCloseParty: string;
+    statusUpdateError: string;
+    genericError: string;
+    genericFail: string;
+    reportComingSoon: string;
+    invalidPartyId: string;
+    noAccessTitle: string;
+    noAccessDescription: string;
+    backToHome: string;
   };
   main: {
     sidebarTitle: string;
@@ -97,6 +121,14 @@ interface Translation {
     locationError: string;
     locationSuccess: string;
     locationCoordsSuccess: string;
+    noJoinedChats: string;
+    chatRoomAriaSuffix: string;
+    thumbnailAltSuffix: string;
+    hostAriaLabel: string;
+    hostLabel: string;
+    locationPermissionRequired: string;
+    personalSettingsAria: string;
+    quickActionsAria: string;
   };
   footer: {
     team: string;
@@ -186,6 +218,7 @@ interface Translation {
     allFieldsRequired: string;
     submitError: string;
     notFound: string;
+    alreadyReviewed: string;
   };
   settlement: {
     title: string;
@@ -249,6 +282,7 @@ interface Translation {
     kakaoShareFail: string;
     kakaoShareTitle: string;
     kakaoShareButton: string;
+    invalidPartyId: string;
   };
 }
 
@@ -322,6 +356,30 @@ export const menu: Record<Language, Translation> = {
       rejectSuccess: "신청을 거절 처리했습니다.",
       systemJoinTemplate: "{nickname}님이 모임에 합류했습니다!",
       systemLeaveTemplate: "{nickname}님이 모임을 떠났습니다.",
+      systemSettlementStart: "📋 정산이 시작됐어요! 정산 페이지에서 구매한 품목을 선택해주세요.",
+      systemSettlementEditing: "✏️ 호스트가 품목을 수정하고 있어요. 잠시만 기다려주세요.",
+      systemSettlementResumed: "✅ 품목 수정이 완료됐어요! 정산 페이지에서 구매한 품목을 선택해주세요.",
+      systemSettlementConfirmedTitle: "💰 정산이 확정되었습니다!",
+      systemSettlementTotalLabel: "총 금액",
+      systemSettlementPerMemberTemplate: "{nickname}: {amount}",
+      reviewUnavailable: "모임이 종료된 후 평가할 수 있습니다.",
+      reviewAlreadyDone: "이미 이 모임에 대한 평가를 완료했습니다.",
+      reviewDone: "평가 완료",
+      settlementGoTitle: "정산 페이지로 이동합니다",
+      settlementWaitTitle: "호스트가 정산을 시작하면 활성화됩니다",
+      moving: "이동 중...",
+      closedPartyPlaceholder: "종료된 모임입니다.",
+      unknownNickname: "알 수 없음",
+      confirmStartSettlement: "정산을 시작할까요?",
+      confirmCloseParty: "모임이 종료되었나요?",
+      statusUpdateError: "상태 변경 처리 중 오류가 발생했습니다.",
+      genericError: "오류 발생",
+      genericFail: "실패",
+      reportComingSoon: "신고 페이지는 현재 준비 중입니다.",
+      invalidPartyId: "유효하지 않은 모임 번호입니다.",
+      noAccessTitle: "접근 권한 없음",
+      noAccessDescription: "이 채팅방의 회원이 아닙니다. 모임에 가입 신청을 먼저 해주세요.",
+      backToHome: "홈으로 돌아가기",
     },
     main: {
       sidebarTitle: "필터",
@@ -350,6 +408,14 @@ export const menu: Record<Language, Translation> = {
       locationError: "위치 정보를 가져오는 데 실패했습니다.",
       locationSuccess: "현재 위치({region} {district})로 업데이트되었습니다.",
       locationCoordsSuccess: "위치 좌표가 업데이트되었습니다.",
+      noJoinedChats: "참여 중인 채팅이 없습니다.",
+      chatRoomAriaSuffix: "채팅방",
+      thumbnailAltSuffix: "썸네일",
+      hostAriaLabel: "개설자",
+      hostLabel: "Host",
+      locationPermissionRequired: "권한 확인 필요",
+      personalSettingsAria: "개인 설정",
+      quickActionsAria: "빠른 실행 메뉴",
     },
     footer: {
       team: "팀",
@@ -439,6 +505,7 @@ export const menu: Record<Language, Translation> = {
       allFieldsRequired: "모든 항목에 대해 평가를 선택해주세요.",
       submitError: "평가 제출 중 오류가 발생했습니다.",
       notFound: "모임을 찾을 수 없습니다.",
+      alreadyReviewed: "이미 이 모임에 대한 평가를 완료했습니다.",
     },
     settlement: {
       title: "정산하기",
@@ -489,7 +556,7 @@ export const menu: Record<Language, Translation> = {
       itemsSaveFail: "품목 저장 실패",
       settlementStarted: "정산이 시작되었습니다! 멤버들에게 알림이 전송되었습니다.",
       settlementStartFail: "정산 시작 실패",
-      revertedToDraft: "수정 모드로 전환되었습니다.",
+      revertedToDraft: "품목을 수정해주세요!",
       revertFail: "수정 전환 실패",
       selectionSaved: "품목 선택이 완료되었습니다!",
       selectionSaveFail: "선택 저장 실패",
@@ -502,6 +569,7 @@ export const menu: Record<Language, Translation> = {
       kakaoShareFail: "카카오톡 공유에 실패했습니다.",
       kakaoShareTitle: "가치무라 정산",
       kakaoShareButton: "정산 확인하기",
+      invalidPartyId: "유효하지 않은 모임 번호입니다.",
     },
   },
   [Language.japanese]: {
@@ -572,6 +640,30 @@ export const menu: Record<Language, Translation> = {
       rejectSuccess: "申請を拒否処理しました。",
       systemJoinTemplate: "{nickname}さんが集まりに参加しました！",
       systemLeaveTemplate: "{nickname}さんが集まりを退出しました。",
+      systemSettlementStart: "📋 精算が始まりました。精算ページで購入した品目を選択してください。",
+      systemSettlementEditing: "✏️ ホストが品目を見直しています。少しお待ちください。",
+      systemSettlementResumed: "✅ 品目の修正が完了しました。精算ページで購入した品目を選択してください。",
+      systemSettlementConfirmedTitle: "💰 精算が確定しました。",
+      systemSettlementTotalLabel: "合計金額",
+      systemSettlementPerMemberTemplate: "{nickname}: {amount}",
+      reviewUnavailable: "この会の終了後に評価できます。",
+      reviewAlreadyDone: "この会の評価はすでに完了しています。",
+      reviewDone: "評価済み",
+      settlementGoTitle: "精算ページに移動します",
+      settlementWaitTitle: "ホストが精算を開始すると利用できます",
+      moving: "移動中...",
+      closedPartyPlaceholder: "終了した会です。",
+      unknownNickname: "不明",
+      confirmStartSettlement: "精算を開始しますか？",
+      confirmCloseParty: "この会を終了しますか？",
+      statusUpdateError: "ステータスの変更中にエラーが発生しました。",
+      genericError: "エラーが発生しました",
+      genericFail: "処理に失敗しました",
+      reportComingSoon: "通報ページは現在準備中です。",
+      invalidPartyId: "無効な会の番号です。",
+      noAccessTitle: "アクセス権限がありません",
+      noAccessDescription: "このチャットルームのメンバーではありません。先に会への参加申請をしてください。",
+      backToHome: "ホームに戻る",
     },
     main: {
       sidebarTitle: "フィルター",
@@ -600,6 +692,14 @@ export const menu: Record<Language, Translation> = {
       locationError: "位置情報の取得に失敗しました。",
       locationSuccess: "現在地({region} {district})に更新されました。",
       locationCoordsSuccess: "位置座標が更新されました。",
+      noJoinedChats: "参加中のチャットはありません。",
+      chatRoomAriaSuffix: "のチャットルーム",
+      thumbnailAltSuffix: "のサムネイル",
+      hostAriaLabel: "主催者",
+      hostLabel: "主催者",
+      locationPermissionRequired: "権限をご確認ください",
+      personalSettingsAria: "個人設定",
+      quickActionsAria: "クイックアクションメニュー",
     },
     footer: {
       team: "チーム",
@@ -669,9 +769,9 @@ export const menu: Record<Language, Translation> = {
       userDeleteMsg: "存在しないか、削除されたユーザーです。",
     },
     review: {
-      closedMessage: "この集まりは終了しました! 一緒に参加한メンバーの評価をお送りください。",
+      closedMessage: "この会は終了しました。いっしょに参加したメンバーを評価してください。",
       goReview: "評価する",
-      reportProblem: "集まりの進行中に問題がありましたか？ 通報する",
+      reportProblem: "会の進行中に問題がありましたか？通報する",
     },
     reviewPage: {
       title: "集まりのレビュー",
@@ -689,6 +789,7 @@ export const menu: Record<Language, Translation> = {
       allFieldsRequired: "すべての項目の評価を選択してください。",
       submitError: "評価の提出中にエラーが発生しました。",
       notFound: "集まりが見つかりません。",
+      alreadyReviewed: "この会の評価はすでに完了しています。",
     },
     settlement: {
       title: "精算する",
@@ -739,7 +840,7 @@ export const menu: Record<Language, Translation> = {
       itemsSaveFail: "品目の保存に失敗しました。",
       settlementStarted: "精算を開始しました！メンバーに通知を送信しました。",
       settlementStartFail: "精算の開始に失敗しました。",
-      revertedToDraft: "修正モードに切り替えました。",
+      revertedToDraft: "品目を修正してください！",
       revertFail: "修正モードへの切り替えに失敗しました。",
       selectionSaved: "品目の選択が完了しました！",
       selectionSaveFail: "選択の保存に失敗しました。",
@@ -752,6 +853,7 @@ export const menu: Record<Language, Translation> = {
       kakaoShareFail: "カカオトーク共有に失敗しました。",
       kakaoShareTitle: "カチムラ精算",
       kakaoShareButton: "精算を確認する",
+      invalidPartyId: "無効な会の番号です。",
     },
   },
 };
