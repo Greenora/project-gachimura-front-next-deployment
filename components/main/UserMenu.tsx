@@ -72,7 +72,7 @@ export default function UserMenu() {
   if (!user) {
     return (
       <div className="flex items-center gap-4">
-        <Link href="/login" className="text-[14px] font-bold text-gray-600 hover:text-gray-900 transition-colors">
+        <Link href="/login" className="whitespace-nowrap text-[14px] font-bold text-gray-600 transition-colors hover:text-gray-900">
           {texts.common.login} / {texts.common.signup}
         </Link>
         <div className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 border border-gray-100">
@@ -93,8 +93,8 @@ export default function UserMenu() {
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="flex flex-col items-end">
-            <span className="text-[14px] font-bold text-gray-900 leading-tight group-hover:text-green-700 transition-colors">
+          <div className="flex min-w-0 max-w-[130px] flex-col items-end">
+            <span className="w-full truncate text-right text-[14px] font-bold leading-tight text-gray-900 transition-colors group-hover:text-green-700">
               {user.nickname}
             </span>
           </div>
@@ -144,7 +144,7 @@ export default function UserMenu() {
       {/* 로그아웃 버튼 */}
       <button
         onClick={handleLogout}
-        className="flex items-center gap-1.5 text-gray-400 hover:text-red-500 transition-all active:scale-95 group/logout"
+        className="group/logout flex items-center gap-1.5 text-gray-400 transition-all hover:text-red-500 active:scale-95"
       >
         <div className="w-8 h-8 rounded-full flex items-center justify-center transition-colors group-hover/logout:bg-red-50">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -152,7 +152,7 @@ export default function UserMenu() {
             <line x1="12" y1="2" x2="12" y2="12"></line>
           </svg>
         </div>
-        <span className="text-[12px] font-bold tracking-tight">{texts.header.logout}</span>
+        <span className="max-w-[56px] truncate text-[12px] font-bold tracking-tight">{texts.header.logout}</span>
       </button>
     </div>
   );
