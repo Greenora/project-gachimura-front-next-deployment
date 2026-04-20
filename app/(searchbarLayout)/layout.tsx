@@ -6,8 +6,9 @@ import Sidebar from "@/components/main/Sidebar";
 import Footer from "@/components/common/Footer";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import LocationSelector from "@/components/main/LocationSelector";
-import CreatePartyButton from "@/components/main/CreatePartyButton";
 import ChatListButton from "@/components/main/ChatListButton";
+import HomeCommunityTabs from "@/components/main/HomeCommunityTabs";
+import BottomRightQuickAction from "@/components/main/BottomRightQuickAction";
 import { cookies } from "next/headers";
 import { Language } from "@/app/common/types";
 import { menu } from "@/app/constants/menu";
@@ -49,6 +50,12 @@ export default async function SearchbarLayout({
         </div>
       </header>
 
+      <div className="bg-white border-b border-gray-100 px-8 py-3">
+        <div className="max-w-7xl mx-auto">
+          <HomeCommunityTabs />
+        </div>
+      </div>
+
       {/* 3단: 메인 컨텐츠 영역 (사이드바 + 그리드) */}
       <div className="max-w-7xl mx-auto w-full flex-1 px-8 py-10 flex">
         {/* 왼쪽: 필터 사이드바 */}
@@ -64,10 +71,7 @@ export default async function SearchbarLayout({
 
       <ChatListButton />
 
-      {/* 플로팅 버튼 (모임 시작하기) */}
-      <div className="fixed bottom-10 right-10 z-[100]" role="complementary" aria-label={texts.main.quickActionsAria}>
-        <CreatePartyButton />
-      </div>
+      <BottomRightQuickAction />
     </div>
   );
 }
