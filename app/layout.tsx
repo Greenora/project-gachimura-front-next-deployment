@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import { LanguageProvider } from "@/app/hooks/LanguageContext";
 import { cookies } from "next/headers";
 import { menu } from "@/app/constants/menu";
 import { Language } from "@/app/common/types";
-import Script from "next/script";
 import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
@@ -50,6 +48,7 @@ export default async function RootLayout({
     //suppressHydrationWarning: 브라우저 환경 간섭 제거
     <html lang={validLang} suppressHydrationWarning>
       <head>
+        <meta name="color-scheme" content="light" />
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
