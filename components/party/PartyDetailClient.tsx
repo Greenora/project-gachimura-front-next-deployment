@@ -106,6 +106,7 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   };
 
   // 버튼 상태 및 텍스트/스타일 결정
+  const isClosed = party.status !== "RECRUITING";
   let buttonText = t.joinButton;
   let buttonDisabled = false;
   let buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all bg-[#166534] hover:bg-[#14532d] active:scale-95";
@@ -121,6 +122,12 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
     buttonDisabled = isNavigatingChat;
     buttonClass = `flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all ${isNavigatingChat ? "bg-[#14532d] opacity-90" : "bg-[#166534] hover:bg-[#14532d] active:scale-95"}`;
     buttonOnClick = handleGoToChat;
+  } else if (isClosed) {
+    // 마감된 파티 — 호스트도 아니고 승인된 멤버도 아닌 경우 비활성화
+    buttonText = t.closedParty;
+    buttonDisabled = true;
+    buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base bg-gray-400 cursor-not-allowed";
+    buttonOnClick = undefined;
   } else if (party.isRejected || party.isJoined) {
     buttonText = t.alreadyJoined;
     buttonDisabled = true;

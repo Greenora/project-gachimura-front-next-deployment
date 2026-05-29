@@ -129,6 +129,10 @@ interface Translation {
     locationPermissionRequired: string;
     personalSettingsAria: string;
     quickActionsAria: string;
+    communitySidebarTitle: string;
+    communityLatest: string;
+    communityPopular: string;
+    communityMostComments: string;
   };
   footer: {
     team: string;
@@ -172,6 +176,7 @@ interface Translation {
     goToChat: string;
     goToChatButton: string;
     movingToChat: string;
+    closedParty: string;
   };
   header: {
     logout: string;
@@ -416,6 +421,10 @@ export const menu: Record<Language, Translation> = {
       locationPermissionRequired: "권한 확인 필요",
       personalSettingsAria: "개인 설정",
       quickActionsAria: "빠른 실행 메뉴",
+      communitySidebarTitle: "필터",
+      communityLatest: "최신순",
+      communityPopular: "인기순",
+      communityMostComments: "댓글 많은 순",
     },
     footer: {
       team: "팀",
@@ -459,6 +468,7 @@ export const menu: Record<Language, Translation> = {
       goToChat: "채팅방으로 이동합니다.",
       goToChatButton: "채팅방으로 이동하기",
       movingToChat: "채팅방으로 이동 중...",
+      closedParty: "이미 마감된 모임입니다",
     },
     header: {
       logout: "로그아웃",
@@ -700,6 +710,10 @@ export const menu: Record<Language, Translation> = {
       locationPermissionRequired: "権限をご確認ください",
       personalSettingsAria: "個人設定",
       quickActionsAria: "クイックアクションメニュー",
+      communitySidebarTitle: "フィルター",
+      communityLatest: "最新順",
+      communityPopular: "人気順",
+      communityMostComments: "コメントが多い順",
     },
     footer: {
       team: "チーム",
@@ -743,6 +757,7 @@ export const menu: Record<Language, Translation> = {
       goToChat: "チャットルームに移動します。",
       goToChatButton: "チャットルームへ移動",
       movingToChat: "チャットルームへ移動中...",
+      closedParty: "すでに締め切られた集まりです",
     },
     header: {
       logout: "ログアウト",
