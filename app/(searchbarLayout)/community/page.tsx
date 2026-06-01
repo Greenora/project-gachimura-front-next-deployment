@@ -60,6 +60,9 @@ export default function CommunityPage() {
   const [submittingComments, setSubmittingComments] = useState<Record<number, boolean>>({});
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  // URL에서 필터 파라미터 읽기
+  const filter = searchParams.get("filter") || "latest";
+
   const title = lang === Language.japanese ? "コミュニティ" : "커뮤니티";
   const subtitle =
     lang === Language.japanese
@@ -113,9 +116,13 @@ export default function CommunityPage() {
   useEffect(() => {
     const fetchPosts = async () => {
       setIsLoading(true);
+      // 필터 변경 시 기존 데이터 초기화
+      setPosts([]);
+      setNextCursor(null);
+      setHasMore(false);
       try {
         const data = await clientFetch<CommunityFeedResponse>(
-          "/community/posts?limit=20",
+          `/community/posts?limit=20&sort=${filter}`,
         );
         setPosts(data?.items || []);
         setNextCursor(data?.nextCursor || null);
@@ -129,7 +136,7 @@ export default function CommunityPage() {
     };
 
     fetchPosts();
-  }, [lang]);
+  }, [lang, filter]);
 
   useEffect(() => {
     if (!hasMore || !nextCursor || isLoading || isLoadingMore) {
@@ -151,7 +158,7 @@ export default function CommunityPage() {
         setIsLoadingMore(true);
         try {
           const data = await clientFetch<CommunityFeedResponse>(
-            `/community/posts?limit=20&cursor=${encodeURIComponent(nextCursor)}`,
+            `/community/posts?limit=20&sort=${filter}&cursor=${encodeURIComponent(nextCursor)}`,
           );
           setPosts((prev) => [...prev, ...(data?.items || [])]);
           setNextCursor(data?.nextCursor || null);
