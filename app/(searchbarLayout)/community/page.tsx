@@ -21,6 +21,7 @@ interface CommunityComment {
   id: number;
   postId: number;
   content: string;
+  locale: "ko" | "ja";
   createdAt: string | Date;
   author: CommunityAuthor;
 }
@@ -29,6 +30,7 @@ interface CommunityPost {
   id: number;
   author: CommunityAuthor;
   content: string;
+  locale: "ko" | "ja";
   createdAt: string | Date;
   likeCount: number;
   commentCount: number;
@@ -62,6 +64,7 @@ export default function CommunityPage() {
 
   // URL에서 필터 파라미터 읽기
   const filter = searchParams.get("filter") || "latest";
+  const communityLocale = lang === Language.japanese ? "ja" : "ko";
 
   const title = lang === Language.japanese ? "コミュニティ" : "커뮤니티";
   const subtitle =
@@ -122,7 +125,7 @@ export default function CommunityPage() {
       setHasMore(false);
       try {
         const data = await clientFetch<CommunityFeedResponse>(
-          `/community/posts?limit=20&sort=${filter}`,
+          `/community/posts?limit=20&sort=${filter}&locale=${communityLocale}`,
         );
         setPosts(data?.items || []);
         setNextCursor(data?.nextCursor || null);
@@ -136,7 +139,7 @@ export default function CommunityPage() {
     };
 
     fetchPosts();
-  }, [lang, filter]);
+  }, [lang, filter, communityLocale]);
 
   useEffect(() => {
     if (!hasMore || !nextCursor || isLoading || isLoadingMore) {
@@ -158,7 +161,7 @@ export default function CommunityPage() {
         setIsLoadingMore(true);
         try {
           const data = await clientFetch<CommunityFeedResponse>(
-            `/community/posts?limit=20&sort=${filter}&cursor=${encodeURIComponent(nextCursor)}`,
+            `/community/posts?limit=20&sort=${filter}&locale=${communityLocale}&cursor=${encodeURIComponent(nextCursor)}`,
           );
           setPosts((prev) => [...prev, ...(data?.items || [])]);
           setNextCursor(data?.nextCursor || null);
@@ -174,7 +177,7 @@ export default function CommunityPage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, isLoading, isLoadingMore, nextCursor]);
+  }, [hasMore, isLoading, isLoadingMore, nextCursor, filter, communityLocale]);
 
   useEffect(() => {
     if (searchParams.get("compose") === "1") {
@@ -194,7 +197,7 @@ export default function CommunityPage() {
     try {
       const created = await clientFetch<CommunityPost>("/community/posts", {
         method: "POST",
-        body: { content },
+        body: { content, locale: communityLocale },
       });
       setPosts((prev) => [created, ...prev]);
       toast.success(successMessage);
@@ -267,7 +270,7 @@ export default function CommunityPage() {
     try {
       const created = await clientFetch<CommunityComment>(`/community/posts/${postId}/comments`, {
         method: "POST",
-        body: { content },
+        body: { content, locale: communityLocale },
       });
 
       setCommentsByPost((prev) => ({
