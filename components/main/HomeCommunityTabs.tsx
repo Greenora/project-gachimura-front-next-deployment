@@ -25,6 +25,7 @@ export default function HomeCommunityTabs() {
   const homeLabel = lang === Language.japanese ? "ホーム" : "홈";
   const communityLabel = lang === Language.japanese ? "コミュニティ" : "커뮤니티";
   const topicLabel = lang === Language.japanese ? "今日の話題" : "오늘의 토픽";
+  const communityLocale = lang === Language.japanese ? "ja" : "ko";
 
   useEffect(() => {
     if (!isCommunity) {
@@ -36,7 +37,7 @@ export default function HomeCommunityTabs() {
     const fetchTrending = async () => {
       try {
         const data = await clientFetch<{ topics: TrendingTopic[] }>(
-          "/community/topics/trending?limit=1",
+          `/community/topics/trending?limit=1&locale=${communityLocale}`,
         );
         if (isMounted) {
           setTopTopic(data?.topics?.[0] || null);
@@ -53,11 +54,11 @@ export default function HomeCommunityTabs() {
     return () => {
       isMounted = false;
     };
-  }, [isCommunity, lang]);
+  }, [isCommunity, communityLocale]);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 md:flex-nowrap" role="navigation" aria-label={ariaLabel}>
-      <div className="relative grid w-[250px] grid-cols-2 rounded-full bg-gray-100 p-1">
+      <div className="relative grid h-[58px] w-[282px] grid-cols-2 rounded-full bg-gray-100 p-1">
         <span
           aria-hidden="true"
           className={`absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-full bg-white shadow-sm transition-transform duration-300 ${
@@ -67,7 +68,7 @@ export default function HomeCommunityTabs() {
 
         <Link
           href="/home"
-          className={`relative z-10 rounded-full px-5 py-2.5 text-center text-sm font-bold tracking-tight transition-colors ${
+          className={`relative z-10 flex h-[50px] items-center justify-center whitespace-nowrap rounded-full px-3 text-center text-[13px] font-bold leading-none tracking-tight transition-colors sm:text-sm ${
             activeIndex === 0 ? "text-green-700" : "text-gray-500 hover:text-gray-800"
           }`}
           aria-current={activeIndex === 0 ? "page" : undefined}
@@ -77,7 +78,7 @@ export default function HomeCommunityTabs() {
 
         <Link
           href="/community"
-          className={`relative z-10 rounded-full px-5 py-2.5 text-center text-sm font-bold tracking-tight transition-colors ${
+          className={`relative z-10 flex h-[50px] items-center justify-center whitespace-nowrap rounded-full px-3 text-center text-[13px] font-bold leading-none tracking-tight transition-colors sm:text-sm ${
             activeIndex === 1 ? "text-green-700" : "text-gray-500 hover:text-gray-800"
           }`}
           aria-current={activeIndex === 1 ? "page" : undefined}
