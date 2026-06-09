@@ -236,7 +236,7 @@ export default function LoginForm() {
         type: "manual",
         message: texts.auth.errorLoginAuth,
       });
-      toast.error(texts.auth.alertLoginFail);
+      toast.error(texts.auth.errorLoginAuth);
     } finally {
       setIsLoading(false);
     }
