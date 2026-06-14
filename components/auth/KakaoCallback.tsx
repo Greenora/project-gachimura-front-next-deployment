@@ -53,7 +53,6 @@ export default function KakaoCallback() {
 
     // 카카오 REST API로 액세스 토큰 받기
     const KAKAO_REST_API_KEY = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
-    const KAKAO_CLIENT_SECRET = process.env.NEXT_PUBLIC_KAKAO_CLIENT_SECRET;
     const redirectUri = `${window.location.origin}/kakao/callback`;
 
     if (!KAKAO_REST_API_KEY) {
@@ -67,66 +66,18 @@ export default function KakaoCallback() {
     console.log("Redirect URI:", redirectUri);
     console.log("Code:", code);
 
-    // 토큰 요청 파라미터 생성
-    const tokenParams: Record<string, string> = {
-      grant_type: "authorization_code",
-      client_id: KAKAO_REST_API_KEY,
-      redirect_uri: redirectUri,
-      code: code,
-    };
-
-    // Client Secret이 있으면 추가
-    if (KAKAO_CLIENT_SECRET) {
-      tokenParams.client_secret = KAKAO_CLIENT_SECRET;
-      console.log("Client Secret 사용");
-    }
-
-    // 1단계: 카카오에서 액세스 토큰 받기
-    fetch("https://kauth.kakao.com/oauth/token", {
+    // SECURITY FIX: Moved Kakao token exchange logic to the backend to prevent 
+    // exposing the client secret (NEXT_PUBLIC_KAKAO_CLIENT_SECRET) in the client-side bundle.
+    // The client now only sends the authorization code to the backend API, which securely 
+    // handles the token exchange using server-side environment variables.
+    clientFetch("/auth/kakao", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+      body: { 
+        code,
+        redirectUri,
+        language: langCode 
       },
-      body: new URLSearchParams(tokenParams),
     })
-      .then(async (res) => {
-        console.log("카카오 응답 상태:", res.status, res.statusText);
-        
-        const responseText = await res.text();
-        console.log("카카오 응답 원본:", responseText);
-        
-        let tokenData;
-        try {
-          tokenData = JSON.parse(responseText);
-        } catch (e) {
-          console.error("JSON 파싱 실패:", e);
-          throw new Error("카카오 응답을 파싱할 수 없습니다");
-        }
-        
-        console.log("카카오 토큰 응답 파싱:", tokenData);
-        
-        if (!res.ok || tokenData.error) {
-          console.error("카카오 토큰 에러:", tokenData);
-          throw new Error(tokenData.error_description || tokenData.error || "카카오 토큰 발급 실패");
-        }
-
-        if (!tokenData.access_token) {
-          throw new Error("카카오 액세스 토큰을 받지 못했습니다");
-        }
-
-        return tokenData;
-      })
-      .then((tokenData) => {
-        console.log("백엔드로 토큰 전송 중...");
-        // 2단계: 백엔드로 액세스 토큰 전송
-        return clientFetch("/auth/kakao", {
-          method: "POST",
-          body: { 
-            kakaoAccessToken: tokenData.access_token,
-            language: langCode 
-          },
-        });
-      })
       .then((data: KakaoLoginResponse) => {
         // 성공 시 쿠키 저장 및 메인 이동
         Cookies.set("accessToken", data.accessToken, { expires: 1 });
