@@ -132,6 +132,30 @@ export default function LoginForm() {
     }
   }, [router]);
 
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      const navigationEntries = window.performance.getEntriesByType("navigation");
+      const navigationEntry = navigationEntries[0] as PerformanceNavigationTiming | undefined;
+      const isBackForwardNavigation =
+        event.persisted || navigationEntry?.type === "back_forward";
+
+      if (!isBackForwardNavigation) {
+        return;
+      }
+
+      // OAuth 페이지에서 뒤로 돌아올 때 브라우저가 이전 로그인 화면을 복원할 수 있어
+      // 로그인 흐름 관련 상태를 정리하고 새로고침으로 이벤트 핸들러를 안전하게 복구한다.
+      sessionStorage.removeItem("line_auth_state");
+      window.location.reload();
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, []);
+
   // 이메일 체크: 백엔드에 이 이메일이 가입되어 있는지 물어봄
   const handleEmailCheck = async (email: string) => {
     if (isLoading) return; // 중복 요청 방지
