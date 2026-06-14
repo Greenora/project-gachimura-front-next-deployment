@@ -30,6 +30,7 @@ export default function LineCallback() {
     const storedState = sessionStorage.getItem("line_auth_state");
 
     if (!code) {
+      sessionStorage.removeItem("line_auth_state");
       router.push("/login");
       return;
     }
@@ -39,6 +40,7 @@ export default function LineCallback() {
 
     // CSRF 검증
     if (state !== storedState) {
+        sessionStorage.removeItem("line_auth_state");
         toast.error("보안 검증 실패 (State mismatch)");
         router.push("/login");
         return;
