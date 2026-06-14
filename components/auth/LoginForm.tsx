@@ -49,17 +49,29 @@ interface RegisterData {
   passwordRegister: string;
   phone?: string;
   birthdate?: string; // YYMMDD 형식 (6자리)
+  emailVerificationToken: string;
 }
 
 // 폼 진행 단계
-type Step = "EMAIL_INPUT" | "PASSWORD_INPUT" | "REGISTER_FORM";
+type Step = "EMAIL_INPUT" | "PASSWORD_INPUT" | "VERIFY_EMAIL" | "REGISTER_FORM";
 
 interface FormData {
   email: string;
+  verificationCode?: string;
   passwordLogin?: string;
   passwordRegister?: string;
   phone?: string;
   birthdate?: string;
+}
+
+interface SendCodeResponse {
+  message: string;
+  expiresInMinutes: number;
+}
+
+interface VerifyCodeResponse {
+  verified: boolean;
+  emailVerificationToken: string;
 }
 
 // 쿠키에서 가져온 언어 값이 유효한지 체크하는 함수
@@ -75,15 +87,42 @@ export default function LoginForm() {
   const [showPasswordLogin, setShowPasswordLogin] = useState(false);
   const [showPasswordRegister, setShowPasswordRegister] = useState(false);
   const [rememberMe, setRememberMe] = useState(false); 
+  const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     setValue,
+    getValues,
     setError,
     clearErrors,
     formState: { errors },
   } = useForm<FormData>({ mode: "onChange" });
+
+  const verifyCodePlaceholder =
+    lang === Language.japanese
+      ? "メール認証コード6桁を入力してください"
+      : "이메일 인증코드 6자리를 입력해주세요";
+  const verifyCodeButtonText =
+    lang === Language.japanese ? "認証を確認" : "인증 확인";
+  const resendCodeButtonText =
+    lang === Language.japanese ? "認証コード再送" : "인증코드 재전송";
+  const sendCodeSuccessText =
+    lang === Language.japanese
+      ? "認証コードを送信しました。メールを確認してください。"
+      : "인증코드를 보냈어요. 메일함을 확인해주세요.";
+  const verifyCodeSuccessText =
+    lang === Language.japanese
+      ? "メール認証が完了しました。会員登録を続けてください。"
+      : "이메일 인증이 완료됐어요. 회원가입을 계속 진행해주세요.";
+
+  const getErrorMessage = (error: unknown) => {
+    const err = error as { message?: string | string[] };
+    if (Array.isArray(err.message)) {
+      return err.message[0];
+    }
+    return err.message || texts.auth.alertServerError;
+  };
 
   // 로그인 상태 체크: 이미 로그인되어 있으면 메인 페이지로 리다이렉트
   useEffect(() => {
@@ -104,11 +143,60 @@ export default function LoginForm() {
         body: { email },
       });
       // 있으면 로그인 화면, 없으면 회원가입 화면으로 전환
-      setStep(data.exists ? "PASSWORD_INPUT" : "REGISTER_FORM");
+      if (data.exists) {
+        setStep("PASSWORD_INPUT");
+      } else {
+        await handleSendEmailVerificationCode(email);
+        setStep("VERIFY_EMAIL");
+      }
       clearErrors();
     } catch (error) {
       console.error(error);
-      toast.error(texts.auth.alertServerError || "서버 오류가 발생했습니다.");
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendEmailVerificationCode = async (email: string) => {
+    if (!email) {
+      throw new Error(
+        lang === Language.japanese
+          ? "メールアドレスを入力してください。"
+          : "이메일을 먼저 입력해주세요.",
+      );
+    }
+
+    const result = await clientFetch<SendCodeResponse>("/auth/email-verification/send", {
+      method: "POST",
+      body: { email },
+    });
+
+    setValue("verificationCode", "");
+    setEmailVerificationToken(null);
+    toast.success(
+      result?.message || sendCodeSuccessText,
+    );
+  };
+
+  const handleVerifyEmailCode = async (email: string, code: string) => {
+    if (isLoading) return;
+    setIsLoading(true);
+
+    try {
+      const result = await clientFetch<VerifyCodeResponse>(
+        "/auth/email-verification/verify",
+        {
+          method: "POST",
+          body: { email, code },
+        },
+      );
+
+      setEmailVerificationToken(result.emailVerificationToken);
+      setStep("REGISTER_FORM");
+      toast.success(verifyCodeSuccessText);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -148,7 +236,7 @@ export default function LoginForm() {
         type: "manual",
         message: texts.auth.errorLoginAuth,
       });
-      toast.error(texts.auth.alertLoginFail);
+      toast.error(texts.auth.errorLoginAuth);
     } finally {
       setIsLoading(false);
     }
@@ -172,6 +260,7 @@ export default function LoginForm() {
       phone: data.phone || undefined, 
       birthdate: data.birthdate || undefined,
       language: langCode,
+      emailVerificationToken: data.emailVerificationToken,
     };
 
     try {
@@ -183,14 +272,7 @@ export default function LoginForm() {
       setStep("PASSWORD_INPUT");
     } catch (error: unknown) {
       console.error(error);
-      const err = error as { message?: string | string[] };
-      // 배열인 경우 첫 번째 메시지, 문자열인 경우 그대로 사용
-      if (err.message) {
-        const errorMessage = Array.isArray(err.message) ? err.message[0] : err.message;
-        toast.error(errorMessage);
-      } else {
-        toast.error(texts.auth.alertServerError);
-      }
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -199,12 +281,25 @@ export default function LoginForm() {
   const onSubmit = (data: FormData) => {
     if (step === "EMAIL_INPUT") {
       handleEmailCheck(data.email);
+    } else if (step === "VERIFY_EMAIL") {
+      handleVerifyEmailCode(data.email, data.verificationCode || "");
     } else if (step === "REGISTER_FORM") {
+      if (!emailVerificationToken) {
+        toast.error(
+          lang === Language.japanese
+            ? "先にメール認証を完了してください。"
+            : "먼저 이메일 인증을 완료해주세요.",
+        );
+        setStep("VERIFY_EMAIL");
+        return;
+      }
+
       handleRegister({
         email: data.email,
         passwordRegister: data.passwordRegister || "",
         phone: data.phone,
         birthdate: data.birthdate,
+        emailVerificationToken,
       });
     } else {
       handleLogin({
@@ -227,7 +322,9 @@ export default function LoginForm() {
 
       <div className="w-full max-w-sm transition-all duration-500 ease-in-out">
         <h1 className="text-xl font-bold text-center mb-10 text-gray-900 whitespace-pre-line leading-relaxed font-sans">
-          {step === "REGISTER_FORM" ? texts.auth.titleRegister : texts.auth.titleLogin}
+          {step === "REGISTER_FORM" || step === "VERIFY_EMAIL"
+            ? texts.auth.titleRegister
+            : texts.auth.titleLogin}
         </h1>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-2">
@@ -254,8 +351,10 @@ export default function LoginForm() {
                   // 수정 시 단계 리셋
                   if (step !== "EMAIL_INPUT") {
                     setStep("EMAIL_INPUT");
+                    setValue("verificationCode", "");
                     setValue("passwordLogin", "");
                     setValue("passwordRegister", "");
+                    setEmailVerificationToken(null);
                   }
                 }}
                 disabled={isLoading} 
@@ -267,6 +366,56 @@ export default function LoginForm() {
             {errors.email && (
               <p className="text-xs text-red-500 ml-1 mt-1 font-sans">{errors.email.message?.toString()}</p>
             )}
+          </div>
+
+          {/* 이메일 인증 코드 */}
+          <div className={`transition-all duration-500 overflow-hidden ${step === "VERIFY_EMAIL" ? "max-h-60 opacity-100" : "max-h-0 opacity-0"}`}>
+            <div className="flex flex-col gap-3">
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                  <EmailIcon />
+                </span>
+                <input
+                  {...register("verificationCode", {
+                    required: step === "VERIFY_EMAIL",
+                    pattern: {
+                      value: /^\d{6}$/,
+                      message:
+                        lang === Language.japanese
+                          ? "認証コードは6桁の数字です。"
+                          : "인증코드는 숫자 6자리여야 합니다.",
+                    },
+                  })}
+                  disabled={isLoading}
+                  placeholder={verifyCodePlaceholder}
+                  className={`w-full pl-12 pr-4 py-4 rounded-lg border outline-none text-black placeholder-gray-400 font-sans ${
+                    errors.verificationCode
+                      ? "border-red-500"
+                      : "border-gray-300 focus:border-green-600"
+                  }`}
+                />
+              </div>
+              {errors.verificationCode && (
+                <p className="text-xs text-red-500 ml-1 font-sans">
+                  {errors.verificationCode.message?.toString()}
+                </p>
+              )}
+
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={async () => {
+                  try {
+                    await handleSendEmailVerificationCode(getValues("email") || "");
+                  } catch (error) {
+                    toast.error(getErrorMessage(error));
+                  }
+                }}
+                className="text-sm text-green-700 hover:text-green-800 hover:underline text-left"
+              >
+                {resendCodeButtonText}
+              </button>
+            </div>
           </div>
 
           {/* 비밀번호 (로그인) */}
@@ -401,7 +550,13 @@ export default function LoginForm() {
                   <span>{texts.auth.loading}</span>
                 </>
               ) : (
-                step === "EMAIL_INPUT" ? texts.auth.btnContinue : (step === "REGISTER_FORM" ? texts.auth.btnRegister : texts.auth.btnLogin)
+                step === "EMAIL_INPUT"
+                  ? texts.auth.btnContinue
+                  : step === "VERIFY_EMAIL"
+                    ? verifyCodeButtonText
+                    : step === "REGISTER_FORM"
+                      ? texts.auth.btnRegister
+                      : texts.auth.btnLogin
               )}
             </button>
           </div>

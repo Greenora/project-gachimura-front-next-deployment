@@ -77,7 +77,7 @@ export default function LineLogin({ buttonText }: Props) {
                 draggable={false}
                 unselectable="on"
                 className="pointer-events-none select-none" 
-                style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitUserDrag: 'none' }}
+                style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
             />
           </div>
           {/* 버튼 텍스트 (가운데 정렬) */}

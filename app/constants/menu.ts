@@ -129,6 +129,10 @@ interface Translation {
     locationPermissionRequired: string;
     personalSettingsAria: string;
     quickActionsAria: string;
+    communitySidebarTitle: string;
+    communityLatest: string;
+    communityPopular: string;
+    communityMostComments: string;
   };
   footer: {
     team: string;
@@ -172,6 +176,7 @@ interface Translation {
     goToChat: string;
     goToChatButton: string;
     movingToChat: string;
+    closedParty: string;
   };
   header: {
     logout: string;
@@ -314,7 +319,7 @@ export const menu: Record<Language, Translation> = {
       errorPhone: "올바른 전화번호 형식이 아닙니다. (예: 01012345678)",
       welcomePrefix: "환영합니다!",
       welcomeSuffix: "님, 로그인되었습니다.",
-      alertLoginFail: "로그인 요청에 실패했습니다.",
+      alertLoginFail: "이메일 혹은 비밀번호를 확인해주세요.",
       alertRegisterSuccess: "회원가입 성공! 이제 로그인해주세요.",
       alertRegisterFail: "가입 실패: 다시 시도해주세요.",
       alertServerError: "서버와 통신 중 오류가 발생했습니다.",
@@ -416,6 +421,10 @@ export const menu: Record<Language, Translation> = {
       locationPermissionRequired: "권한 확인 필요",
       personalSettingsAria: "개인 설정",
       quickActionsAria: "빠른 실행 메뉴",
+      communitySidebarTitle: "필터",
+      communityLatest: "최신순",
+      communityPopular: "인기순",
+      communityMostComments: "댓글 많은 순",
     },
     footer: {
       team: "팀",
@@ -459,6 +468,7 @@ export const menu: Record<Language, Translation> = {
       goToChat: "채팅방으로 이동합니다.",
       goToChatButton: "채팅방으로 이동하기",
       movingToChat: "채팅방으로 이동 중...",
+      closedParty: "이미 마감된 모임입니다",
     },
     header: {
       logout: "로그아웃",
@@ -598,7 +608,7 @@ export const menu: Record<Language, Translation> = {
       errorPhone: "正しい電話番号の形式ではありません。(例: 09012345678)",
       welcomePrefix: "ようこそ！",
       welcomeSuffix: "さん、ログインしました。",
-      alertLoginFail: "ログインリクエストに失敗しました。",
+      alertLoginFail: "メールアドレス、またはパスワードが違います。",
       alertRegisterSuccess: "会員登録成功！ログインできます。",
       alertRegisterFail: "登録失敗：再度お試しください。",
       alertServerError: "サーバーとの通信中にエラーが発生しました",
@@ -700,6 +710,10 @@ export const menu: Record<Language, Translation> = {
       locationPermissionRequired: "権限をご確認ください",
       personalSettingsAria: "個人設定",
       quickActionsAria: "クイックアクションメニュー",
+      communitySidebarTitle: "フィルター",
+      communityLatest: "最新順",
+      communityPopular: "人気順",
+      communityMostComments: "コメントが多い順",
     },
     footer: {
       team: "チーム",
@@ -743,6 +757,7 @@ export const menu: Record<Language, Translation> = {
       goToChat: "チャットルームに移動します。",
       goToChatButton: "チャットルームへ移動",
       movingToChat: "チャットルームへ移動中...",
+      closedParty: "すでに締め切られた集まりです",
     },
     header: {
       logout: "ログアウト",

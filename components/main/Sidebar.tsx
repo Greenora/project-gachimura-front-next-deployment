@@ -1,23 +1,75 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 
 function SidebarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { texts } = useLanguage();
 
-  const filter = searchParams.get("filter") || "latest";
+  const isCommunity = pathname.startsWith("/community");
+
+  const filter = searchParams.get("filter") || (isCommunity ? "latest" : "latest");
   const showCompleted = searchParams.get("completed") !== "false"; // 기본값 true
 
   const updateParams = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set(key, value);
-    router.push(`/home?${params.toString()}`, { scroll: false });
+    // 현재 페이지 경로에 맞게 이동 (커뮤니티면 /community, 홈이면 /home)
+    const basePath = isCommunity ? "/community" : "/home";
+    router.push(`${basePath}?${params.toString()}`, { scroll: false });
   };
 
+  // 커뮤니티 페이지 사이드바
+  if (isCommunity) {
+    return (
+      <aside className="w-64 flex-shrink-0 pr-8 hidden md:block">
+        <div className="sticky top-[104px] space-y-10">
+          <div>
+            <h2 className="text-[18px] font-black text-gray-900 mb-6">{texts.main.communitySidebarTitle}</h2>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => updateParams("filter", "latest")}
+                aria-pressed={filter === "latest"}
+                className={`w-fit px-6 py-2.5 rounded-full text-[13px] font-bold transition-all focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 ${filter === "latest"
+                  ? "bg-gray-900 text-white shadow-lg shadow-gray-200"
+                  : "bg-white text-gray-500 border border-gray-100 hover:border-gray-300"
+                  }`}
+              >
+                {texts.main.communityLatest}
+              </button>
+              <button
+                onClick={() => updateParams("filter", "popular")}
+                aria-pressed={filter === "popular"}
+                className={`w-fit px-6 py-2.5 rounded-full text-[13px] font-bold transition-all focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 ${filter === "popular"
+                  ? "bg-gray-900 text-white shadow-lg shadow-gray-200"
+                  : "bg-white text-gray-500 border border-gray-100 hover:border-gray-300"
+                  }`}
+              >
+                {texts.main.communityPopular}
+              </button>
+              <button
+                onClick={() => updateParams("filter", "comments")}
+                aria-pressed={filter === "comments"}
+                className={`w-fit px-6 py-2.5 rounded-full text-[13px] font-bold transition-all focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 ${filter === "comments"
+                  ? "bg-gray-900 text-white shadow-lg shadow-gray-200"
+                  : "bg-white text-gray-500 border border-gray-100 hover:border-gray-300"
+                  }`}
+              >
+                {texts.main.communityMostComments}
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+  // 홈(파티) 페이지 사이드바 (기존 로직)
   return (
     <aside className="w-64 flex-shrink-0 pr-8 hidden md:block">
       <div className="sticky top-[104px] space-y-10">
