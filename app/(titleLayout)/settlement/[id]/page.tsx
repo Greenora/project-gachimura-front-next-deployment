@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Language } from "@/app/common/types";
 import { menu } from "@/app/constants/menu";
+import Link from "next/link";
 
 async function getSettlementData(partyId: number, token: string, unknownNickname: string) {
   try {
@@ -130,6 +131,22 @@ export default async function SettlementPage({
   }
 
   const { settlement, party, members } = await getSettlementData(partyId, token, texts.chat.unknownNickname);
+
+  // Security Fix: Verify if the authenticated user is a member or host of the party to prevent IDOR
+  const isMember = members.some((m: any) => m.id === userProfile.id);
+  const isHost = party?.hostId === userProfile.id;
+
+  if (!isMember && !isHost) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4">
+        <h1 className="text-2xl font-bold">{texts.chat.noAccessTitle}</h1>
+        <p className="text-gray-500">{texts.chat.noAccessDescription}</p>
+        <Link href="/" className="px-6 py-2 bg-[#166534] text-white rounded-lg font-medium">
+          {texts.chat.backToHome}
+        </Link>
+      </div>
+    );
+  }
 
   let payments: any[] = [];
   if (settlement?.id) {
