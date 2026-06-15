@@ -5,8 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
-import CreatePartyButton from "@/components/main/CreatePartyButton";
-import WritePostButton from "@/components/main/WritePostButton";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 
 interface TrendingTopic {
@@ -25,6 +23,7 @@ export default function HomeCommunityTabs() {
   const homeLabel = lang === Language.japanese ? "ホーム" : "홈";
   const communityLabel = lang === Language.japanese ? "コミュニティ" : "커뮤니티";
   const topicLabel = lang === Language.japanese ? "今日の話題" : "오늘의 토픽";
+  const aiChatLabel = lang === Language.japanese ? "AIレシピ推薦" : "AI 요리 추천";
   const communityLocale = lang === Language.japanese ? "ja" : "ko";
 
   useEffect(() => {
@@ -93,7 +92,17 @@ export default function HomeCommunityTabs() {
             {topicLabel}: {topTopic?.tag || "#-"}
           </span>
         )}
-        {isCommunity ? <WritePostButton variant="compact" /> : <CreatePartyButton variant="compact" />}
+        <Link
+          href="/recipe-chat"
+          className="group flex items-center rounded-full bg-[#166534] text-white transition-all focus:outline-none focus:ring-4 focus:ring-green-100 focus:ring-offset-2 hover:bg-[#14532d] active:scale-95 min-w-[108px] justify-center gap-2 whitespace-nowrap px-4 py-2 text-[13px] font-black shadow-lg shadow-green-900/15 hover:scale-[1.02]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:scale-110">
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+            <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5 5 3Z" opacity="0.5" />
+            <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z" opacity="0.5" />
+          </svg>
+          <span>{aiChatLabel}</span>
+        </Link>
       </div>
     </div>
   );
