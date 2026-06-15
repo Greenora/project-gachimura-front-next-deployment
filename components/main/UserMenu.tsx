@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { clientFetch } from "@/app/hooks/useClientFetch";
@@ -9,8 +9,6 @@ import { useLanguage } from "@/app/hooks/LanguageContext";
 export default function UserMenu() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -25,17 +23,6 @@ export default function UserMenu() {
     };
 
     fetchProfile();
-  }, []);
-
-  // 외부 클릭 시 드롭다운 닫기
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleLogout = async () => {
@@ -86,57 +73,27 @@ export default function UserMenu() {
   }
 
   return (
-    <div className="flex items-center gap-6" ref={dropdownRef}>
-      {/* 유저 정보 (클릭 시 드롭다운 토글) */}
-      <div className="relative">
-        <div
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="flex items-center gap-3 cursor-pointer group"
-        >
-          <div className="flex min-w-0 max-w-[130px] flex-col items-end">
-            <span className="w-full truncate text-right text-[14px] font-bold leading-tight text-gray-900 transition-colors group-hover:text-green-700">
-              {user.nickname}
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden shadow-sm bg-white relative group-hover:border-green-100 transition-all">
-            <Image
-              src={user.profileImage || "/images/gachimura_logo.png"}
-              alt="profile"
-              width={40}
-              height={40}
-              className={!user.profileImage ? "p-1.5 object-contain" : "object-cover"}
-            />
-          </div>
+    <div className="flex items-center gap-6">
+      {/* 유저 정보 (클릭 시 마이페이지로 직접 이동) */}
+      <Link
+        href={`/user/${user.id}`}
+        className="flex items-center gap-3 cursor-pointer group"
+      >
+        <div className="flex min-w-0 max-w-[130px] flex-col items-end">
+          <span className="w-full truncate text-right text-[14px] font-bold leading-tight text-gray-900 transition-colors group-hover:text-green-700">
+            {user.nickname}
+          </span>
         </div>
-
-        {/* 드롭다운 메뉴 */}
-        {isDropdownOpen && (
-          <div className="absolute right-0 mt-3 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-[110] animate-in fade-in zoom-in duration-200 origin-top-right">
-            <Link
-              href={`/user/${user.id}`}
-              className="flex items-center gap-3 px-4 py-3 text-[14px] font-medium text-gray-700 hover:bg-gray-50 hover:text-green-700 transition-colors"
-              onClick={() => setIsDropdownOpen(false)}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              {texts.header.myPage}
-            </Link>
-            <Link
-              href="/user/edit"
-              className="flex items-center gap-3 px-4 py-3 text-[14px] font-medium text-gray-700 hover:bg-gray-50 hover:text-green-700 transition-colors"
-              onClick={() => setIsDropdownOpen(false)}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-              {texts.header.editProfile}
-            </Link>
-          </div>
-        )}
-      </div>
+        <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden shadow-sm bg-white relative group-hover:border-green-100 transition-all">
+          <Image
+            src={user.profileImage || "/images/gachimura_logo.png"}
+            alt="profile"
+            width={40}
+            height={40}
+            className={!user.profileImage ? "p-1.5 object-contain" : "object-cover"}
+          />
+        </div>
+      </Link>
 
       {/* 구분선 */}
       <div className="w-[1px] h-4 bg-gray-200" />
