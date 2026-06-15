@@ -54,12 +54,20 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
       try {
         const data = await clientFetch("/users/profile");
         setCurrentUser(data);
+        if (data.id === user.id) {
+          setEditNickname(data.nickname || "");
+          setEditNicknameJp(data.nickname_jp || "");
+          setEditBankName(data.bankName || "");
+          setEditBankCode(data.bankCode || "");
+          setEditAccountNumber(data.accountNumber || "");
+          setEditAccountHolder(data.accountHolder || "");
+        }
       } catch (error) {
         console.log("Not logged in");
       }
     };
     fetchCurrentUser();
-  }, []);
+  }, [user.id]);
 
   // 모임 만들기 등에서 계좌정보 미입력으로 리다이렉트 되었을 때 경고 처리
   useEffect(() => {
