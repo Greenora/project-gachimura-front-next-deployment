@@ -672,12 +672,7 @@ export default function ChatContainer({
   }, [partyId]);
 
   // props로 받은 currentUser 정보를 바로 사용
-  const { messages: realTimeMessages, sendMessage } = useChat(
-    currentUser.id,
-    getLocalizedNickname(currentUser.nickname, currentUser.nickname_jp),
-    partyId,
-    currentUser.profileImage
-  );
+  const { messages: realTimeMessages, sendMessage } = useChat(partyId);
 
   const { formatFullDate, formatDividerDate, formatMessageTime } = useDateFormatter();
   const scrollRef = useRef<HTMLDivElement>(null);

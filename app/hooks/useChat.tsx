@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { API_CONFIG } from "@/config/api";
 
@@ -7,13 +7,20 @@ export interface ChatPayload {
   partyId: number;
   message: string;
   nickname: string;
+  nickname_jp?: string;
   profileImage?: string | null;
   messageType?: "TALK" | "SYSTEM" | "SYSTEM_REVIEW";
   createdAt?: string;
 }
 
-export function useChat(userId: number, nickname: string, partyId: number, profileImage?: string | null) {
-  const [socket, setSocket] = useState<Socket | null>(null);
+function getCookieValue(name: string) {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+export function useChat(partyId: number) {
+  const socketRef = useRef<Socket | null>(null);
   const [messages, setMessages] = useState<ChatPayload[]>([]);
 
   const buildMessageKey = (payload: ChatPayload) => {
@@ -25,14 +32,18 @@ export function useChat(userId: number, nickname: string, partyId: number, profi
 
   useEffect(() => {
     // 1. 소켓 연결
-    const newSocket = io(API_CONFIG.SOCKET_URL, { transports: ["websocket"] });
+    const token = getCookieValue("accessToken");
+    const newSocket = io(API_CONFIG.SOCKET_URL, {
+      transports: ["websocket"],
+      auth: { token },
+    });
 
     // 2. 연결 성공 시 이벤트
     newSocket.on("connect", () => {
       console.log("Chat Connected! ID:", newSocket.id);
 
       // 방 입장 요청
-      newSocket.emit("joinRoom", { userId, partyId });
+      newSocket.emit("joinRoom", { partyId });
     });
 
     // 3. 메시지 수신 (Payload 객체로 받음)
@@ -51,25 +62,18 @@ export function useChat(userId: number, nickname: string, partyId: number, profi
       alert(msg);
     });
 
-    setSocket(newSocket);
+    socketRef.current = newSocket;
 
     return () => {
+      socketRef.current = null;
       newSocket.disconnect();
     };
-  }, [userId, partyId]); // 유저나 방이 바뀌면 재연결
+  }, [partyId]);
 
   // 메시지 전송 함수
   const sendMessage = (msg: string) => {
-    if (socket) {
-      const payload: ChatPayload = {
-        userId,
-        nickname,
-        profileImage,
-        partyId,
-        message: msg,
-      };
-
-      socket.emit("message", payload);
+    if (socketRef.current) {
+      socketRef.current.emit("message", { partyId, message: msg });
     }
   };
 
