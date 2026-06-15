@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import Image from "next/image";
 import Cookies from "js-cookie";
@@ -74,6 +74,8 @@ interface VerifyCodeResponse {
   emailVerificationToken: string;
 }
 
+const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 // 쿠키에서 가져온 언어 값이 유효한지 체크하는 함수
 const isValidLanguage = (value: string | undefined): value is Language => {
   return value !== undefined && Object.values(Language).includes(value as Language);
@@ -82,6 +84,7 @@ const isValidLanguage = (value: string | undefined): value is Language => {
 export default function LoginForm() {
   const router = useRouter();
   const { texts, lang } = useLanguage();
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState<Step>("EMAIL_INPUT");
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswordLogin, setShowPasswordLogin] = useState(false);
@@ -98,6 +101,31 @@ export default function LoginForm() {
     clearErrors,
     formState: { errors },
   } = useForm<FormData>({ mode: "onChange" });
+
+  const emailRegister = register("email", {
+    required: true,
+    pattern: {
+      value: EMAIL_PATTERN,
+      message: texts.auth.errorEmail,
+    },
+  });
+
+  const syncEmailValue = (rawValue: string) => {
+    const newValue = rawValue.trim();
+    setValue("email", newValue, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    clearErrors("email");
+
+    if (step !== "EMAIL_INPUT") {
+      setStep("EMAIL_INPUT");
+      setValue("verificationCode", "");
+      setValue("passwordLogin", "");
+      setValue("passwordRegister", "");
+      setEmailVerificationToken(null);
+    }
+  };
 
   const verifyCodePlaceholder =
     lang === Language.japanese
@@ -303,10 +331,19 @@ export default function LoginForm() {
   };
 
   const onSubmit = (data: FormData) => {
+    const email = (emailInputRef.current?.value || data.email || "").trim();
+
+    if (email !== data.email) {
+      setValue("email", email, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+
     if (step === "EMAIL_INPUT") {
-      handleEmailCheck(data.email);
+      handleEmailCheck(email);
     } else if (step === "VERIFY_EMAIL") {
-      handleVerifyEmailCode(data.email, data.verificationCode || "");
+      handleVerifyEmailCode(email, data.verificationCode || "");
     } else if (step === "REGISTER_FORM") {
       if (!emailVerificationToken) {
         toast.error(
@@ -319,7 +356,7 @@ export default function LoginForm() {
       }
 
       handleRegister({
-        email: data.email,
+        email,
         passwordRegister: data.passwordRegister || "",
         phone: data.phone,
         birthdate: data.birthdate,
@@ -327,10 +364,37 @@ export default function LoginForm() {
       });
     } else {
       handleLogin({
-        email: data.email,
+        email,
         passwordLogin: data.passwordLogin || "",
       });
     }
+  };
+
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const email = (emailInputRef.current?.value || "").trim();
+    setValue("email", email, {
+      shouldDirty: true,
+    });
+
+    // 브라우저 자동완성은 change/input 이벤트를 발생시키지 않을 수 있어,
+    // 첫 단계에서는 실제 input 값을 기준으로 직접 검증하고 진행한다.
+    if (step === "EMAIL_INPUT") {
+      if (!EMAIL_PATTERN.test(email)) {
+        setError("email", {
+          type: "pattern",
+          message: texts.auth.errorEmail,
+        });
+        return;
+      }
+
+      clearErrors("email");
+      void handleEmailCheck(email);
+      return;
+    }
+
+    void handleSubmit(onSubmit)(event);
   };
 
   // 비밀번호 찾기 핸들러
@@ -351,7 +415,7 @@ export default function LoginForm() {
             : texts.auth.titleLogin}
         </h1>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-2">
+        <form onSubmit={handleFormSubmit} className="flex flex-col gap-2">
           {/* 이메일 */}
           <div>
             <div className="relative">
@@ -359,27 +423,24 @@ export default function LoginForm() {
                 <EmailIcon />
               </span>
               <input
-                {...register("email", {
-                  required: true,
-                  pattern: {
-                    value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-                    message: texts.auth.errorEmail,
-                  },
-                })}
+                {...emailRegister}
+                ref={(element) => {
+                  emailRegister.ref(element);
+                  emailInputRef.current = element;
+                }}
+                type="email"
+                autoComplete="email"
                 placeholder={texts.auth.emailPlaceholder}
                 onChange={(e) => {
-                  const newValue = e.target.value;
-                  setValue("email", newValue);
-                  clearErrors("email");
-                  
-                  // 수정 시 단계 리셋
-                  if (step !== "EMAIL_INPUT") {
-                    setStep("EMAIL_INPUT");
-                    setValue("verificationCode", "");
-                    setValue("passwordLogin", "");
-                    setValue("passwordRegister", "");
-                    setEmailVerificationToken(null);
-                  }
+                  emailRegister.onChange(e);
+                  syncEmailValue(e.target.value);
+                }}
+                onInput={(e) => {
+                  syncEmailValue(e.currentTarget.value);
+                }}
+                onBlur={(e) => {
+                  emailRegister.onBlur(e);
+                  syncEmailValue(e.target.value);
                 }}
                 disabled={isLoading} 
                 className={`w-full pl-12 pr-4 py-4 rounded-lg border outline-none transition-colors text-black placeholder-gray-400 font-sans disabled:bg-gray-100
