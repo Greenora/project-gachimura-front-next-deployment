@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -101,6 +102,9 @@ export default function CommunityPage() {
     }
     return author?.nickname || author?.nickname_jp || texts.chat.unknownNickname;
   };
+
+  const getUserProfileHref = (author: CommunityAuthor) =>
+    author?.id ? `/user/${author.id}` : null;
 
   const formatRelativeTime = (dateLike: string | Date) => {
     const date = new Date(dateLike);
@@ -316,15 +320,35 @@ export default function CommunityPage() {
         ) : (
           posts.map((post) => {
             const nickname = getDisplayNickname(post.author);
+            const authorHref = getUserProfileHref(post.author);
             const comments = commentsByPost[post.id] || [];
             const isCommentOpen = Boolean(openCommentPanels[post.id]);
             return (
               <article key={post.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <Avatar nickname={nickname} size={40} />
+                  {authorHref ? (
+                    <Link
+                      href={authorHref}
+                      aria-label={`${nickname} 프로필로 이동`}
+                      className="shrink-0 rounded-full transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#166534] focus:ring-offset-2"
+                    >
+                      <Avatar nickname={nickname} avatarUrl={post.author.profileImage} size={40} />
+                    </Link>
+                  ) : (
+                    <Avatar nickname={nickname} avatarUrl={post.author.profileImage} size={40} />
+                  )}
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-black text-gray-900">@{nickname}</p>
+                      {authorHref ? (
+                        <Link
+                          href={authorHref}
+                          className="text-[14px] font-black text-gray-900 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
+                        >
+                          @{nickname}
+                        </Link>
+                      ) : (
+                        <p className="text-[14px] font-black text-gray-900">@{nickname}</p>
+                      )}
                       <span className="text-[12px] font-bold text-gray-400">{formatRelativeTime(post.createdAt)}</span>
                     </div>
                     <p className="mt-2 text-[15px] font-medium leading-7 text-gray-800">{getLocalizedContent(post.content)}</p>
@@ -371,10 +395,20 @@ export default function CommunityPage() {
                             ) : (
                               comments.map((comment) => {
                                 const commentNickname = getDisplayNickname(comment.author);
+                                const commentAuthorHref = getUserProfileHref(comment.author);
                                 return (
                                   <div key={comment.id} className="rounded-lg bg-white px-3 py-2">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-[12px] font-black text-gray-700">@{commentNickname}</span>
+                                      {commentAuthorHref ? (
+                                        <Link
+                                          href={commentAuthorHref}
+                                          className="text-[12px] font-black text-gray-700 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
+                                        >
+                                          @{commentNickname}
+                                        </Link>
+                                      ) : (
+                                        <span className="text-[12px] font-black text-gray-700">@{commentNickname}</span>
+                                      )}
                                       <span className="text-[11px] font-bold text-gray-400">{formatRelativeTime(comment.createdAt)}</span>
                                     </div>
                                     <p className="mt-1 text-[13px] font-medium text-gray-700">{comment.content}</p>
