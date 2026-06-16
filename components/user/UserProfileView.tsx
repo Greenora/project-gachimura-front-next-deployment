@@ -25,10 +25,51 @@ const BANK_LIST = [
   { code: "031", name: "대구은행" },
 ];
 
+type AccountCountry = "KR" | "JP";
+type AccountType = "FUTSU" | "TOZA";
+
+const JP_ACCOUNT_TYPES: Array<{ value: AccountType; label: string }> = [
+  { value: "FUTSU", label: "普通" },
+  { value: "TOZA", label: "当座" },
+];
+
 interface UserProfileViewProps {
-  user: any;
-  parties: any[];
+  user: UserProfile;
+  parties: PartySummary[];
   lang: Language;
+}
+
+interface UserProfile {
+  id: number;
+  nickname: string;
+  nickname_jp?: string | null;
+  profileImage?: string | null;
+  treeScore?: string | number;
+  reviewsCount?: number;
+  accountCountry?: AccountCountry | null;
+  bankCode?: string | null;
+  bankName?: string | null;
+  bankBranchName?: string | null;
+  bankBranchCode?: string | null;
+  accountType?: AccountType | null;
+  accountNumber?: string | null;
+  accountHolder?: string | null;
+}
+
+interface PartySummary {
+  id: number;
+  title: string;
+  content: string;
+  storeName: string;
+  addressKo?: string;
+  addressJp?: string;
+  meetDate: string;
+  status: string;
+  host?: {
+    nickname: string;
+    nickname_jp?: string | null;
+    profileImage?: string;
+  };
 }
 
 export default function UserProfileView({ user, parties, lang }: UserProfileViewProps) {
@@ -36,7 +77,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // 수정할 필드 상태들
@@ -44,39 +85,48 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
   const [editNicknameJp, setEditNicknameJp] = useState(user.nickname_jp || "");
   const [editBankName, setEditBankName] = useState(user.bankName || "");
   const [editBankCode, setEditBankCode] = useState(user.bankCode || "");
+  const [editBankBranchName, setEditBankBranchName] = useState(user.bankBranchName || "");
+  const [editBankBranchCode, setEditBankBranchCode] = useState(user.bankBranchCode || "");
+  const [editAccountType, setEditAccountType] = useState<AccountType>(
+    user.accountType === "TOZA" ? "TOZA" : "FUTSU"
+  );
   const [editAccountNumber, setEditAccountNumber] = useState(user.accountNumber || "");
   const [editAccountHolder, setEditAccountHolder] = useState(user.accountHolder || "");
   const [isSaving, setIsSaving] = useState(false);
+  const accountCountry: AccountCountry = lang === Language.japanese ? "JP" : "KR";
 
   // 로그인한 사용자 확인
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const data = await clientFetch("/users/profile");
+        const data = await clientFetch<UserProfile>("/users/profile");
         setCurrentUser(data);
         if (data.id === user.id) {
           setEditNickname(data.nickname || "");
           setEditNicknameJp(data.nickname_jp || "");
           setEditBankName(data.bankName || "");
           setEditBankCode(data.bankCode || "");
+          setEditBankBranchName(data.bankBranchName || "");
+          setEditBankBranchCode(data.bankBranchCode || "");
+          setEditAccountType(data.accountType === "TOZA" ? "TOZA" : "FUTSU");
           setEditAccountNumber(data.accountNumber || "");
           setEditAccountHolder(data.accountHolder || "");
         }
-      } catch (error) {
+      } catch {
         console.log("Not logged in");
       }
     };
     fetchCurrentUser();
   }, [user.id]);
 
-  // 모임 만들기 등에서 계좌정보 미입력으로 리다이렉트 되었을 때 경고 처리
+  // 정산 단계 등에서 계좌정보 미입력으로 리다이렉트 되었을 때 경고 처리
   useEffect(() => {
     const errorParam = searchParams.get("error");
     if (errorParam === "accountNumber") {
       toast.error(
         lang === Language.japanese
-          ? "精算および集まり登録のために、口座情報を入力してください。"
-          : "정산 및 모임 생성을 위해 계좌 정보를 입력해주세요!",
+          ? "割り勘の入金案内を受け取るために、口座情報を入力してください。"
+          : "정산을 받으려면 계좌 정보를 입력해주세요!",
         {
           duration: 6000,
           id: "account-number-required-toast",
@@ -102,8 +152,12 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
         body: {
           nickname: editNickname,
           nickname_jp: editNicknameJp || null,
-          bankCode: editBankCode || null,
+          accountCountry,
+          bankCode: accountCountry === "KR" ? editBankCode || null : null,
           bankName: editBankName || null,
+          bankBranchName: accountCountry === "JP" ? editBankBranchName || null : null,
+          bankBranchCode: accountCountry === "JP" ? editBankBranchCode || null : null,
+          accountType: accountCountry === "JP" ? editAccountType : null,
           accountNumber: editAccountNumber || null,
           accountHolder: editAccountHolder || null,
         },
@@ -132,7 +186,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
   };
 
   const nickname = lang === Language.japanese && user.nickname_jp ? user.nickname_jp : user.nickname;
-  const treeScore = parseFloat(user.treeScore || "50.0");
+  const treeScore = Number(user.treeScore ?? 50);
   const scorePercentage = Math.min(Math.max(treeScore, 0), 100);
 
   const getTreeLevel = (score: number) => {
@@ -214,7 +268,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
         </div>
         {parties && parties.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-12">
-            {parties.map((party: any) => (
+            {parties.map((party) => (
               <PartyCard key={party.id} party={party} />
             ))}
           </div>
@@ -238,7 +292,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
       {/* 프로필 수정 모달 */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
               <h2 className="text-lg font-black text-gray-900">
                 {lang === Language.japanese ? "プロフィール編集" : "프로필 및 계좌 수정"}
@@ -254,7 +308,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
               </button>
             </div>
             
-            <form onSubmit={handleSaveProfile} className="p-6 flex flex-col gap-4">
+            <form onSubmit={handleSaveProfile} className="max-h-[calc(90vh-65px)] overflow-y-auto p-6 flex flex-col gap-4">
               {/* 닉네임 */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-gray-500">
@@ -282,30 +336,97 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
                 />
               </div>
 
+              <p className="rounded-xl bg-green-50 px-4 py-3 text-[12px] font-medium leading-5 text-green-900">
+                {lang === Language.japanese
+                  ? "割り勘の入金案内に使う日本口座情報です。実際の送金は各メンバーが利用する銀行アプリで行ってください。"
+                  : "정산 입금 안내에 사용할 한국 계좌 정보입니다. 실제 송금은 각자 사용하는 은행 앱에서 진행해주세요."}
+              </p>
+
               {/* 은행 선택 */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-gray-500">
                   {lang === Language.japanese ? "銀行名" : "은행 선택"}
                 </label>
-                <select
-                  value={editBankName}
-                  onChange={(e) => {
-                    const selectedName = e.target.value;
-                    setEditBankName(selectedName);
-                    const selectedBank = BANK_LIST.find((bank) => bank.name === selectedName);
-                    setEditBankCode(selectedBank ? selectedBank.code : "");
-                  }}
-                  required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black bg-white"
-                >
-                  <option value="">{lang === Language.japanese ? "銀行を選択してください" : "은행을 선택해주세요"}</option>
-                  {BANK_LIST.map((bank) => (
-                    <option key={bank.code} value={bank.name}>
-                      {bank.name}
-                    </option>
-                  ))}
-                </select>
+                {accountCountry === "KR" ? (
+                  <select
+                    value={editBankName}
+                    onChange={(e) => {
+                      const selectedName = e.target.value;
+                      setEditBankName(selectedName);
+                      const selectedBank = BANK_LIST.find((bank) => bank.name === selectedName);
+                      setEditBankCode(selectedBank ? selectedBank.code : "");
+                    }}
+                    required
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black bg-white"
+                  >
+                    <option value="">{lang === Language.japanese ? "銀行を選択してください" : "은행을 선택해주세요"}</option>
+                    {BANK_LIST.map((bank) => (
+                      <option key={bank.code} value={bank.name}>
+                        {bank.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    value={editBankName}
+                    onChange={(e) => setEditBankName(e.target.value)}
+                    placeholder={lang === Language.japanese ? "例) 三菱UFJ銀行" : "예) 三菱UFJ銀行"}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
+                  />
+                )}
               </div>
+
+              {accountCountry === "JP" && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-500">
+                        {lang === Language.japanese ? "支店名" : "지점명"}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editBankBranchName}
+                        onChange={(e) => setEditBankBranchName(e.target.value)}
+                        placeholder={lang === Language.japanese ? "例) 新宿支店" : "예) 新宿支店"}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-500">
+                        {lang === Language.japanese ? "支店番号" : "지점번호"}
+                      </label>
+                      <input
+                        type="text"
+                        value={editBankBranchCode}
+                        onChange={(e) => setEditBankBranchCode(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="123"
+                        inputMode="numeric"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-gray-500">
+                      {lang === Language.japanese ? "口座種別" : "계좌 종류"}
+                    </label>
+                    <select
+                      value={editAccountType}
+                      onChange={(e) => setEditAccountType(e.target.value as AccountType)}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black bg-white"
+                    >
+                      {JP_ACCOUNT_TYPES.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
 
               {/* 계좌 번호 */}
               <div className="flex flex-col gap-1.5">
