@@ -8,11 +8,19 @@ interface CommunityComposerDrawerProps {
   isOpen: boolean;
   lang: Language;
   onClose: () => void;
-  onSubmit: (content: string) => void;
+  onSubmit: (value: { content: string; linkedPartyId: number | null }) => void;
+  linkableParties?: Array<{ id: number; title: string; storeName?: string | null }>;
 }
 
-export default function CommunityComposerDrawer({ isOpen, lang, onClose, onSubmit }: CommunityComposerDrawerProps) {
+export default function CommunityComposerDrawer({
+  isOpen,
+  lang,
+  onClose,
+  onSubmit,
+  linkableParties = [],
+}: CommunityComposerDrawerProps) {
   const [content, setContent] = useState("");
+  const [linkedPartyId, setLinkedPartyId] = useState("");
   const maxLength = 240;
 
   const texts = useMemo(() => {
@@ -24,6 +32,14 @@ export default function CommunityComposerDrawer({ isOpen, lang, onClose, onSubmi
         cancel: "キャンセル",
         submit: "投稿する",
         me: "私",
+        linkedPartyLabel: "自分の集まりをリンク",
+        linkedPartyEmpty: "リンクしない",
+        guidelineTitle: "投稿ガイド",
+        guidelines: [
+          "個人情報や口座番号は本文に書かず、必要な案内は集まり内で共有しましょう。",
+          "支払い・受け渡しの相談は、承認された集まりで行いましょう。",
+          "お得情報、買い物メモ、一緒に分けたい商品の話を気軽にどうぞ。",
+        ],
       };
     }
 
@@ -34,6 +50,14 @@ export default function CommunityComposerDrawer({ isOpen, lang, onClose, onSubmi
       cancel: "취소",
       submit: "게시하기",
       me: "나",
+      linkedPartyLabel: "내 모임 연결하기",
+      linkedPartyEmpty: "연결하지 않기",
+      guidelineTitle: "작성 가이드",
+      guidelines: [
+        "계좌번호 같은 개인정보는 글에 직접 쓰지 말고, 필요한 안내는 모임 안에서 공유해주세요.",
+        "입금이나 수령 일정은 승인된 모임에서 이야기해주세요.",
+        "할인 소식, 장보기 메모, 같이 나누고 싶은 상품 이야기를 편하게 남겨주세요.",
+      ],
     };
   }, [lang]);
 
@@ -67,8 +91,12 @@ export default function CommunityComposerDrawer({ isOpen, lang, onClose, onSubmi
       return;
     }
 
-    onSubmit(trimmed);
+    onSubmit({
+      content: trimmed,
+      linkedPartyId: linkedPartyId ? Number(linkedPartyId) : null,
+    });
     setContent("");
+    setLinkedPartyId("");
   };
 
   return (
@@ -109,6 +137,34 @@ export default function CommunityComposerDrawer({ isOpen, lang, onClose, onSubmi
             <div className="flex items-center gap-3">
               <Avatar nickname={texts.me} size={40} />
               <p className="text-[14px] font-bold text-gray-800">@{texts.me}</p>
+            </div>
+
+            <div className="rounded-2xl border border-green-100 bg-green-50/70 px-4 py-3">
+              <p className="mb-2 text-[12px] font-black text-green-800">{texts.guidelineTitle}</p>
+              <ul className="space-y-1 text-[12px] font-medium leading-5 text-green-900/80">
+                {texts.guidelines.map((guideline) => (
+                  <li key={guideline}>- {guideline}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12px] font-black text-gray-600">
+                {texts.linkedPartyLabel}
+              </label>
+              <select
+                value={linkedPartyId}
+                onChange={(event) => setLinkedPartyId(event.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[13px] font-bold text-gray-700 outline-none transition-all focus:border-green-600 focus:ring-4 focus:ring-green-50"
+              >
+                <option value="">{texts.linkedPartyEmpty}</option>
+                {linkableParties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.title}
+                    {party.storeName ? ` · ${party.storeName}` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <textarea

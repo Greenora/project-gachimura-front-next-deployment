@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -29,12 +30,28 @@ interface CommunityComment {
 interface CommunityPost {
   id: number;
   author: CommunityAuthor;
+  linkedParty?: {
+    id: number;
+    title: string;
+    storeName?: string | null;
+    status?: string;
+  } | null;
   content: string;
   locale: "ko" | "ja";
   createdAt: string | Date;
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
+}
+
+interface CurrentUser {
+  id: number;
+}
+
+interface LinkableParty {
+  id: number;
+  title: string;
+  storeName?: string | null;
 }
 
 interface CommunityFeedResponse {
@@ -60,6 +77,7 @@ export default function CommunityPage() {
   const [loadingComments, setLoadingComments] = useState<Record<number, boolean>>({});
   const [likingPosts, setLikingPosts] = useState<Record<number, boolean>>({});
   const [submittingComments, setSubmittingComments] = useState<Record<number, boolean>>({});
+  const [linkableParties, setLinkableParties] = useState<LinkableParty[]>([]);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // URL에서 필터 파라미터 읽기
@@ -142,6 +160,21 @@ export default function CommunityPage() {
   }, [lang, filter, communityLocale]);
 
   useEffect(() => {
+    const fetchLinkableParties = async () => {
+      try {
+        const profile = await clientFetch<CurrentUser>("/users/profile");
+        const parties = await clientFetch<LinkableParty[]>(`/parties/user/${profile.id}`);
+        setLinkableParties(parties || []);
+      } catch (error) {
+        console.error(error);
+        setLinkableParties([]);
+      }
+    };
+
+    fetchLinkableParties();
+  }, []);
+
+  useEffect(() => {
     if (!hasMore || !nextCursor || isLoading || isLoadingMore) {
       return;
     }
@@ -193,11 +226,17 @@ export default function CommunityPage() {
     }
   };
 
-  const createPost = async (content: string) => {
+  const createPost = async ({
+    content,
+    linkedPartyId,
+  }: {
+    content: string;
+    linkedPartyId: number | null;
+  }) => {
     try {
       const created = await clientFetch<CommunityPost>("/community/posts", {
         method: "POST",
-        body: { content, locale: communityLocale },
+        body: { content, locale: communityLocale, linkedPartyId },
       });
       setPosts((prev) => [created, ...prev]);
       toast.success(successMessage);
@@ -329,6 +368,30 @@ export default function CommunityPage() {
                     </div>
                     <p className="mt-2 text-[15px] font-medium leading-7 text-gray-800">{getLocalizedContent(post.content)}</p>
 
+                    {post.linkedParty && (
+                      <Link
+                        href={`/party/${post.linkedParty.id}`}
+                        className="mt-3 flex items-center justify-between rounded-2xl border border-green-100 bg-green-50 px-4 py-3 transition-colors hover:border-green-200 hover:bg-green-100/70"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-black uppercase tracking-tight text-green-700">
+                            {lang === Language.japanese ? "リンクされた集まり" : "연결된 모임"}
+                          </p>
+                          <p className="mt-1 truncate text-[14px] font-black text-gray-900">
+                            {post.linkedParty.title}
+                          </p>
+                          {post.linkedParty.storeName && (
+                            <p className="mt-0.5 truncate text-[12px] font-bold text-gray-500">
+                              {post.linkedParty.storeName}
+                            </p>
+                          )}
+                        </div>
+                        <span className="ml-3 shrink-0 text-[12px] font-black text-green-700">
+                          {lang === Language.japanese ? "見る" : "보기"}
+                        </span>
+                      </Link>
+                    )}
+
                     <div className="mt-3 flex items-center gap-3">
                       <button
                         type="button"
@@ -432,7 +495,13 @@ export default function CommunityPage() {
         </div>
       )}
 
-      <CommunityComposerDrawer isOpen={isComposerOpen} lang={lang} onClose={closeComposer} onSubmit={createPost} />
+      <CommunityComposerDrawer
+        isOpen={isComposerOpen}
+        lang={lang}
+        linkableParties={linkableParties}
+        onClose={closeComposer}
+        onSubmit={createPost}
+      />
     </section>
   );
 }

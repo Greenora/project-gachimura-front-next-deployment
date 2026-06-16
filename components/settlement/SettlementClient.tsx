@@ -52,7 +52,7 @@ interface SettlementClientProps {
   initialSettlement: Settlement | null;
   partyInfo: PartyInfo | null;
   members: Member[];
-  currentUser: { id: number; nickname: string };
+  currentUser: { id: number; nickname: string; accountNumber?: string | null };
   initialPayments: Payment[];
 }
 
@@ -483,6 +483,7 @@ export default function SettlementClient({
       const memberCount = item.members?.length || 1;
       return sum + Math.ceil((item.price * item.quantity) / Math.max(memberCount, 1));
     }, 0) || 0;
+  const needsAccountInfo = Boolean(settlement && !currentUser.accountNumber);
 
   return (
     <div
@@ -508,6 +509,23 @@ export default function SettlementClient({
           <p className="text-sm text-gray-500 mt-1">
             {formatFullDate(partyData.meetDate)} | {partyData.storeName}
           </p>
+        </div>
+      )}
+
+      {needsAccountInfo && (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <p className="text-sm font-bold text-amber-900">
+            {lang === Language.japanese
+              ? "割り勘の入金案内を受け取るため、プロフィールに口座情報を入力しておくと安心です。"
+              : "정산 입금 안내를 받으려면 프로필에 계좌 정보를 입력해두는 것이 좋아요."}
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push(`/user/${currentUser.id}?error=accountNumber`)}
+            className="mt-3 rounded-full bg-amber-900 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-amber-800"
+          >
+            {lang === Language.japanese ? "プロフィールで入力する" : "프로필에서 입력하기"}
+          </button>
         </div>
       )}
 

@@ -1,42 +1,62 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 
 interface UserInfo {
+  id: number;
   nickname: string;
-  nickname_jp?: string;
+  nickname_jp?: string | null;
+  profileImage?: string | null;
 }
 
 export default function HeaderUserInfo() {
-  const { texts, lang } = useLanguage();
+  const { lang } = useLanguage();
   const [user, setUser] = useState<UserInfo | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     clientFetch("/users/profile")
       .then((data) => setUser(data))
-      .catch(() => setUser(null));
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  const displayNickname = () => {
-    if (!user) return texts.auth.loading;
-    if (lang === Language.japanese && user.nickname_jp) {
-      return user.nickname_jp;
-    }
-    return user.nickname;
-  };
+  if (loading) {
+    return <div className="h-10 w-10 animate-pulse rounded-full bg-gray-100" />;
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const displayNickname = lang === Language.japanese && user.nickname_jp
+    ? user.nickname_jp
+    : user.nickname;
 
   return (
-    <div className="flex items-center gap-2 cursor-pointer group">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-        <circle cx="12" cy="7" r="4"></circle>
-      </svg>
-      <span className="text-[12px] font-bold text-gray-700 tracking-tight group-hover:text-gray-900 transition-colors">
-        {displayNickname()}
-      </span>
-    </div>
+    <Link
+      href={`/user/${user.id}`}
+      className="group flex cursor-pointer items-center gap-3"
+    >
+      <div className="flex min-w-0 max-w-[130px] flex-col items-end">
+        <span className="w-full truncate text-right text-[14px] font-bold leading-tight text-gray-900 transition-colors group-hover:text-green-700">
+          {displayNickname}
+        </span>
+      </div>
+      <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white bg-white shadow-sm transition-all group-hover:border-green-100">
+        <Image
+          src={user.profileImage || "/images/gachimura_logo.png"}
+          alt={`${displayNickname} profile`}
+          width={40}
+          height={40}
+          className={!user.profileImage ? "object-contain p-1.5" : "object-cover"}
+        />
+      </div>
+    </Link>
   );
 }

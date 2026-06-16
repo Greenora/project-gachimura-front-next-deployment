@@ -63,7 +63,7 @@ export default function PartyCard({ party }: PartyCardProps) {
         </div>
 
         <div className="absolute top-3 right-3">
-          <span className={`px-2.5 py-1 rounded-md text-[10px] font-black tracking-tight uppercase shadow-sm ${party.status === 'RECRUITING'
+          <span className={`px-3 py-1.5 rounded-lg text-[12px] font-black tracking-tight uppercase shadow-sm ${party.status === 'RECRUITING'
             ? 'bg-green-600 text-white'
             : party.status === 'SETTLING'
               ? 'bg-orange-500 text-white'
