@@ -18,6 +18,7 @@ interface PartyCardProps {
     status: string;
     host?: {
       nickname: string;
+      nickname_jp?: string | null;
       profileImage?: string;
     };
   };
@@ -28,6 +29,11 @@ export default function PartyCard({ party }: PartyCardProps) {
   const { lang, texts } = useLanguage();
 
   const displayAddress = lang === Language.korean ? party.addressKo : party.addressJp;
+  const hostNickname =
+    lang === Language.japanese
+      ? party.host?.nickname_jp || party.host?.nickname
+      : party.host?.nickname;
+  const displayHostNickname = hostNickname || texts.main.anonymous;
 
   return (
     <Link
@@ -50,14 +56,14 @@ export default function PartyCard({ party }: PartyCardProps) {
             <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden shadow-sm bg-white relative">
               <Image
                 src={party.host?.profileImage || "/images/gachimura_logo.png"}
-                alt={`${party.host?.nickname || texts.main.anonymous} 프로필 사진`}
+                alt={`${displayHostNickname} 프로필 사진`}
                 width={40}
                 height={40}
                 className={!party.host?.profileImage ? "p-1.5 object-contain" : "object-cover"}
               />
             </div>
             <span className="text-white text-[15px] font-medium drop-shadow-sm">
-              {party.host?.nickname || texts.main.anonymous}
+              {displayHostNickname}
             </span>
           </div>
         </div>
