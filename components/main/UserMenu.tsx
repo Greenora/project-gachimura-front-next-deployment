@@ -5,17 +5,26 @@ import Image from "next/image";
 import Link from "next/link";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useLanguage } from "@/app/hooks/LanguageContext";
+import { Language } from "@/app/common/types";
+
+interface UserMenuProfile {
+  id: number;
+  nickname: string;
+  nickname_jp?: string | null;
+  profileImage?: string | null;
+}
 
 export default function UserMenu() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserMenuProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const { texts, lang } = useLanguage();
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const data = await clientFetch("/users/profile");
         setUser(data);
-      } catch (error) {
+      } catch {
         console.log("Not logged in");
       } finally {
         setLoading(false);
@@ -52,8 +61,6 @@ export default function UserMenu() {
     }
   };
 
-  const { texts } = useLanguage();
-
   if (loading) return <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />;
 
   if (!user) {
@@ -72,6 +79,11 @@ export default function UserMenu() {
     );
   }
 
+  const displayNickname =
+    lang === Language.japanese
+      ? user.nickname_jp || user.nickname
+      : user.nickname;
+
   return (
     <div className="flex items-center gap-6">
       {/* 유저 정보 (클릭 시 마이페이지로 직접 이동) */}
@@ -81,13 +93,13 @@ export default function UserMenu() {
       >
         <div className="flex min-w-0 max-w-[130px] flex-col items-end">
           <span className="w-full truncate text-right text-[14px] font-bold leading-tight text-gray-900 transition-colors group-hover:text-green-700">
-            {user.nickname}
+            {displayNickname}
           </span>
         </div>
         <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden shadow-sm bg-white relative group-hover:border-green-100 transition-all">
           <Image
             src={user.profileImage || "/images/gachimura_logo.png"}
-            alt="profile"
+            alt={`${displayNickname} profile`}
             width={40}
             height={40}
             className={!user.profileImage ? "p-1.5 object-contain" : "object-cover"}
