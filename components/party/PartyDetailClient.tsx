@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useLanguage } from "@/app/hooks/LanguageContext";
@@ -19,7 +20,7 @@ interface PartyDetail {
   location: { name: string; address: string; lat: number; lng: number };
   capacity: number;
   currentCount: number;
-  host: { nickname: string; nickname_jp?: string; avatarUrl: string | null };
+  host: { id?: number; nickname: string; nickname_jp?: string; avatarUrl: string | null };
   isJoined: boolean;
   isHost: boolean;
   isAccepted?: boolean; // 참가 승인 여부 (백엔드에서 내려줘야 함)
@@ -162,11 +163,30 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
 
         {/* 호스트 정보 */}
         <div className="flex items-start gap-3 mb-8">
-          <Avatar nickname={party.host.nickname} avatarUrl={party.host.avatarUrl} size={40} />
+          {party.host.id ? (
+            <Link
+              href={`/user/${party.host.id}`}
+              aria-label={`${party.host.nickname} 프로필로 이동`}
+              className="shrink-0 rounded-full transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#166534] focus:ring-offset-2"
+            >
+              <Avatar nickname={party.host.nickname} avatarUrl={party.host.avatarUrl} size={40} />
+            </Link>
+          ) : (
+            <Avatar nickname={party.host.nickname} avatarUrl={party.host.avatarUrl} size={40} />
+          )}
           <div className="flex-1">
-            <p className="font-medium text-sm mb-2 text-gray-600">
-              {lang === Language.japanese ? (party.host.nickname_jp || party.host.nickname) : party.host.nickname}
-            </p>
+            {party.host.id ? (
+              <Link
+                href={`/user/${party.host.id}`}
+                className="mb-2 inline-block font-medium text-sm text-gray-600 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
+              >
+                {lang === Language.japanese ? (party.host.nickname_jp || party.host.nickname) : party.host.nickname}
+              </Link>
+            ) : (
+              <p className="font-medium text-sm mb-2 text-gray-600">
+                {lang === Language.japanese ? (party.host.nickname_jp || party.host.nickname) : party.host.nickname}
+              </p>
+            )}
             <div className="bg-[#E8F4E8] border border-[#C8E6C9] rounded-2xl rounded-tl-none p-4 text-sm text-gray-700 leading-relaxed">
               {party.content}
             </div>
