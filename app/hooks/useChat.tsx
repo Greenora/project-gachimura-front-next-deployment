@@ -31,6 +31,8 @@ export function useChat(partyId: number) {
   };
 
   useEffect(() => {
+    if (!partyId || partyId <= 0 || Number.isNaN(partyId)) return;
+
     // 1. 소켓 연결
     const token = getCookieValue("accessToken");
     const newSocket = io(API_CONFIG.SOCKET_URL, {
