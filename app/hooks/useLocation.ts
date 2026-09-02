@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { clientFetch } from "./useClientFetch";
 import { toast } from "react-hot-toast";
 import { useLanguage } from "./LanguageContext";
+import { Language } from "../common/types";
 
 interface LocationState {
   latitude: number | null;
@@ -20,8 +21,49 @@ declare global {
   }
 }
 
+async function fetchReverseGeocode(lat: number, lon: number, langCode: string = "ko") {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=${langCode}`,
+      { headers: { "User-Agent": "GachimuraApp/1.0" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data.address;
+    if (!addr) return null;
+
+    const region =
+      addr.province ||
+      addr.state ||
+      addr.city ||
+      addr.region ||
+      addr.county ||
+      "";
+
+    const district =
+      addr.borough ||
+      addr.suburb ||
+      addr.city_district ||
+      addr.district ||
+      addr.quarter ||
+      addr.town ||
+      addr.neighbourhood ||
+      (addr.city && addr.city !== region ? addr.city : "");
+
+    if (region || district) {
+      return {
+        region: region || district,
+        district: (region && district && district !== region) ? district : "",
+      };
+    }
+  } catch (err) {
+    console.error("Reverse geocoding error:", err);
+  }
+  return null;
+}
+
 export function useLocation() {
-  const { texts } = useLanguage();
+  const { texts, lang } = useLanguage();
   const [location, setLocation] = useState<LocationState>({
     latitude: null,
     longitude: null,
@@ -68,6 +110,31 @@ export function useLocation() {
 
         console.log("Geolocation success:", { latitude, longitude });
 
+        const applyFallbackReverseGeocode = async () => {
+          const langStr = lang === Language.japanese ? "ja" : "ko";
+          const geo = await fetchReverseGeocode(latitude, longitude, langStr);
+          const region = geo?.region || texts.main.currentLocation;
+          const district = geo?.district || "";
+
+          const fallbackState = {
+            latitude,
+            longitude,
+            region,
+            district,
+            isLoading: false,
+            error: null,
+          };
+          setLocation(fallbackState);
+          syncLocationWithBackend(latitude, longitude, region, district);
+          localStorage.setItem("userLocation", JSON.stringify(fallbackState));
+          if (!isAuto) {
+            const successMsg = texts.main.locationSuccess
+              .replace("{region}", region)
+              .replace("{district}", district);
+            toast.success(successMsg);
+          }
+        };
+
         const processLocation = (retryCount = 0) => {
           console.log(`Checking window.kakao (attempt ${retryCount + 1}):`, {
             hasKakao: !!window.kakao,
@@ -78,10 +145,10 @@ export function useLocation() {
             window.kakao.maps.load(() => {
               const geocoder = new window.kakao.maps.services.Geocoder();
 
-              geocoder.coord2RegionCode(longitude, latitude, (result: any, status: any) => {
+              geocoder.coord2RegionCode(longitude, latitude, async (result: any, status: any) => {
                 console.log("Geocoder result:", status, result);
                 if (status === window.kakao.maps.services.Status.OK) {
-                  const regionInfo = result.find((res: any) => res.region_type === "H");
+                  const regionInfo = result.find((res: any) => res.region_type === "H") || result[0];
                   if (regionInfo) {
                     const region = regionInfo.region_1depth_name;
                     const district = regionInfo.region_2depth_name;
@@ -102,26 +169,22 @@ export function useLocation() {
                     if (!isAuto) {
                       const successMsg = texts.main.locationSuccess
                         .replace("{region}", region)
-                        .replace("{district}", district);
+                        .replace("{district}", district || "");
                       toast.success(successMsg);
                     }
+                    return;
                   }
-                } else {
-                  console.warn("Geocoder failed status:", status);
-                  setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
-                  syncLocationWithBackend(latitude, longitude);
-                  if (!isAuto) toast.success(texts.main.locationCoordsSuccess);
                 }
+
+                console.warn("Kakao Geocoder failed status:", status, "Falling back to Nominatim...");
+                await applyFallbackReverseGeocode();
               });
             });
           } else if (retryCount < 10) {
-            // 카카오 지도 스크립트가 아직 로딩되지 않았을 가능성이 높으므로 0.5초 후 재시도
             setTimeout(() => processLocation(retryCount + 1), 500);
           } else {
-            console.warn("Kakao maps SDK not loaded correctly after retries. window.kakao:", window.kakao);
-            setLocation(prev => ({ ...prev, latitude, longitude, isLoading: false }));
-            syncLocationWithBackend(latitude, longitude);
-            if (!isAuto) toast.success(texts.main.locationCoordsSuccess);
+            console.warn("Kakao maps SDK not loaded after retries. Falling back to Nominatim...");
+            applyFallbackReverseGeocode();
           }
         };
 
