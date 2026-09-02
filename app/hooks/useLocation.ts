@@ -232,23 +232,29 @@ export function useLocation() {
   ]);
 
   useEffect(() => {
-    const cached = localStorage.getItem("userLocation");
+    const cached = typeof window !== "undefined" ? localStorage.getItem("userLocation") : null;
+    let hasValidCache = false;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        setLocation({
-          ...parsed,
-          isLoading: false,
-          error: null,
-        });
+        if (parsed.latitude !== undefined && parsed.longitude !== undefined) {
+          setLocation({
+            ...parsed,
+            isLoading: false,
+            error: null,
+          });
+          hasValidCache = true;
+        }
       } catch (e) {
         localStorage.removeItem("userLocation");
       }
     }
 
-    // 마운트 시에는 자동 업데이트임을 표시
-    updateLocation(true);
-  }, [updateLocation]);
+    // 캐시된 위치 정보가 없을 때만 컴포넌트 마운트 시 자동으로 위치를 가져옴
+    if (!hasValidCache) {
+      updateLocation(true);
+    }
+  }, []);
 
   return { ...location, updateLocation: () => updateLocation(false) };
 }
