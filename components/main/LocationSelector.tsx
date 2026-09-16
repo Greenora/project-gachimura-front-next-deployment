@@ -4,8 +4,16 @@ import { useLocation } from "@/app/hooks/useLocation";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 
 export default function LocationSelector() {
-  const { region, district, isLoading, error, updateLocation } = useLocation();
+  const { region, district, latitude, longitude, isLoading, error, updateLocation } = useLocation();
   const { texts } = useLanguage();
+
+  const displayLocationText = (() => {
+    if (isLoading) return <span className="animate-pulse">{texts.main.locating}</span>;
+    if (error) return <span className="truncate text-[12px] text-red-500">{texts.main.locationPermissionRequired}</span>;
+    if (region && district) return `${region} · ${district}`;
+    if (region) return region;
+    return texts.main.currentLocation;
+  })();
 
   return (
     <button
@@ -23,15 +31,7 @@ export default function LocationSelector() {
       <div className="min-w-0 flex-1 flex flex-col items-start pr-1">
         <span className="w-full truncate text-[11px] font-bold leading-tight text-gray-400">{texts.main.currentLocation}</span>
         <span className="w-full truncate text-[14px] font-black leading-tight text-gray-900" aria-live="polite">
-          {isLoading ? (
-            <span className="animate-pulse">{texts.main.locating}</span>
-          ) : (
-            error ? (
-              <span className="truncate text-[12px] text-red-500">{texts.main.locationPermissionRequired}</span>
-            ) : (
-              `${region || texts.main.locating} · ${district || ""}`
-            )
-          )}
+          {displayLocationText}
         </span>
       </div>
     </button>
