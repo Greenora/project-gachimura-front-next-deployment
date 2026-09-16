@@ -11,10 +11,10 @@ interface FetchOptions {
 export async function clientFetch<T = any>(url: string, options: FetchOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options;
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || API_CONFIG.PUBLIC_BASE_URL;
-  const fullUrl = url.startsWith("http")
-    ? url
-    : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+  const rawBase = process.env.NEXT_PUBLIC_API_URL || API_CONFIG.PUBLIC_BASE_URL;
+  const baseUrl = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
+  const path = url.startsWith("/") ? url : `/${url}`;
+  const fullUrl = url.startsWith("http") ? url : `${baseUrl}${path}`;
 
   // 쿠키에서 accessToken 가져오는 함수
   // cookie에서 token 추출
