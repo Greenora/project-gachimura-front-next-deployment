@@ -35,8 +35,6 @@ import LineLogin from "@/components/auth/LineLogin";
 // 타입 정의
 interface LoginResponse {
   user: { nickname: string };
-  accessToken: string;
-  refreshToken: string;
   expiresIn: number;
 }
 
@@ -152,14 +150,6 @@ export default function LoginForm() {
     return err.message || texts.auth.alertServerError;
   };
 
-  // 로그인 상태 체크: 이미 로그인되어 있으면 메인 페이지로 리다이렉트
-  useEffect(() => {
-    const accessToken = Cookies.get("accessToken");
-    if (accessToken) {
-      router.push("/home");
-    }
-  }, [router]);
-
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
       const navigationEntries = window.performance.getEntriesByType("navigation");
@@ -274,12 +264,6 @@ export default function LoginForm() {
           rememberMe: rememberMe, // 자동 로그인 체크 여부
         },
       });
-
-      // 토큰 쿠키에 저장
-      // 자동 로그인 체크했으면 30일, 안했으면 1일
-      const expiresInDays = rememberMe ? 30 : 1;
-      Cookies.set("accessToken", result.accessToken, { expires: expiresInDays, path: "/" });
-      Cookies.set("refreshToken", result.refreshToken, { expires: 7, path: "/" });
 
       toast.success(`${texts.auth.welcomePrefix} ${result.user.nickname}${texts.auth.welcomeSuffix}`);
       router.push("/home"); // 메인 페이지로 이동

@@ -9,8 +9,6 @@ import toast from "react-hot-toast";
 import Cookies from "js-cookie";
 
 type KakaoLoginResponse = {
-  accessToken: string;
-  refreshToken: string;
   user: {
     nickname: string;
     nickname_jp?: string;
@@ -63,9 +61,7 @@ export default function KakaoCallback() {
       },
     })
       .then((data) => {
-        // 성공 시 쿠키 저장 및 메인 이동
-        Cookies.set("accessToken", data.accessToken, { expires: 1 });
-        Cookies.set("refreshToken", data.refreshToken, { expires: 7 });
+        // 인증 쿠키는 백엔드가 HttpOnly로 안전하게 설정한다.
         const displayNickname =
           langCode === "jp" && data.user.nickname_jp
             ? data.user.nickname_jp

@@ -12,18 +12,13 @@ export default function LogoutButton() {
 
   const handleLogout = async () => {
     try {
-      await clientFetch("/auth/logout", { method: "POST" });
-      // 쿠키 삭제
-      document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      await clientFetch("/auth/logout", { method: "POST", redirectOnUnauthorized: false });
       toast.success(t.logoutSuccess);
-      router.push("/login");
+      router.replace("/login");
+      router.refresh();
     } catch (err) {
       console.error("Logout error:", err);
-      // 에러가 나도 로컬 쿠키는 삭제하고 로그인 페이지로 이동
-      document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      router.push("/login");
+      toast.error(texts.auth.alertServerError);
     }
   };
 

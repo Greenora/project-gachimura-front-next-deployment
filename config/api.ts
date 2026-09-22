@@ -7,9 +7,9 @@ export const API_CONFIG = {
   PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
 
   // 소켓 서버 주소
-  SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") || "http://localhost:8000",
 
   // 서버 사이드 (Next.js 서버)에서 접근할 때 사용하는 주소 (/api 전역 접두사 포함)
-  // 도커 컨테이너 안에서는 http://backend:3000/api, 로컬에서는 http://localhost:8000/api
-  INTERNAL_BASE_URL: process.env.INTERNAL_API_URL || (isDocker ? "http://backend:3000/api" : "http://localhost:8000/api"),
+  // 도커 컨테이너 안에서는 http://backend:8000/api, 로컬에서는 http://localhost:8000/api
+  INTERNAL_BASE_URL: process.env.INTERNAL_API_URL || (isDocker ? "http://backend:8000/api" : "http://localhost:8000/api"),
 };

@@ -13,12 +13,6 @@ export interface ChatPayload {
   createdAt?: string;
 }
 
-function getCookieValue(name: string) {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`));
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
 export function useChat(partyId: number) {
   const socketRef = useRef<Socket | null>(null);
   const [messages, setMessages] = useState<ChatPayload[]>([]);
@@ -34,10 +28,9 @@ export function useChat(partyId: number) {
     if (!partyId || partyId <= 0 || Number.isNaN(partyId)) return;
 
     // 1. 소켓 연결
-    const token = getCookieValue("accessToken");
     const newSocket = io(API_CONFIG.SOCKET_URL, {
       transports: ["websocket"],
-      auth: { token },
+      withCredentials: true,
     });
 
     // 2. 연결 성공 시 이벤트

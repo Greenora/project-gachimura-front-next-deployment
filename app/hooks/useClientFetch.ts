@@ -5,27 +5,35 @@ interface FetchOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: any;
   headers?: Record<string, string>;
+  redirectOnUnauthorized?: boolean;
 }
 
-// API 요청 헬퍼 함수 (BASE_URL, JSON 변환, Authorization 헤더 자동 추가)
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshSession(baseUrl: string): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${baseUrl}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+// API 요청 헬퍼 함수 (HttpOnly 인증 쿠키 및 만료 토큰 자동 갱신)
 export async function clientFetch<T = any>(url: string, options: FetchOptions = {}): Promise<T> {
-  const { method = "GET", body, headers = {} } = options;
+  const { method = "GET", body, headers = {}, redirectOnUnauthorized = true } = options;
 
   const rawBase = process.env.NEXT_PUBLIC_API_URL || API_CONFIG.PUBLIC_BASE_URL;
   const baseUrl = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
   const path = url.startsWith("/") ? url : `/${url}`;
   const fullUrl = url.startsWith("http") ? url : `${baseUrl}${path}`;
 
-  // 쿠키에서 accessToken 가져오는 함수
-  // cookie에서 token 추출
-  const getCookieValue = (name: string) => {
-    if (typeof document === "undefined") return null;
-    const match = document.cookie.match(new RegExp(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`));
-    return match ? decodeURIComponent(match[2]) : null;
-  };
-
-  const authToken = getCookieValue("accessToken");
-  
   // FormData 여부에 따른 헤더 설정
   const isFormData = body instanceof FormData;
   const finalHeaders: Record<string, string> = {
@@ -33,36 +41,39 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
     ...headers,
   };
 
-  // 인증 토큰 주입
-  if (authToken && !finalHeaders.Authorization) {
-    finalHeaders.Authorization = `Bearer ${authToken}`;
-  }
-
-  // body 처리 (FormData면 그대로, 아니면 문자열화)
-  const response = await fetch(fullUrl, {
+  const executeRequest = () => fetch(fullUrl, {
     method,
     headers: finalHeaders,
-    body: body === undefined
-      ? undefined
-      : isFormData
-      ? body
-      : JSON.stringify(body),
+    credentials: "include",
+    body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
   });
 
+  let response = await executeRequest();
+  const canRefresh =
+    response.status === 401 &&
+    (!path.startsWith("/auth/") || path === "/auth/logout");
+
+  if (canRefresh && await refreshSession(baseUrl)) {
+    response = await executeRequest();
+  }
+
   const text = await response.text();
-  const result = text ? JSON.parse(text) : null;
+  let result = null;
+  try {
+    result = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Error: ${response.status}`);
+  }
 
   if (!response.ok) {
-    // 401 Unauthorized → 토큰 만료/무효 → 쿠키 정리 후 로그인으로
-    if (response.status === 401 && typeof document !== "undefined") {
-      document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    // 갱신까지 실패한 인증 요청만 로그인 화면으로 보낸다.
+    if (response.status === 401 && redirectOnUnauthorized && typeof document !== "undefined") {
       // 이미 로그인 페이지면 리다이렉트하지 않음
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
       }
     }
-    throw new Error(result.message || `Error: ${response.status}`);
+    throw new Error(result?.message || `Error: ${response.status}`);
   }
 
   return result;

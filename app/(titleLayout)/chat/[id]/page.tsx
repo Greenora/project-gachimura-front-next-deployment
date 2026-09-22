@@ -1,4 +1,5 @@
 import ChatContainer from "@/components/chat/ChatContainer";
+import SessionRecovery from "@/components/auth/SessionRecovery";
 import { API_CONFIG } from "@/config/api";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -77,6 +78,7 @@ async function getUserProfile(token: string) {
       },
       cache: 'no-store',
     });
+    if (res.status === 401) return undefined;
     if (!res.ok) return null;
     return await res.json();
   } catch (error) {
@@ -100,11 +102,13 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   }
 
   if (!token) {
+    if (cookieStore.has("refreshToken")) return <SessionRecovery />;
     redirect(`/login?callbackUrl=/chat/${id}`);
   }
 
   const userProfile = await getUserProfile(token);
   if (!userProfile) {
+    if (userProfile === undefined && cookieStore.has("refreshToken")) return <SessionRecovery />;
     redirect(`/login?callbackUrl=/chat/${id}`);
   }
 

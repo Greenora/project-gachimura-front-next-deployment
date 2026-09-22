@@ -19,8 +19,9 @@ export default function ChatListButton() {
 
   useEffect(() => {
     setMounted(true);
-    const match = document.cookie.match(new RegExp(`(^|;)\\s*accessToken\\s*=\\s*([^;]+)`));
-    setIsLoggedIn(!!match);
+    clientFetch("/users/profile", { redirectOnUnauthorized: false })
+      .then(() => setIsLoggedIn(true))
+      .catch(() => setIsLoggedIn(false));
   }, []);
 
   useEffect(() => {
