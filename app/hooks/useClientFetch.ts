@@ -73,7 +73,7 @@ export async function clientFetch<T = any>(url: string, options: FetchOptions = 
         window.location.href = "/login";
       }
     }
-    throw new Error(result?.message || `Error: ${response.status}`);
+    throw Object.assign(new Error(result?.message || `Error: ${response.status}`), { status: response.status });
   }
 
   return result;
