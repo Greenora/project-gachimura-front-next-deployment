@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, type ComponentProps } from "react";
 import { useSearchParams } from "next/navigation";
 import PartyCard from "./PartyCard";
 import { clientFetch } from "@/app/hooks/useClientFetch";
@@ -23,8 +23,10 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
+type Party = ComponentProps<typeof PartyCard>["party"] & { latitude?: string; longitude?: string; distance?: number };
+
 export default function PartyList() {
-  const [parties, setParties] = useState<any[]>([]);
+  const [parties, setParties] = useState<Party[]>([]);
   const [fetching, setFetching] = useState(true);
   const searchParams = useSearchParams();
   const { texts } = useLanguage();
@@ -43,7 +45,7 @@ export default function PartyList() {
         if (filter) params.append("sort", filter);
         if (completed) params.append("completed", completed);
 
-        const data = await clientFetch(`/parties?${params.toString()}`);
+        const data = await clientFetch<Party[]>(`/parties?${params.toString()}`);
         setParties(data);
       } catch (error) {
         console.error("Failed to fetch parties:", error);
@@ -61,8 +63,8 @@ export default function PartyList() {
       return { nearby: parties, far: [] };
     }
 
-    const nearbyList: any[] = [];
-    const farList: any[] = [];
+    const nearbyList: Party[] = [];
+    const farList: Party[] = [];
 
     parties.forEach((party) => {
       if (party.latitude && party.longitude) {

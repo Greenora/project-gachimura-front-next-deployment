@@ -23,7 +23,7 @@ export default function UserMenu() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const data = await clientFetch("/users/profile", { redirectOnUnauthorized: false });
+        const data = await clientFetch<UserMenuProfile>("/users/profile", { redirectOnUnauthorized: false });
         setUser(data);
       } catch {
         console.log("Not logged in");

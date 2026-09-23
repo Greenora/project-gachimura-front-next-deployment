@@ -8,10 +8,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { Language } from "@/app/common/types";
 
+interface JoinedParty { id: number; title: string; host?: { nickname: string; nickname_jp?: string } }
+
 export default function ChatListButton() {
   const { lang, texts } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
-  const [chats, setChats] = useState<any[]>([]);
+  const [chats, setChats] = useState<JoinedParty[]>([]);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -45,7 +47,7 @@ export default function ChatListButton() {
   const loadChats = async () => {
     setLoading(true);
     try {
-      const data = await clientFetch("/parties/joined-parties");
+      const data = await clientFetch<JoinedParty[]>("/parties/joined-parties");
       setChats(data || []);
     } catch (error) {
       console.error("Failed to load chats:", error);
@@ -54,7 +56,7 @@ export default function ChatListButton() {
     }
   };
 
-  const getNickname = (chat: any) => {
+  const getNickname = (chat: JoinedParty) => {
     const host = chat.host;
     if (!host) return texts.main.anonymous;
     return lang === Language.japanese && host.nickname_jp ? host.nickname_jp : host.nickname;

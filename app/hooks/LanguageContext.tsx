@@ -2,12 +2,13 @@
 
 import { createContext, useContext } from "react";
 import { Language } from "@/app/common/types";
+import type { menu } from "@/app/constants/menu";
 
 // 언어를 전역으로 배달하는 시스템!!
 
 // context에 저장할 데이터 타입 정의
 interface LanguageContextType {
-  texts: any;
+  texts: typeof menu[Language];
   lang: Language;
 }
 
@@ -19,7 +20,7 @@ export function LanguageProvider({
   lang,
 }: {
   children: React.ReactNode;
-  texts: any;
+  texts: typeof menu[Language];
   lang: Language;
 }) {
   return (

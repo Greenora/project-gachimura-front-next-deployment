@@ -53,7 +53,7 @@ export default function LineCallback() {
     const redirectUri = `${window.location.origin}/line/callback`;
 
     // 백엔드로 인가 코드 전송 (백엔드가 LINE 서버와 토큰 교환)
-    clientFetch("/auth/line", {
+    clientFetch<LineLoginResponse>("/auth/line", {
       method: "POST",
       body: { 
         code, 

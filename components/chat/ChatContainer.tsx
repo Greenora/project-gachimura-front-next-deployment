@@ -32,8 +32,30 @@ interface SettlementInfo {
   status: string;
 }
 
+type Texts = ReturnType<typeof useLanguage>["texts"];
+type Member = NonNullable<ChatContainerProps["initialMembers"]>[number];
+type DisplayMessage = ChatPayload & { showDivider: boolean; dividerDate: string };
+interface ReviewStatus { canReview: boolean; hasReviewed: boolean; totalMembers?: number; reviewCount?: number }
+interface MessageItemProps {
+  msg: DisplayMessage; isMe: boolean; nickname: string;
+  formatMessageTime: (date: string | undefined) => string;
+  texts: Texts["chat"] & Texts["review"]; onReviewClick: () => void; onReportClick: () => void;
+  reviewStatus: ReviewStatus; renderSystemMessage: (message: string) => string;
+}
+type MessageListProps = Omit<MessageItemProps, "msg" | "isMe" | "nickname"> & {
+  messages: DisplayMessage[]; myId: number; resolveNickname: (message: ChatPayload) => string;
+};
+interface SidebarProps {
+  isOpen: boolean; onClose: () => void; members: Member[]; myId: number; hostId: number | null;
+  texts: Texts; lang: Language; routerPush: (path: string) => void;
+  onKick: (id: number, nickname: string) => void;
+  onApprove: (id: number, nickname: string) => void;
+  onReject: (id: number, nickname: string) => void;
+}
+const EMPTY_MEMBERS: Member[] = [];
+
 // 1. 개별 메시지 최적화 - 프롭스 안바뀌면 다시 안그림
-const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus, renderSystemMessage }: any) => {
+const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus, renderSystemMessage }: MessageItemProps) => {
   // 기본값 설정
   const canReview = reviewStatus?.canReview === true;
   const hasReviewed = reviewStatus?.hasReviewed === true;
@@ -87,7 +109,7 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
             <span className="text-[15px] font-black text-green-900 text-center leading-relaxed">
               {isReviewCompleted ? texts.reviewAlreadyDone : msg.message}
             </span>
-            {reviewStatus?.totalMembers > 0 && (
+            {(reviewStatus?.totalMembers ?? 0) > 0 && (
               <>
                 <button
                   onClick={handleReviewClick}
@@ -152,10 +174,10 @@ const MessageItem = memo(({ msg, isMe, nickname, formatMessageTime, texts, onRev
 MessageItem.displayName = "MessageItem";
 
 // 2. 메시지 리스트
-const MessageList = memo(({ messages, myId, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus, renderSystemMessage, resolveNickname }: any) => {
+const MessageList = memo(({ messages, myId, formatMessageTime, texts, onReviewClick, onReportClick, reviewStatus, renderSystemMessage, resolveNickname }: MessageListProps) => {
   return (
     <div className="max-w-4xl mx-auto p-10 space-y-10">
-      {messages.map((msg: any, index: number) => (
+      {messages.map((msg, index) => (
         <MessageItem
           key={`${msg.createdAt}-${index}`}
           msg={msg}
@@ -176,22 +198,9 @@ MessageList.displayName = "MessageList";
 
 // 사이드바 (Lazy Rendering 적용)
 const Sidebar = memo(
-  ({ isOpen, onClose, members, myId, hostId, texts, onKick, onApprove, onReject, routerPush, lang }: any) => {
-    // 실제 렌더링 여부를 결정하는 내부 상태 (닫을 때 애니메이션을 위해 조금 늦게 비움)
-    const [shouldRenderContent, setShouldRenderContent] = useState(isOpen);
-
-    useEffect(() => {
-      if (isOpen) {
-        setShouldRenderContent(true);
-      } else {
-        // 닫을 때는 애니메이션 끝난 뒤에 내용 비우기
-        const timer = setTimeout(() => setShouldRenderContent(false), 300);
-        return () => clearTimeout(timer);
-      }
-    }, [isOpen]);
-
-    const approvedMembers = useMemo(() => members.filter((m: any) => m.status === 'APPROVED'), [members]);
-    const pendingMembers = useMemo(() => members.filter((m: any) => m.status === 'PENDING'), [members]);
+  ({ isOpen, onClose, members, myId, hostId, texts, onKick, onApprove, onReject, routerPush, lang }: SidebarProps) => {
+    const approvedMembers = useMemo(() => members.filter(m => m.status === 'APPROVED'), [members]);
+    const pendingMembers = useMemo(() => members.filter(m => m.status === 'PENDING'), [members]);
 
     return (
       <div
@@ -222,10 +231,10 @@ const Sidebar = memo(
           </div>
 
           {/* Lazy Content - 열려있거나 애니메이션 중일 때만 멤버 목록을 그림 */}
-          {shouldRenderContent && (
+          {(
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-10">
               <div className="space-y-4">
-                {approvedMembers.map((member: any) => (
+                {approvedMembers.map(member => (
                   <div
                     key={member.id}
                     className={`flex items-center justify-between p-2 rounded-xl transition-all group hover:bg-gray-50 ${member.id === myId ? "bg-green-50 ring-1 ring-green-100" : ""
@@ -275,7 +284,7 @@ const Sidebar = memo(
                     {texts.chat.pending} ({pendingMembers.length})
                   </h3>
                   <div className="space-y-4">
-                    {pendingMembers.map((member: any) => (
+                    {pendingMembers.map(member => (
                       <div key={member.id} className="flex items-center justify-between p-2 rounded-xl bg-gray-50/50">
                         <div className="flex items-center gap-3">
                           <img
@@ -324,9 +333,9 @@ interface ChatHeaderProps {
   isHost: boolean;
   canOpenSettlement: boolean;
   isNavigatingSettlement: boolean;
-  partyInfo: any;
-  texts: any;
-  formatFullDate: (date: any) => string;
+  partyInfo: ChatContainerProps["partyInfo"];
+  texts: Texts;
+  formatFullDate: (date: string | Date | undefined) => string;
   onOpenSidebar: () => void;
   onSettle: () => void;
   onUpdateStatus: (status: string) => void;
@@ -491,7 +500,7 @@ ChatInputArea.displayName = "ChatInputArea";
 export default function ChatContainer({
   partyId,
   initialMessages = [],
-  initialMembers = [],
+  initialMembers = EMPTY_MEMBERS,
   hostId = null,
   partyInfo = null,
   currentUser,
@@ -502,7 +511,7 @@ export default function ChatContainer({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isNavigatingSettlement, setIsNavigatingSettlement] = useState(false);
   const [settlementInfo, setSettlementInfo] = useState<SettlementInfo | null>(null);
-  const [reviewStatus, setReviewStatus] = useState<any>({ hasReviewed: false, canReview: false });
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>({ hasReviewed: false, canReview: false });
 
   const router = useRouter();
   const { texts, lang } = useLanguage();
@@ -516,12 +525,12 @@ export default function ChatContainer({
   );
 
   const resolveNickname = useCallback(
-    (msg: any) => {
+    (msg: ChatPayload) => {
       if (msg.userId === currentUser.id) {
         return getLocalizedNickname(currentUser.nickname, currentUser.nickname_jp);
       }
 
-      const member = members.find((m: any) => m.id === msg.userId);
+      const member = members.find(m => m.id === msg.userId);
       if (member) {
         return getLocalizedNickname(member.nickname, member.nickname_jp);
       }
@@ -547,7 +556,7 @@ export default function ChatContainer({
 
         const detailText = details
           .map(({ userId, amount }) => {
-            const member = members.find((m: any) => m.id === userId);
+            const member = members.find(m => m.id === userId);
             const nickname = member
               ? getLocalizedNickname(member.nickname, member.nickname_jp)
               : texts.chat.unknownNickname;
@@ -651,7 +660,7 @@ export default function ChatContainer({
   useEffect(() => {
     async function checkReviewStatus() {
       try {
-        const status = await clientFetch(`/reviews/check/${partyId}`);
+        const status = await clientFetch<ReviewStatus>(`/reviews/check/${partyId}`);
         console.log(`파티 ${partyId} 평가 상태:`, status);
         // canReview 필드가 없으면 기본값 설정
         const safeStatus = {
@@ -678,10 +687,12 @@ export default function ChatContainer({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 멤버 목록 및 파티 정보 업데이트 (초기값 설정)
-  useEffect(() => {
+  const [previousProps, setPreviousProps] = useState({ initialMembers, partyInfo });
+  if (previousProps.initialMembers !== initialMembers || previousProps.partyInfo !== partyInfo) {
+    setPreviousProps({ initialMembers, partyInfo });
     setMembers(initialMembers);
     setCurrentParty(partyInfo);
-  }, [initialMembers, partyInfo]);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -728,7 +739,8 @@ export default function ChatContainer({
     if (scrollHeight - scrollTop - clientHeight < 150) {
       setTimeout(scrollToBottom, 50);
     } else {
-      setShowScrollButton(true);
+      const frame = requestAnimationFrame(() => setShowScrollButton(true));
+      return () => cancelAnimationFrame(frame);
     }
   }, [realTimeMessages, scrollToBottom]);
 
@@ -819,10 +831,10 @@ export default function ChatContainer({
           body: { status: newStatus },
         });
         if (result) {
-          setCurrentParty((prev: any) => (prev ? { ...prev, status: newStatus } : null));
+          setCurrentParty(prev => (prev ? { ...prev, status: newStatus } : null));
         }
-      } catch (error: any) {
-        alert(error.message || texts.chat.statusUpdateError);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : texts.chat.statusUpdateError);
       }
     },
     [partyId, texts.chat.confirmCloseParty, texts.chat.statusUpdateError]
@@ -832,10 +844,10 @@ export default function ChatContainer({
     async (targetId: number, nickname: string) => {
       if (!confirm(`${nickname}${texts.chat.kickConfirm}`)) return;
       try {
-        const result = await clientFetch(`/party-members/${partyId}/${targetId}`, { method: 'DELETE' });
+        const result = await clientFetch<{ success: boolean }>(`/party-members/${partyId}/${targetId}`, { method: 'DELETE' });
         if (result.success) setMembers((prev) => prev.filter((m) => m.id !== targetId));
-      } catch (error: any) {
-        alert(error.message || texts.chat.genericError);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : texts.chat.genericError);
       }
     },
     [partyId, texts.chat.kickConfirm, texts.chat.genericError]
@@ -847,8 +859,8 @@ export default function ChatContainer({
         await clientFetch(`/party-members/${partyId}/${targetId}/status`, { method: 'PATCH', body: { status: 'APPROVED' } });
         alert(`${nickname}${texts.chat.approveSuccess}`);
         setMembers((prev) => prev.map((m) => (m.id === targetId ? { ...m, status: 'APPROVED' } : m)));
-      } catch (error: any) {
-        alert(error.message || texts.chat.genericFail);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : texts.chat.genericFail);
       }
     },
     [partyId, texts.chat.approveSuccess, texts.chat.genericFail]
@@ -861,8 +873,8 @@ export default function ChatContainer({
         await clientFetch(`/party-members/${partyId}/${targetId}/status`, { method: 'PATCH', body: { status: 'REJECTED' } });
         alert(texts.chat.rejectSuccess);
         setMembers((prev) => prev.filter((m) => m.id !== targetId));
-      } catch (error: any) {
-        alert(error.message || texts.chat.genericFail);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : texts.chat.genericFail);
       }
     },
     [partyId, texts.chat.rejectConfirm, texts.chat.rejectSuccess, texts.chat.genericFail]

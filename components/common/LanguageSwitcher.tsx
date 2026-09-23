@@ -2,24 +2,15 @@
 
 import { Language } from "@/app/common/types";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useLanguage } from "@/app/hooks/LanguageContext";
 
 export default function LanguageSwitcher() {
   const router = useRouter();
-  const [currentLang, setCurrentLang] = useState<Language>(Language.korean);
-
-  useEffect(() => {
-    // 초기 로드시 쿠키에서 언어 읽기
-    const match = document.cookie.match(new RegExp("(^| )language=([^;]+)"));
-    if (match) {
-      setCurrentLang(match[2] as Language);
-    }
-  }, []);
+  const { lang: currentLang } = useLanguage();
 
   const changeLanguage = (lang: Language) => {
     // 쿠키 설정 (유효기간 365일)
     document.cookie = `language=${lang}; path=/; max-age=31536000`;
-    setCurrentLang(lang);
     router.refresh(); // 서버 컴포넌트 재렌더링 유발
   };
 
