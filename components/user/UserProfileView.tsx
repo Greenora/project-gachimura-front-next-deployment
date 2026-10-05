@@ -147,7 +147,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
     setIsSaving(true);
 
     try {
-      const response = await clientFetch("/users/profile", {
+      const response = await clientFetch<{ success: boolean }>("/users/profile", {
         method: "PATCH",
         body: {
           nickname: editNickname,

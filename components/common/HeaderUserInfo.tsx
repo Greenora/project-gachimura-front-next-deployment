@@ -20,7 +20,7 @@ export default function HeaderUserInfo() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    clientFetch("/users/profile", { redirectOnUnauthorized: false })
+    clientFetch<UserInfo>("/users/profile", { redirectOnUnauthorized: false })
       .then((data) => setUser(data))
       .catch(() => setUser(null))
       .finally(() => setLoading(false));

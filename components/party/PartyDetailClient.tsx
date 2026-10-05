@@ -40,7 +40,7 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   const [isNavigatingChat, setIsNavigatingChat] = useState(false);
 
   useEffect(() => {
-    clientFetch(`/parties/${partyId}`)
+    clientFetch<PartyDetail>(`/parties/${partyId}`)
       .then((data) => setParty(data))
       .catch((err) => {
         console.error(err);

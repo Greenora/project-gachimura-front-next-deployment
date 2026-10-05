@@ -108,8 +108,8 @@ export default function SettlementClient({
   // 서버에서 partyInfo를 못 가져왔으면 클라이언트에서 재시도
   React.useEffect(() => {
     if (!partyData && partyId) {
-      clientFetch(`/parties/${partyId}`)
-        .then((data: any) => {
+      clientFetch<{ id: number; title: string; meetingDate: string; location?: { name: string }; storeName?: string; host?: { id: number }; hostId: number }>(`/parties/${partyId}`)
+        .then(data => {
           setPartyData({
             id: data.id,
             title: data.title || "",
@@ -156,8 +156,8 @@ export default function SettlementClient({
       });
       setSettlement(result);
       toast.success(settlementTexts.settlementCreated);
-    } catch (err: any) {
-      toast.error(err.message || settlementTexts.settlementCreateFail);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : settlementTexts.settlementCreateFail);
     } finally {
       setLoading(false);
     }
@@ -214,8 +214,8 @@ export default function SettlementClient({
         toast.success(settlementTexts.itemsSaved);
       }
       return true;
-    } catch (err: any) {
-      toast.error(err.message || settlementTexts.itemsSaveFail);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : settlementTexts.itemsSaveFail);
       return false;
     } finally {
       setLoading(false);
@@ -238,8 +238,8 @@ export default function SettlementClient({
       setSettlement(result);
       toast.success(settlementTexts.settlementStarted);
       resumedFromEditRef.current = false;
-    } catch (err: any) {
-      toast.error(err.message || settlementTexts.settlementStartFail);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : settlementTexts.settlementStartFail);
     } finally {
       setLoading(false);
       startSelectingLockRef.current = false;
@@ -267,8 +267,8 @@ export default function SettlementClient({
       );
       resumedFromEditRef.current = true;
       toast.success(settlementTexts.revertedToDraft);
-    } catch (err: any) {
-      toast.error(err.message || settlementTexts.revertFail);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : settlementTexts.revertFail);
     } finally {
       setLoading(false);
       revertLockRef.current = false;
@@ -310,8 +310,8 @@ export default function SettlementClient({
       );
       setSettlement(result);
       toast.success(settlementTexts.selectionSaved);
-    } catch (err: any) {
-      toast.error(err.message || settlementTexts.selectionSaveFail);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : settlementTexts.selectionSaveFail);
     } finally {
       setLoading(false);
     }
@@ -334,8 +334,8 @@ export default function SettlementClient({
       );
       setPayments(paymentData);
       toast.success(settlementTexts.settlementConfirmed);
-    } catch (err: any) {
-      toast.error(err.message || settlementTexts.confirmFail);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : settlementTexts.confirmFail);
     } finally {
       setLoading(false);
     }
@@ -355,8 +355,8 @@ export default function SettlementClient({
           prev.map((p) => (p.userId === userId ? { ...p, status: "PAID" } : p))
         );
         toast.success(settlementTexts.paymentConfirmed);
-      } catch (err: any) {
-        toast.error(err.message || settlementTexts.paymentConfirmFail);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : settlementTexts.paymentConfirmFail);
       } finally {
         setLoading(false);
       }
@@ -404,8 +404,8 @@ export default function SettlementClient({
         } else {
           toast.success(settlementTexts.receiptUploaded);
         }
-      } catch (err: any) {
-        toast.error(err.message || settlementTexts.uploadFail);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : settlementTexts.uploadFail);
       } finally {
         setScanLoading(false);
         setLoading(false);
@@ -416,7 +416,7 @@ export default function SettlementClient({
 
   // 카카오톡 정산 메시지 공유
   const handleKakaoShare = useCallback(() => {
-    const Kakao = (window as any).Kakao;
+    const Kakao = window.Kakao;
     if (!Kakao) {
       toast.error(settlementTexts.kakaoNotReady);
       return;

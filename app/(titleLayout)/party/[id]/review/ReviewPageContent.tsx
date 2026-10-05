@@ -17,15 +17,17 @@ const EMOJIS = [
 interface ReviewPageContentProps {
   partyId: number;
 }
+interface ReviewParty { title: string; meetingDate: string; location?: { name: string } }
+interface ReviewMember { userId: number; status: string }
 
 export default function ReviewPageContent({ partyId }: ReviewPageContentProps) {
   const router = useRouter();
   const { texts } = useLanguage();
   const { formatFullDate } = useDateFormatter();
 
-  const [party, setParty] = useState<any>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [members, setMembers] = useState<any[]>([]);
+  const [party, setParty] = useState<ReviewParty | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: number } | null>(null);
+  const [members, setMembers] = useState<ReviewMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [hasAlreadyReviewed, setHasAlreadyReviewed] = useState(false);
@@ -39,13 +41,13 @@ export default function ReviewPageContent({ partyId }: ReviewPageContentProps) {
     async function fetchData() {
       try {
         const [partyData, membersData, userData, reviewStatus] = await Promise.all([
-          clientFetch(`/parties/${partyId}`),
-          clientFetch(`/party-members/${partyId}`),
-          clientFetch(`/users/profile`),
-          clientFetch(`/reviews/check/${partyId}`),
+          clientFetch<ReviewParty>(`/parties/${partyId}`),
+          clientFetch<ReviewMember[]>(`/party-members/${partyId}`),
+          clientFetch<{ id: number }>(`/users/profile`),
+          clientFetch<{ hasReviewed: boolean }>(`/reviews/check/${partyId}`),
         ]);
         setParty(partyData);
-        setMembers(membersData.filter((m: any) => m.status === "APPROVED"));
+        setMembers(membersData.filter(m => m.status === "APPROVED"));
         setCurrentUser(userData);
         
         // 이미 평가했으면 true로 설정
@@ -97,8 +99,8 @@ export default function ReviewPageContent({ partyId }: ReviewPageContentProps) {
     try {
       // 나를 제외한 모든 멤버에게 동일한 점수 부여 (기본 로직)
       const reviewRequests = members
-        .filter((m: any) => m.userId !== currentUser?.id)
-        .map((m: any) => 
+        .filter(m => m.userId !== currentUser?.id)
+        .map(m =>
           clientFetch("/reviews", {
             method: 'POST',
             body: {

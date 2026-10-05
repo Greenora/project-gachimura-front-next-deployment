@@ -13,7 +13,7 @@ export default function KakaoLogin({ buttonText }: Props) {
   const { texts } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
 
-  const displayText = buttonText || texts.auth.kakaoLogin || "카카오로 로그인";
+  const displayText = buttonText || "카카오로 로그인";
 
   const KAKAO_REST_API_KEY = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
 

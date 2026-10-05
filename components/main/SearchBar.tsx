@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 
@@ -11,11 +11,13 @@ export default function SearchBar() {
 
   const initialQuery = searchParams.get("search") || "";
   const [query, setQuery] = useState(initialQuery);
+  const [previousQuery, setPreviousQuery] = useState(initialQuery);
 
   // URL 파라미터가 변경되면 입력창도 업데이트
-  useEffect(() => {
-    setQuery(searchParams.get("search") || "");
-  }, [searchParams]);
+  if (previousQuery !== initialQuery) {
+    setPreviousQuery(initialQuery);
+    setQuery(initialQuery);
+  }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

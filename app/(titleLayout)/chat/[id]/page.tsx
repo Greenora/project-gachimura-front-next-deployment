@@ -6,6 +6,11 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Language } from "@/app/common/types";
 import { menu } from "@/app/constants/menu";
+import type { ChatPayload } from "@/app/hooks/useChat";
+
+type ChatUser = { nickname: string; nickname_jp?: string; profileImage?: string };
+type StoredMessage = Omit<ChatPayload, "userId" | "nickname" | "message"> & { senderId: number; sender?: ChatUser; content: string };
+type StoredMember = { userId: number; user?: ChatUser; status: string };
 
 async function getChatData(partyId: number, token: string, unknownNickname: string) {
   try {
@@ -35,7 +40,7 @@ async function getChatData(partyId: number, token: string, unknownNickname: stri
       partyRes.json()
     ]);
 
-    const formattedMessages = messages.map((m: any) => ({
+    const formattedMessages = (messages as StoredMessage[]).map(m => ({
       userId: m.senderId ?? 0,
       nickname: m.sender?.nickname || unknownNickname,
       nickname_jp: m.sender?.nickname_jp,
@@ -46,11 +51,11 @@ async function getChatData(partyId: number, token: string, unknownNickname: stri
       createdAt: m.createdAt
     }));
 
-    const formattedMembers = members.map((m: any) => ({
+    const formattedMembers = (members as StoredMember[]).map(m => ({
       id: m.userId,
       nickname: m.user?.nickname || unknownNickname,
       nickname_jp: m.user?.nickname_jp,
-      profileImage: m.user?.profileImage,
+      profileImage: m.user?.profileImage || "",
       status: m.status
     }));
 
@@ -116,7 +121,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   const { formattedMessages, formattedMembers, hostId, partyInfo } = await getChatData(currentPartyId, token, texts.chat.unknownNickname);
 
   // 3. 멤버인지 확인 (보안 강화)
-  const isMember = formattedMembers.some((m: any) => m.id === userProfile.id && m.status === 'APPROVED');
+  const isMember = formattedMembers.some(m => m.id === userProfile.id && m.status === 'APPROVED');
   const isHost = hostId === userProfile.id;
 
   if (!isMember && !isHost) {

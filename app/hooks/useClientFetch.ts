@@ -3,7 +3,7 @@ import { API_CONFIG } from "@/config/api";
 
 interface FetchOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string>;
   redirectOnUnauthorized?: boolean;
 }
@@ -26,7 +26,7 @@ async function refreshSession(baseUrl: string): Promise<boolean> {
 }
 
 // API 요청 헬퍼 함수 (HttpOnly 인증 쿠키 및 만료 토큰 자동 갱신)
-export async function clientFetch<T = any>(url: string, options: FetchOptions = {}): Promise<T> {
+export async function clientFetch<T = unknown>(url: string, options: FetchOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {}, redirectOnUnauthorized = true } = options;
 
   const rawBase = process.env.NEXT_PUBLIC_API_URL || API_CONFIG.PUBLIC_BASE_URL;
@@ -92,8 +92,8 @@ export function useClientFetch<T>(url: string, options: FetchOptions = {}) {
     try {
       const result = await clientFetch<T>(url, options);
       setData(result);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }

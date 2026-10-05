@@ -17,7 +17,11 @@ interface LocationState {
 
 declare global {
   interface Window {
-    kakao: any;
+    kakao: { maps: { load: (callback: () => void) => void; services: {
+      Status: { OK: string };
+      Geocoder: new () => { coord2RegionCode: (lon: number, lat: number, callback: (results: { region_type: string; region_1depth_name: string; region_2depth_name: string }[], status: string) => void) => void };
+    } } };
+    Kakao?: { isInitialized: () => boolean; init: (key: string) => void; Share: { sendDefault: (content: Record<string, unknown>) => void } };
   }
 }
 
@@ -85,8 +89,8 @@ export function useLocation() {
           district,
         },
       });
-    } catch (err: any) {
-      if (err.message !== "Unauthorized") {
+    } catch (err) {
+      if (!(err instanceof Error) || err.message !== "Unauthorized") {
         console.error("Failed to sync location with backend", err);
       }
     }
@@ -143,10 +147,10 @@ export function useLocation() {
             window.kakao.maps.load(() => {
               const geocoder = new window.kakao.maps.services.Geocoder();
 
-              geocoder.coord2RegionCode(longitude, latitude, async (result: any, status: any) => {
+              geocoder.coord2RegionCode(longitude, latitude, async (result, status) => {
                 console.log("Geocoder result:", status, result);
                 if (status === window.kakao.maps.services.Status.OK) {
-                  const regionInfo = result.find((res: any) => res.region_type === "H") || result[0];
+                  const regionInfo = result.find(res => res.region_type === "H") || result[0];
                   if (regionInfo) {
                     const region = regionInfo.region_1depth_name;
                     const district = regionInfo.region_2depth_name;
@@ -220,6 +224,8 @@ export function useLocation() {
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
   }, [
+    lang,
+    texts.main.currentLocation,
     syncLocationWithBackend,
     texts.main.locationError,
     texts.main.locationSuccess,
@@ -236,6 +242,7 @@ export function useLocation() {
       try {
         const parsed = JSON.parse(cached);
         if (parsed.latitude !== undefined && parsed.longitude !== undefined) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- initialize from browser-only localStorage after hydration
           setLocation({
             ...parsed,
             isLoading: false,
