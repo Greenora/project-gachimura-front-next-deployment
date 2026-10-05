@@ -65,6 +65,7 @@ interface FormData {
 interface SendCodeResponse {
   message: string;
   expiresInMinutes: number;
+  emailVerificationToken?: string;
 }
 
 interface VerifyCodeResponse {
@@ -195,7 +196,6 @@ export default function LoginForm() {
         setStep("PASSWORD_INPUT");
       } else {
         await handleSendEmailVerificationCode(email);
-        setStep("VERIFY_EMAIL");
       }
       clearErrors();
     } catch (error) {
@@ -221,7 +221,8 @@ export default function LoginForm() {
     });
 
     setValue("verificationCode", "");
-    setEmailVerificationToken(null);
+    setEmailVerificationToken(result.emailVerificationToken || null);
+    setStep(result.emailVerificationToken ? "REGISTER_FORM" : "VERIFY_EMAIL");
     toast.success(
       result?.message || sendCodeSuccessText,
     );
