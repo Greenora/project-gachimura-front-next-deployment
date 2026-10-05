@@ -410,7 +410,7 @@ export default function LoginForm() {
 
   // 비밀번호 찾기 핸들러
   const handleForgotPassword = () => {
-    toast(texts.auth.forgotPasswordMessage || "비밀번호 찾기 기능은 준비 중입니다.", { icon: "🔧" });
+    router.push("/reset-password");
   };
 
   return (
