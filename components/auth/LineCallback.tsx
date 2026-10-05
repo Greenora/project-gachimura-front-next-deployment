@@ -9,8 +9,6 @@ import toast from "react-hot-toast";
 import Cookies from "js-cookie";
 
 type LineLoginResponse = {
-  accessToken: string;
-  refreshToken: string;
   user: {
     nickname: string;
     nickname_jp?: string;
@@ -64,9 +62,6 @@ export default function LineCallback() {
       },
     })
       .then((data: LineLoginResponse) => {
-        Cookies.set("accessToken", data.accessToken, { expires: 1 });
-        Cookies.set("refreshToken", data.refreshToken, { expires: 7 });
-        
         const displayNickname = langCode === 'jp' && data.user.nickname_jp 
             ? data.user.nickname_jp 
             : data.user.nickname;

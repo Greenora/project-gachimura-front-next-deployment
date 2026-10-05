@@ -74,12 +74,10 @@ export function useLocation() {
   });
 
   const syncLocationWithBackend = useCallback(async (lat: number, lon: number, region?: string, district?: string) => {
-    const hasToken = typeof document !== 'undefined' && document.cookie.includes("accessToken");
-    if (!hasToken) return;
-
     try {
       await clientFetch("/users/profile", {
         method: "PATCH",
+        redirectOnUnauthorized: false,
         body: {
           latitude: lat,
           longitude: lon,

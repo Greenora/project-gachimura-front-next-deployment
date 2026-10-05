@@ -1,4 +1,5 @@
 import PartyForm from "@/components/createParty/PartyForm";
+import SessionRecovery from "@/components/auth/SessionRecovery";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 export default async function CreateParty() {
@@ -6,6 +7,7 @@ export default async function CreateParty() {
   const token = cookieStore.get("accessToken")?.value;
 
   if (!token) {
+    if (cookieStore.has("refreshToken")) return <SessionRecovery />;
     redirect("/login");
   }
 
