@@ -79,6 +79,16 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const needsAccountNumber = searchParams.get("error") === "accountNumber";
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    if (needsAccountNumber) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("error");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  };
   
   // 수정할 필드 상태들
   const [editNickname, setEditNickname] = useState(user.nickname || "");
@@ -132,12 +142,6 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
           id: "account-number-required-toast",
         }
       );
-      // 자동으로 모달 열어주기
-      setIsEditModalOpen(true);
-      
-      // 주소창에서 에러 파라미터 지우기
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
     }
   }, [searchParams, lang]);
 
@@ -167,7 +171,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
         toast.success(
           lang === Language.japanese ? "保存されました。" : "정보가 성공적으로 저장되었습니다!"
         );
-        setIsEditModalOpen(false);
+        closeEditModal();
         router.refresh();
         window.location.reload();
       } else {
@@ -290,7 +294,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
       </section>
 
       {/* 프로필 수정 모달 */}
-      {isEditModalOpen && (
+      {(isEditModalOpen || needsAccountNumber) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-md max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
@@ -298,7 +302,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
                 {lang === Language.japanese ? "プロフィール編集" : "프로필 및 계좌 수정"}
               </h2>
               <button
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={closeEditModal}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -464,7 +468,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
               <div className="flex gap-3 mt-4">
                 <button
                   type="button"
-                  onClick={() => setIsEditModalOpen(false)}
+                  onClick={closeEditModal}
                   className="flex-1 py-3 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-bold text-gray-700 transition-colors"
                 >
                   {lang === Language.japanese ? "キャンセル" : "취소"}

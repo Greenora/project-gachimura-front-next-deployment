@@ -65,6 +65,7 @@ interface FormData {
 interface SendCodeResponse {
   message: string;
   expiresInMinutes: number;
+  emailVerificationToken?: string;
 }
 
 interface VerifyCodeResponse {
@@ -83,6 +84,8 @@ export default function LoginForm() {
   const router = useRouter();
   const { texts, lang } = useLanguage();
   const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
+  const checkedEmailRef = useRef("");
   const [step, setStep] = useState<Step>("EMAIL_INPUT");
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswordLogin, setShowPasswordLogin] = useState(false);
@@ -107,6 +110,9 @@ export default function LoginForm() {
       message: texts.auth.errorEmail,
     },
   });
+  const passwordLoginRegister = register("passwordLogin", {
+    required: step === "PASSWORD_INPUT",
+  });
 
   const syncEmailValue = (rawValue: string) => {
     const newValue = rawValue.trim();
@@ -116,7 +122,7 @@ export default function LoginForm() {
     });
     clearErrors("email");
 
-    if (step !== "EMAIL_INPUT") {
+    if (step !== "EMAIL_INPUT" && checkedEmailRef.current !== newValue) {
       setStep("EMAIL_INPUT");
       setValue("verificationCode", "");
       setValue("passwordLogin", "");
@@ -184,12 +190,12 @@ export default function LoginForm() {
         method: "POST",
         body: { email },
       });
+      checkedEmailRef.current = email;
       // 있으면 로그인 화면, 없으면 회원가입 화면으로 전환
       if (data.exists) {
         setStep("PASSWORD_INPUT");
       } else {
         await handleSendEmailVerificationCode(email);
-        setStep("VERIFY_EMAIL");
       }
       clearErrors();
     } catch (error) {
@@ -215,7 +221,8 @@ export default function LoginForm() {
     });
 
     setValue("verificationCode", "");
-    setEmailVerificationToken(null);
+    setEmailVerificationToken(result.emailVerificationToken || null);
+    setStep(result.emailVerificationToken ? "REGISTER_FORM" : "VERIFY_EMAIL");
     toast.success(
       result?.message || sendCodeSuccessText,
     );
@@ -267,12 +274,16 @@ export default function LoginForm() {
 
       toast.success(`${texts.auth.welcomePrefix} ${result.user.nickname}${texts.auth.welcomeSuffix}`);
       router.push("/home"); // 메인 페이지로 이동
-    } catch {
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      const message = status === 401 ? texts.auth.errorLoginAuth
+        : status === 429 ? (lang === Language.japanese ? "少し待ってから再試行してください。" : "요청이 많습니다. 잠시 후 다시 시도해주세요.")
+        : texts.auth.alertServerError;
       setError("passwordLogin", {
         type: "manual",
-        message: texts.auth.errorLoginAuth,
+        message,
       });
-      toast.error(texts.auth.errorLoginAuth);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -364,26 +375,43 @@ export default function LoginForm() {
 
     // 브라우저 자동완성은 change/input 이벤트를 발생시키지 않을 수 있어,
     // 첫 단계에서는 실제 input 값을 기준으로 직접 검증하고 진행한다.
-    if (step === "EMAIL_INPUT") {
-      if (!EMAIL_PATTERN.test(email)) {
+    if (!EMAIL_PATTERN.test(email)) {
         setError("email", {
           type: "pattern",
           message: texts.auth.errorEmail,
         });
         return;
-      }
-
+    }
+    if (step === "EMAIL_INPUT") {
       clearErrors("email");
       void handleEmailCheck(email);
       return;
     }
 
-    void handleSubmit(onSubmit)(event);
+    // 비밀번호 관리자는 React에 change 이벤트를 알리지 않고 값을 채울 수 있다.
+    // 제출 순간 실제 input 값을 읽어 자동완성된 비밀번호도 정상 처리한다.
+    if (step === "PASSWORD_INPUT") {
+      const password =
+        passwordInputRef.current?.value ?? "";
+
+      if (!password) {
+        setError("passwordLogin", { type: "required", message: texts.auth.passwordPlaceholder });
+        return;
+      }
+
+      clearErrors("passwordLogin");
+      void handleLogin({ email, passwordLogin: password });
+      return;
+    }
+
+    void handleSubmit(onSubmit, () => toast.error(
+      lang === Language.japanese ? "入力内容を確認してください。" : "입력 내용을 확인해주세요.",
+    ))(event);
   };
 
   // 비밀번호 찾기 핸들러
   const handleForgotPassword = () => {
-    toast(texts.auth.forgotPasswordMessage || "비밀번호 찾기 기능은 준비 중입니다.", { icon: "🔧" });
+    router.push("/reset-password");
   };
 
   return (
@@ -399,7 +427,7 @@ export default function LoginForm() {
             : texts.auth.titleLogin}
         </h1>
 
-        <form onSubmit={handleFormSubmit} className="flex flex-col gap-2">
+        <form noValidate onSubmit={handleFormSubmit} className="flex flex-col gap-2">
           {/* 이메일 */}
           <div>
             <div className="relative">
@@ -413,7 +441,7 @@ export default function LoginForm() {
                   emailInputRef.current = element;
                 }}
                 type="email"
-                autoComplete="email"
+                autoComplete="username"
                 placeholder={texts.auth.emailPlaceholder}
                 onChange={(e) => {
                   emailRegister.onChange(e);
@@ -455,7 +483,7 @@ export default function LoginForm() {
                           : "인증코드는 숫자 6자리여야 합니다.",
                     },
                   })}
-                  disabled={isLoading}
+                  disabled={isLoading || step !== "VERIFY_EMAIL"}
                   placeholder={verifyCodePlaceholder}
                   className={`w-full pl-12 pr-4 py-4 rounded-lg border outline-none text-black placeholder-gray-400 font-sans ${
                     errors.verificationCode
@@ -495,9 +523,14 @@ export default function LoginForm() {
                   <LockIcon />
                 </span>
                 <input
-                  {...register("passwordLogin", { required: step === "PASSWORD_INPUT" })}
+                  {...passwordLoginRegister}
+                  ref={(element) => {
+                    passwordLoginRegister.ref(element);
+                    passwordInputRef.current = element;
+                  }}
                   type={showPasswordLogin ? "text" : "password"}
-                  disabled={isLoading}
+                  autoComplete="current-password"
+                  disabled={isLoading || step !== "PASSWORD_INPUT"}
                   placeholder={texts.auth.passwordPlaceholder}
                   className={`w-full pl-12 pr-12 py-4 rounded-lg border outline-none text-black placeholder-gray-400 font-sans
                     ${errors.passwordLogin ? "border-red-500" : "border-gray-300 focus:border-green-600"}
@@ -550,7 +583,7 @@ export default function LoginForm() {
                     required: step === "REGISTER_FORM",
                     pattern: { value: /^\d{6}$/, message: texts.auth.errorBirth },
                   })}
-                  disabled={isLoading}
+                  disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.birthPlaceholder}
                   className={`w-full pl-12 pr-4 py-4 rounded-lg border outline-none text-black placeholder-gray-400 font-sans ${errors.birthdate ? "border-red-500" : "border-gray-300 focus:border-green-600"}`}
                 />
@@ -569,7 +602,7 @@ export default function LoginForm() {
                     required: step === "REGISTER_FORM",
                     pattern: { value: /^0[0-9]{1,2}-?[0-9]{3,4}-?[0-9]{4}$/, message: texts.auth.errorPhone },
                   })}
-                  disabled={isLoading}
+                  disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.phonePlaceholder}
                   className={`w-full pl-12 pr-4 py-4 rounded-lg border outline-none text-black placeholder-gray-400 font-sans ${errors.phone ? "border-red-500" : "border-gray-300 focus:border-green-600"}`}
                 />
@@ -589,7 +622,8 @@ export default function LoginForm() {
                     pattern: { value: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/, message: texts.auth.errorPassword },
                   })}
                   type={showPasswordRegister ? "text" : "password"}
-                  disabled={isLoading}
+                  autoComplete="new-password"
+                  disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.passwordPlaceholder}
                   className={`w-full pl-12 pr-12 py-4 rounded-lg border outline-none text-black placeholder-gray-400 font-sans ${errors.passwordRegister ? "border-red-500" : "border-gray-300 focus:border-green-600"}`}
                 />

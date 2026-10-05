@@ -65,7 +65,8 @@ export default function CommunityPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const isComposerOpen = searchParams.get("compose") === "1";
+  const [now, setNow] = useState(Date.now);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -127,7 +128,7 @@ export default function CommunityPage() {
     const date = new Date(dateLike);
     if (Number.isNaN(date.getTime())) return "";
 
-    const diffMs = Date.now() - date.getTime();
+    const diffMs = now - date.getTime();
     const diffMin = Math.floor(diffMs / 60000);
     if (diffMin < 1) return lang === Language.japanese ? "たった今" : "방금 전";
     if (diffMin < 60) return lang === Language.japanese ? `${diffMin}分前` : `${diffMin}분 전`;
@@ -216,16 +217,15 @@ export default function CommunityPage() {
   }, [hasMore, isLoading, isLoadingMore, nextCursor, filter, communityLocale]);
 
   useEffect(() => {
-    if (searchParams.get("compose") === "1") {
-      setIsComposerOpen(true);
-    }
-  }, [searchParams]);
+    const timer = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const closeComposer = () => {
-    setIsComposerOpen(false);
-
     if (searchParams.get("compose") === "1") {
-      router.replace(pathname);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("compose");
+      router.replace(`${pathname}${params.size ? `?${params}` : ""}`);
     }
   };
 
