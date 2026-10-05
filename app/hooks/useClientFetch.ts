@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback } from "react";
 import { API_CONFIG } from "@/config/api";
 
 interface FetchOptions {
@@ -77,31 +76,4 @@ export async function clientFetch<T = unknown>(url: string, options: FetchOption
   }
 
   return result;
-}
-
-// 커스텀 훅: 컴포넌트 로드 시 자동으로 데이터 가져옴 (로딩, 에러 상태 관리)
-export function useClientFetch<T>(url: string, options: FetchOptions = {}) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!url) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await clientFetch<T>(url, options);
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }, [url, options.method, JSON.stringify(options.body)]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
 }

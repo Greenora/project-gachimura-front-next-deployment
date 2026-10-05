@@ -32,5 +32,14 @@ test('reset request, fragment removal, confirmation mismatch, success and narrow
     await page.getByRole('status').waitFor();
     assert.equal(requests[1].token, token);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    const nextToken = 'b'.repeat(64);
+    await page.evaluate(value => { window.location.hash = value; }, nextToken);
+    await page.locator('[name=password]').waitFor();
+    assert.equal(new URL(page.url()).hash, '');
+    await page.locator('[name=password]').fill('Newpass456');
+    await page.locator('[name=confirmPassword]').fill('Newpass456');
+    await page.getByRole('button', { name: '비밀번호 변경' }).click();
+    await page.getByRole('status').waitFor();
+    assert.equal(requests[2].token, nextToken);
   } finally { await browser.close(); }
 });

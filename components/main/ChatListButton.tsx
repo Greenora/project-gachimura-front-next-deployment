@@ -15,22 +15,14 @@ export default function ChatListButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState<JoinedParty[]>([]);
   const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setMounted(true);
     clientFetch("/users/profile", { redirectOnUnauthorized: false })
       .then(() => setIsLoggedIn(true))
       .catch(() => setIsLoggedIn(false));
   }, []);
-
-  useEffect(() => {
-    if (isOpen && isLoggedIn) {
-      loadChats();
-    }
-  }, [isOpen, isLoggedIn]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -42,7 +34,7 @@ export default function ChatListButton() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (!mounted || !isLoggedIn) return null;
+  if (!isLoggedIn) return null;
 
   const loadChats = async () => {
     setLoading(true);
@@ -133,7 +125,10 @@ export default function ChatListButton() {
       </AnimatePresence>
 
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!isOpen) void loadChats();
+          setIsOpen(!isOpen);
+        }}
         aria-label={texts.main.myChats}
         aria-haspopup="true"
         aria-expanded={isOpen}

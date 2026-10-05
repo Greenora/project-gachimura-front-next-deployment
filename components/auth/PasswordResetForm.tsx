@@ -2,14 +2,14 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 
-export default function PasswordResetForm() {
+function PasswordResetForm() {
   const { lang } = useLanguage();
   const jp = lang === "japanese";
-  const [token, setToken] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const [token, setToken] = useState<string | null>(() => window.location.hash.slice(1) || null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [message, setMessage] = useState("");
@@ -17,6 +17,7 @@ export default function PasswordResetForm() {
 
   useEffect(() => {
     // Keep the email proof in memory only, not in history or local storage.
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
     const readToken = () => {
       const value = window.location.hash.slice(1);
       if (!value) return;
@@ -24,10 +25,8 @@ export default function PasswordResetForm() {
       setDone(false);
       setMessage("");
       setError("");
-      window.history.replaceState(null, "", window.location.pathname);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
     };
-    readToken();
-    setReady(true);
     window.addEventListener("hashchange", readToken);
     return () => window.removeEventListener("hashchange", readToken);
   }, []);
@@ -78,7 +77,7 @@ export default function PasswordResetForm() {
           </> : <label className="block">{jp ? "メールアドレス" : "이메일"}
             <input className={inputStyle} name="email" type="email" autoComplete="email" maxLength={255} required />
           </label>}
-          <button className="w-full rounded-lg bg-green-700 p-3 text-white disabled:opacity-50" disabled={!ready || busy}>
+          <button className="w-full rounded-lg bg-green-700 p-3 text-white disabled:opacity-50" disabled={busy}>
             {busy ? (jp ? "処理中…" : "처리 중…") : token ? (jp ? "変更する" : "비밀번호 변경") : (jp ? "案内メール送信" : "안내 메일 받기")}
           </button>
         </form>}
@@ -89,3 +88,6 @@ export default function PasswordResetForm() {
     </main>
   );
 }
+
+// The reset token lives in the browser URL fragment, which the server cannot read.
+export default dynamic(() => Promise.resolve(PasswordResetForm), { ssr: false });
