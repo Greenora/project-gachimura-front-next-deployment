@@ -5,6 +5,7 @@ import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import IngredientScanner from "@/components/recipe-chat/IngredientScanner";
 import RecipeChatContainer from "@/components/recipe-chat/RecipeChatContainer";
+import { API_CONFIG } from "@/config/api";
 
 interface Recipe {
   title: string;
@@ -44,74 +45,53 @@ export default function RecipeChatPage() {
   const [ingredients, setIngredients] = useState<string[]>([]);
 
   // AI 레시피 추천 처리 공통 함수
-  const triggerRecipeRecommendation = (targetIngredients: string[], fromImage: boolean = false, imageUrl?: string) => {
+  const triggerRecipeRecommendation = async (targetIngredients: string[], fromImage: boolean = false, imageUrl?: string, userMessageText?: string) => {
     setIsChatLoading(true);
 
-    // AI 레시피 생성 시뮬레이션 (2.5초 대기)
-    setTimeout(() => {
-      const mockRecipes: Recipe[] = [
-        {
-          title: lang === Language.japanese ? "超簡単！ふんわりトマト卵炒め" : "초간단! 보들보들 토마토 달걀 볶음",
-          time: "10 min",
-          difficulty: lang === Language.japanese ? "初級" : "초급",
-          matchRate: "95%",
-          ingredients:
-            lang === Language.japanese
-              ? ["トマト 2個", "卵 3個", "刻みネギ", "オイスターソース 1T", "ごま油"]
-              : ["토마토 2개", "달걀 3개", "대파 1/2대", "굴소스 1큰술", "참기름 1/2큰술"],
-          instructions:
-            lang === Language.japanese
-              ? [
-                  "トマトはくし形に切り、卵は器にといておきます。",
-                  "フライパンに油を引き, とき卵を入れて素早く炒め、一度取り出します。",
-                  "同じフライパンでネギとトマトを炒め、しんなりしたら卵を戻します。",
-                  "オイス터소스와 참기름을 더해 완성합니다."
-                ]
-              : [
-                  "토마토는 한입 크기로 썰고 달걀은 미리 풀어둡니다.",
-                  "팬에 식용유를 두르고 달걀을 부어 스크램블 하듯 부드럽게 익힌 뒤 그릇에 덜어둡니다.",
-                  "같은 팬에 송송 썬 대파와 토마토를 볶아 즙이 살짝 나올 때까지 익혀줍니다.",
-                  "달걀을 다시 넣고 굴소스와 참기름을 더해 가볍게 섞어 완성합니다."
-                ]
-        },
-        {
-          title: lang === Language.japanese ? "네기 듬뿍 삼겹살 볶음" : "대파 송송 삼겹살 볶음",
-          time: "15 min",
-          difficulty: lang === Language.japanese ? "初級" : "초급",
-          matchRate: "85%",
-          ingredients:
-            lang === Language.japanese
-              ? ["豚バラ肉 200g", "刻みネギ 1本", "醤油 1.5T", "砂糖 1T", "おろしにんにく"]
-              : ["삼겹살 200g", "대파 1대", "간장 1.5큰술", "설탕 1큰술", "다진마늘 1/2큰술"],
-          instructions:
-            lang === Language.japanese
-              ? [
-                  "豚バラ肉は一口大に切り、フライパンでカリッと炒めます。",
-                  "余분 기름을 닦아내고 마늘과 네기를 볶아 향을 냅니다.",
-                  "간장, 설탕을 더해 맛이 고루 배도록 볶아냅니다."
-                ]
-              : [
-                  "삼겹살을 한입 크기로 썰어 팬에 노릇하게 구워줍니다.",
-                  "기름을 살짝 닦아낸 뒤 다진 마늘과 큼직하게 썬 대파를 넣고 볶습니다.",
-                  "간장과 설탕을 넣어 간을 맞춘 후 센 불에서 빠르게 볶아 완성합니다."
-                ]
-        }
-      ];
+    try {
+      const defaultMessage = lang === Language.japanese 
+        ? "この食材で簡単な料理をおすすめして"
+        : "이 재료들로 간단하게 만들 수 있는 요리 추천해줘";
+
+      const res = await fetch(`${API_CONFIG.PUBLIC_BASE_URL}/recipe-chat/recommend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ingredients: targetIngredients,
+          message: userMessageText || defaultMessage,
+          lang: lang === Language.japanese ? "japanese" : "korean",
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
 
       const aiMsg: Message = {
         id: Math.random().toString(),
         sender: "ai",
-        text:
-          lang === Language.japanese
-            ? `写真と食材 (${targetIngredients.join(", ")}) をもとに、おすすめのレシピをお持ちしました！ 🍽️`
-            : `스캔 및 등록된 식재료 (${targetIngredients.join(", ")})를 바탕으로 지금 만들어 드시기 가장 좋은 추천 요리 레시피를 준비했습니다! 🍽️`,
-        recipes: mockRecipes,
+        text: data.replyText || (lang === Language.japanese ? "おすすめのレシピです！" : "추천 레시피입니다!"),
+        recipes: data.recipes,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+    } catch (error) {
+      console.error("AI Recipe Error:", error);
+      const errorMsg: Message = {
+        id: Math.random().toString(),
+        sender: "ai",
+        text: lang === Language.japanese 
+          ? "エラーが発生しました。もう一度お試しください。" 
+          : "레시피를 가져오는데 실패했습니다. 잠시 후 다시 시도해주세요.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
       setIsChatLoading(false);
-    }, 2500);
+    }
   };
 
   // 식재료 스캔 완료 시 콜백
@@ -138,7 +118,7 @@ export default function RecipeChatPage() {
     setMessages((prev) => [...prev, userMsg]);
     
     // 4. 레시피 추천 자동 시작
-    triggerRecipeRecommendation(updated, true);
+    triggerRecipeRecommendation(updated, true, undefined, userMsg.text);
   };
 
   // 태그 수동 추가 완료 후 추천 요청 핸들러
@@ -157,7 +137,7 @@ export default function RecipeChatPage() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    triggerRecipeRecommendation(ingredients, false);
+    triggerRecipeRecommendation(ingredients, false, undefined, userMsg.text);
   };
 
   // 사용자 직접 채팅 입력 전송 핸들러
@@ -170,7 +150,7 @@ export default function RecipeChatPage() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    triggerRecipeRecommendation(ingredients.length > 0 ? ingredients : ["토마토", "달걀"], false);
+    triggerRecipeRecommendation(ingredients.length > 0 ? ingredients : ["임의 재료"], false, undefined, messageText);
   };
 
   return (
