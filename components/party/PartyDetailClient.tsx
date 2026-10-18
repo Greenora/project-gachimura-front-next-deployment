@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clientFetch } from "@/app/hooks/useClientFetch";
@@ -38,6 +38,8 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   const [party, setParty] = useState<PartyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [isNavigatingChat, setIsNavigatingChat] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const joinLockRef = useRef(false);
 
   useEffect(() => {
     clientFetch<PartyDetail>(`/parties/${partyId}`)
@@ -56,11 +58,13 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   }, [party?.id, party?.isAccepted, router]);
 
   const handleJoin = async () => {
-    if (!party) return;
+    if (!party || joinLockRef.current) return;
     if (party.isJoined) {
       toast(t.goToChat);
       return;
     }
+    joinLockRef.current = true;
+    setIsJoining(true);
     try {
       await clientFetch(`/parties/${party.id}/join`, { method: "POST" });
       toast.success(t.joinSuccess);
@@ -77,6 +81,9 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
     } catch (err) {
       console.error("Join error:", err);
       toast.error(t.joinFail);
+    } finally {
+      joinLockRef.current = false;
+      setIsJoining(false);
     }
   };
 
@@ -109,7 +116,7 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   // 버튼 상태 및 텍스트/스타일 결정
   const isClosed = party.status !== "RECRUITING";
   let buttonText = t.joinButton;
-  let buttonDisabled = false;
+  let buttonDisabled = isJoining;
   let buttonClass = "flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-white text-base transition-all bg-[#166534] hover:bg-[#14532d] active:scale-95";
   let buttonOnClick: (() => Promise<void>) | undefined = handleJoin;
 
@@ -138,16 +145,9 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* TODO: 검색바 + 위치 버튼 영역 나중에 추가 */}
-      <div className="border-b border-gray-100 py-3 px-6">
-        <div className="max-w-4xl mx-auto h-10">
-          {/* 검색바 + 위치 버튼 자리 */}
-        </div>
-      </div>
-
-      <div className="max-w-2xl mx-auto px-6 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
         {/* 모임 제목 */}
-        <h1 className="text-xl font-bold text-gray-900 mb-4">{party.title}</h1>
+        <h1 className="break-words text-xl font-bold text-gray-900 mb-4">{party.title}</h1>
 
         {/* 날짜/장소 */}
         <div className="space-y-1 mb-6">
@@ -155,9 +155,9 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
             <span>⏰</span>
             <span>{formatDate(party.meetingDate)}</span>
           </div>
-          <div className="flex items-center gap-2 text-gray-600 text-sm">
-            <span>📍</span>
-            <span>{party.location.name}</span>
+          <div className="flex items-start gap-2 text-gray-600 text-sm">
+            <span className="shrink-0">📍</span>
+            <span className="min-w-0 break-words">{party.location.name}</span>
           </div>
         </div>
 
@@ -174,20 +174,20 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
           ) : (
             <Avatar nickname={party.host.nickname} avatarUrl={party.host.avatarUrl} size={40} />
           )}
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             {party.host.id ? (
               <Link
                 href={`/user/${party.host.id}`}
-                className="mb-2 inline-block font-medium text-sm text-gray-600 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
+                className="mb-2 inline-block max-w-full break-words font-medium text-sm text-gray-600 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
               >
                 {lang === Language.japanese ? (party.host.nickname_jp || party.host.nickname) : party.host.nickname}
               </Link>
             ) : (
-              <p className="font-medium text-sm mb-2 text-gray-600">
+              <p className="break-words font-medium text-sm mb-2 text-gray-600">
                 {lang === Language.japanese ? (party.host.nickname_jp || party.host.nickname) : party.host.nickname}
               </p>
             )}
-            <div className="bg-[#E8F4E8] border border-[#C8E6C9] rounded-2xl rounded-tl-none p-4 text-sm text-gray-700 leading-relaxed">
+            <div className="break-words whitespace-pre-wrap bg-[#E8F4E8] border border-[#C8E6C9] rounded-2xl rounded-tl-none p-4 text-sm text-gray-700 leading-relaxed">
               {party.content}
             </div>
           </div>
@@ -205,9 +205,9 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
               </div>
             )}
           </div>
-          <div className="mt-3">
-            <span className="font-bold text-base text-gray-900">{party.location.name}</span>
-            <span className="text-gray-500 text-sm ml-2">{party.location.address}</span>
+          <div className="mt-3 space-y-1">
+            <p className="break-words font-bold text-base text-gray-900">{party.location.name}</p>
+            <p className="break-words text-gray-500 text-sm">{party.location.address}</p>
           </div>
         </div>
 
@@ -216,6 +216,7 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
           <button
             className={buttonClass}
             disabled={buttonDisabled}
+            aria-busy={isJoining || isNavigatingChat}
             onClick={buttonOnClick}
           >
             {buttonText}

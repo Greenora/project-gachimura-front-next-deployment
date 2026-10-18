@@ -14,7 +14,7 @@ export default function BottomRightQuickAction() {
 
   if (isHome) {
     return (
-      <div className="fixed bottom-10 right-10 z-[100]" role="complementary" aria-label={texts.main.quickActionsAria}>
+      <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 sm:bottom-10 sm:right-10 z-40" role="complementary" aria-label={texts.main.quickActionsAria}>
         <CreatePartyButton variant="floating" />
       </div>
     );
@@ -22,7 +22,7 @@ export default function BottomRightQuickAction() {
 
   if (isCommunity) {
     return (
-      <div className="fixed bottom-10 right-10 z-[100]" role="complementary" aria-label={texts.main.quickActionsAria}>
+      <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 sm:bottom-10 sm:right-10 z-40" role="complementary" aria-label={texts.main.quickActionsAria}>
         <WritePostButton variant="floating" />
       </div>
     );

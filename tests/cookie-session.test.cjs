@@ -53,6 +53,82 @@ test('incorrect login does not refresh', async () => {
   assert.equal(calls, 1);
 });
 
+test('authentication succeeds only after the browser cookie authenticates a profile', async t => {
+  for (const path of ['/auth/login', '/auth/kakao', '/auth/line']) {
+    await t.test(path, async () => {
+      const urls = [];
+      const login = { user: { id: 1, nickname: 'Tester', email: 'tester@example.com' }, expiresIn: 3600 };
+      const { request, location } = client(async (url, options) => {
+        urls.push(url);
+        assert.equal(options.credentials, 'include');
+        if (url.endsWith('/users/profile')) {
+          assert.equal(options.method || 'GET', 'GET');
+          assert.equal(options.headers?.Authorization, undefined);
+          assert.equal(options.cache, 'no-store');
+          return Response.json(login.user);
+        }
+        assert.equal(options.method, 'POST');
+        return Response.json(login);
+      });
+      assert.equal(JSON.stringify(await request(path, { method: 'POST' })), JSON.stringify(login));
+      assert.deepEqual(urls.map(url => new URL(url).pathname), [`/api${path}`, '/api/users/profile']);
+      assert.equal(location.href, '');
+    });
+  }
+});
+
+test('authentication rejects a missing or unverifiable session without refresh or redirect', async t => {
+  const failures = [
+    { path: '/auth/login', profile: () => Response.json({ message: 'Unauthorized' }, { status: 401 }) },
+    { path: '/auth/kakao', profile: () => Response.json({ message: 'Unavailable' }, { status: 503 }) },
+    { path: '/auth/line', profile: () => { throw new TypeError('Network unavailable'); } },
+  ];
+  for (const { path, profile } of failures) {
+    await t.test(path, async () => {
+      const urls = [];
+      const { request, location } = client(async (url, options) => {
+        urls.push(url);
+        assert.equal(options.credentials, 'include');
+        if (url.endsWith('/users/profile')) return profile();
+        return Response.json({ user: { id: 1, nickname: 'Tester' }, expiresIn: 3600 });
+      });
+      await assert.rejects(request(path, { method: 'POST' }), error =>
+        error.code === 'SESSION_NOT_ESTABLISHED' && error.status === 503);
+      assert.deepEqual(urls.map(url => new URL(url).pathname), [`/api${path}`, '/api/users/profile']);
+      assert.equal(location.href, '');
+    });
+  }
+});
+
+test('authentication rejects a cookie session belonging to another account', async () => {
+  const urls = [];
+  const { request, location } = client(async url => {
+    urls.push(url);
+    return Response.json(url.endsWith('/users/profile')
+      ? { id: 2, email: 'previous@example.com' }
+      : { user: { id: 1, email: 'new@example.com' }, expiresIn: 3600 });
+  });
+  await assert.rejects(request('/auth/login', { method: 'POST' }), error =>
+    error.code === 'SESSION_NOT_ESTABLISHED' && error.status === 503);
+  assert.deepEqual(urls.map(url => new URL(url).pathname), ['/api/auth/login', '/api/users/profile']);
+  assert.equal(location.href, '');
+});
+
+test('ordinary requests and non-login auth operations do not probe a session', async () => {
+  for (const [path, method] of [
+    ['/parties', 'GET'], ['/users/profile', 'GET'], ['/auth/login', 'GET'],
+    ['/auth/refresh', 'POST'], ['/auth/logout', 'POST'],
+  ]) {
+    const urls = [];
+    const { request } = client(async url => {
+      urls.push(url);
+      return Response.json({ success: true });
+    });
+    assert.equal((await request(path, { method })).success, true);
+    assert.deepEqual(urls.map(url => new URL(url).pathname), [`/api${path}`]);
+  }
+});
+
 test('failed refresh sends protected requests to login', async () => {
   const { request, location } = client(async () => new Response(null, { status: 401 }));
   await assert.rejects(request('/users/profile'), /401/);

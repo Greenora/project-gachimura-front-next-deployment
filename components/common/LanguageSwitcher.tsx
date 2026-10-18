@@ -15,17 +15,21 @@ export default function LanguageSwitcher() {
   };
 
   return (
-    <div className="flex gap-2 text-sm font-medium">
+    <div className="flex items-center shrink-0 text-sm font-medium" role="group" aria-label={currentLang === Language.japanese ? "言語" : "언어"}>
       <button
         onClick={() => changeLanguage(Language.korean)}
-        className={`${currentLang === Language.korean ? "text-slate-900 font-bold" : "text-slate-400"}`}
+        aria-label="한국어"
+        aria-pressed={currentLang === Language.korean}
+        className={`min-w-11 min-h-11 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700 ${currentLang === Language.korean ? "text-slate-900 font-bold" : "text-slate-500"}`}
       >
         KO
       </button>
-      <span className="text-slate-300">|</span>
+      <span className="hidden sm:inline text-slate-300" aria-hidden="true">|</span>
       <button
         onClick={() => changeLanguage(Language.japanese)}
-        className={`${currentLang === Language.japanese ? "text-slate-900 font-bold" : "text-slate-400"}`}
+        aria-label="日本語"
+        aria-pressed={currentLang === Language.japanese}
+        className={`min-w-11 min-h-11 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700 ${currentLang === Language.japanese ? "text-slate-900 font-bold" : "text-slate-500"}`}
       >
         JP
       </button>

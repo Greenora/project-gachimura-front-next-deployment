@@ -57,7 +57,7 @@ export default function HomeCommunityTabs() {
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 md:flex-nowrap" role="navigation" aria-label={ariaLabel}>
-      <div className="relative grid h-[58px] w-[282px] grid-cols-2 rounded-full bg-gray-100 p-1">
+      <div className="relative hidden h-[58px] w-[282px] grid-cols-2 rounded-full bg-gray-100 p-1 sm:grid">
         <span
           aria-hidden="true"
           className={`absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-full bg-white shadow-sm transition-transform duration-300 ${
@@ -94,7 +94,7 @@ export default function HomeCommunityTabs() {
         )}
         <Link
           href="/recipe-chat"
-          className="group flex items-center rounded-full bg-[#166534] text-white transition-all focus:outline-none focus:ring-4 focus:ring-green-100 focus:ring-offset-2 hover:bg-[#14532d] active:scale-95 min-w-[108px] justify-center gap-2 whitespace-nowrap px-4 py-2 text-[13px] font-black shadow-lg shadow-green-900/15 hover:scale-[1.02]"
+          className="group flex min-h-11 items-center rounded-full bg-[#166534] text-white transition-all focus:outline-none focus:ring-4 focus:ring-green-100 focus:ring-offset-2 hover:bg-[#14532d] active:scale-95 min-w-[108px] justify-center gap-2 whitespace-nowrap px-4 py-2 text-[13px] font-black shadow-lg shadow-green-900/15 hover:scale-[1.02]"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:scale-110">
             <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />

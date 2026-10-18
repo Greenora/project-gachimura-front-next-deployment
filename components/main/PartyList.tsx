@@ -30,7 +30,7 @@ export default function PartyList() {
   const [fetching, setFetching] = useState(true);
   const searchParams = useSearchParams();
   const { texts } = useLanguage();
-  const { latitude, longitude, isLoading: isLocationLoading } = useLocation();
+  const { latitude, longitude } = useLocation();
 
   const search = searchParams.get("search");
   const filter = searchParams.get("filter") || "latest";
@@ -91,7 +91,7 @@ export default function PartyList() {
     return { nearby: nearbyList, far: farList };
   }, [parties, latitude, longitude]);
 
-  if (fetching || isLocationLoading) {
+  if (fetching) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4" aria-busy="true" aria-live="polite">
         <Spinner />

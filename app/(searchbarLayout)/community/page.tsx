@@ -362,7 +362,7 @@ export default function CommunityPage() {
             const comments = commentsByPost[post.id] || [];
             const isCommentOpen = Boolean(openCommentPanels[post.id]);
             return (
-              <article key={post.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <article key={post.id} className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
                 <div className="flex items-start gap-3">
                   {authorHref ? (
                     <Link
@@ -375,21 +375,21 @@ export default function CommunityPage() {
                   ) : (
                     <Avatar nickname={nickname} avatarUrl={post.author.profileImage} size={40} />
                   )}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 break-words">
                       {authorHref ? (
                         <Link
                           href={authorHref}
-                          className="text-[14px] font-black text-gray-900 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
+                          className="min-w-0 max-w-full [overflow-wrap:anywhere] text-[14px] font-black text-gray-900 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
                         >
                           @{nickname}
                         </Link>
                       ) : (
-                        <p className="text-[14px] font-black text-gray-900">@{nickname}</p>
+                        <p className="min-w-0 max-w-full [overflow-wrap:anywhere] text-[14px] font-black text-gray-900">@{nickname}</p>
                       )}
                       <span className="text-[12px] font-bold text-gray-400">{formatRelativeTime(post.createdAt)}</span>
                     </div>
-                    <p className="mt-2 text-[15px] font-medium leading-7 text-gray-800">{getLocalizedContent(post.content)}</p>
+                    <p className="mt-2 break-words text-[15px] font-medium leading-7 text-gray-800">{getLocalizedContent(post.content)}</p>
 
                     {post.linkedParty && (
                       <Link
@@ -460,20 +460,20 @@ export default function CommunityPage() {
                                 const commentAuthorHref = getUserProfileHref(comment.author);
                                 return (
                                   <div key={comment.id} className="rounded-lg bg-white px-3 py-2">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2 break-words">
                                       {commentAuthorHref ? (
                                         <Link
                                           href={commentAuthorHref}
-                                          className="text-[12px] font-black text-gray-700 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
+                                          className="min-w-0 max-w-full [overflow-wrap:anywhere] text-[12px] font-black text-gray-700 transition-colors hover:text-[#166534] focus:outline-none focus:underline"
                                         >
                                           @{commentNickname}
                                         </Link>
                                       ) : (
-                                        <span className="text-[12px] font-black text-gray-700">@{commentNickname}</span>
+                                        <span className="min-w-0 max-w-full [overflow-wrap:anywhere] text-[12px] font-black text-gray-700">@{commentNickname}</span>
                                       )}
                                       <span className="text-[11px] font-bold text-gray-400">{formatRelativeTime(comment.createdAt)}</span>
                                     </div>
-                                    <p className="mt-1 text-[13px] font-medium text-gray-700">{comment.content}</p>
+                                    <p className="mt-1 break-words text-[13px] font-medium text-gray-700">{comment.content}</p>
                                   </div>
                                 );
                               })
@@ -492,13 +492,14 @@ export default function CommunityPage() {
                                   }
                                 }}
                                 placeholder={lang === Language.japanese ? "コメントを書く" : "댓글을 입력하세요"}
-                                className="flex-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-[12px] font-medium text-gray-700 outline-none focus:border-green-600"
+                                aria-label={lang === Language.japanese ? "コメントを書く" : "댓글을 입력하세요"}
+                                className="min-w-0 flex-1 rounded-full border border-gray-200 bg-white px-3 py-2 text-[12px] font-medium text-gray-700 outline-none focus:border-green-600"
                               />
                               <button
                                 type="button"
                                 onClick={() => void submitComment(post.id)}
                                 disabled={Boolean(submittingComments[post.id])}
-                                className="rounded-full bg-[#166534] px-3 py-2 text-[12px] font-black text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+                                className="min-h-11 shrink-0 rounded-full bg-[#166534] px-3 py-2 text-[12px] font-black text-white disabled:cursor-not-allowed disabled:bg-gray-300"
                               >
                                 {lang === Language.japanese ? "送信" : "등록"}
                               </button>
