@@ -53,7 +53,7 @@ export default function PartyCard({ party }: PartyCardProps) {
         {/* 호스트 정보 오버레이 (사진 하단) */}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden shadow-sm bg-white relative">
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-white shadow-sm">
               <Image
                 src={party.host?.profileImage || "/images/gachimura_logo.png"}
                 alt={`${displayHostNickname} 프로필 사진`}
@@ -62,7 +62,7 @@ export default function PartyCard({ party }: PartyCardProps) {
                 className={!party.host?.profileImage ? "p-1.5 object-contain" : "object-cover"}
               />
             </div>
-            <span className="text-white text-[15px] font-medium drop-shadow-sm">
+            <span className="min-w-0 truncate text-[15px] font-medium text-white drop-shadow-sm">
               {displayHostNickname}
             </span>
           </div>
@@ -93,11 +93,11 @@ export default function PartyCard({ party }: PartyCardProps) {
         </h3>
 
         <div className="space-y-0.5">
-          <p className="text-[14px] text-gray-500 font-medium">
+          <p className="break-words text-[14px] text-gray-500 font-medium">
             {texts.main.shoppingDate} <span className="text-[12px] text-gray-900 font-bold">{formatCardDate(party.meetDate)}</span>
           </p>
 
-          <p className="text-[14px] text-gray-500 font-medium">
+          <p className="break-words text-[14px] text-gray-500 font-medium">
             {displayAddress || party.storeName}
           </p>
         </div>

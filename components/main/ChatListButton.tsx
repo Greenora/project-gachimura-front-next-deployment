@@ -3,18 +3,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { clientFetch } from "@/app/hooks/useClientFetch";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
-import { Language } from "@/app/common/types";
-
-interface JoinedParty { id: number; title: string; host?: { nickname: string; nickname_jp?: string } }
+import ChatList, { JoinedParty } from "@/components/chat/ChatList";
 
 export default function ChatListButton() {
-  const { lang, texts } = useLanguage();
+  const { texts } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState<JoinedParty[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -38,24 +35,19 @@ export default function ChatListButton() {
 
   const loadChats = async () => {
     setLoading(true);
+    setError("");
     try {
       const data = await clientFetch<JoinedParty[]>("/parties/joined-parties");
       setChats(data || []);
     } catch (error) {
-      console.error("Failed to load chats:", error);
+      setError(error instanceof Error ? error.message : texts.chat.genericError);
     } finally {
       setLoading(false);
     }
   };
 
-  const getNickname = (chat: JoinedParty) => {
-    const host = chat.host;
-    if (!host) return texts.main.anonymous;
-    return lang === Language.japanese && host.nickname_jp ? host.nickname_jp : host.nickname;
-  };
-
   return (
-    <div className="fixed bottom-10 left-10 z-[100]" ref={dropdownRef}>
+    <div className="hidden sm:block fixed bottom-10 left-10 z-[100]" ref={dropdownRef}>
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -73,52 +65,8 @@ export default function ChatListButton() {
               </h3>
             </div>
 
-            <div className="max-h-[360px] overflow-y-auto p-2" aria-live="polite">
-              {loading ? (
-                <div className="py-10 text-center text-gray-400 text-sm">
-                  <div className="animate-spin inline-block w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full mb-2"></div>
-                  <p>{texts.auth.loading}</p>
-                </div>
-              ) : chats.length === 0 ? (
-                <div className="py-10 px-4 text-center text-gray-400 text-sm italic">
-                  {texts.main.noJoinedChats}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1" role="list">
-                  {chats.map((chat) => (
-                    <Link
-                      key={chat.id}
-                      href={`/chat/${chat.id}`}
-                      onClick={() => setIsOpen(false)}
-                      role="listitem"
-                      aria-label={`${chat.title} ${texts.main.chatRoomAriaSuffix}`}
-                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-all group active:scale-[0.98] focus:outline-none focus:bg-gray-50"
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden relative shadow-sm">
-                        <Image
-                          src={`https://picsum.photos/seed/${chat.id}/200/200`}
-                          alt={`${chat.title} ${texts.main.thumbnailAltSuffix}`}
-                          fill
-                          className="object-cover group-hover:scale-110 transition-transform"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-gray-900 truncate text-[14px]">
-                          {chat.title}
-                        </h4>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[11px] font-bold text-[#166534] bg-green-50 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter" aria-label={texts.main.hostAriaLabel}>
-                            {texts.main.hostLabel}
-                          </span>
-                          <p className="text-[12px] text-gray-500 truncate">
-                            {getNickname(chat)}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
+            <div className="max-h-[360px] overflow-y-auto p-2">
+              <ChatList chats={chats} loading={loading} error={error} onRetry={() => void loadChats()} onSelect={() => setIsOpen(false)} />
             </div>
           </motion.div>
         )}

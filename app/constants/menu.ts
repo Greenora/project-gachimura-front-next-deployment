@@ -228,6 +228,9 @@ interface Translation {
   settlement: {
     title: string;
     uploadReceipt: string;
+    takePhoto: string;
+    choosePhoto: string;
+    removeItem: string;
     writeManually: string;
     receiptScanning: string;
     pleaseWait: string;
@@ -520,6 +523,9 @@ export const menu: Record<Language, Translation> = {
     settlement: {
       title: "정산하기",
       uploadReceipt: "영수증 업로드하기",
+      takePhoto: "사진 촬영",
+      choosePhoto: "사진 선택",
+      removeItem: "품목 삭제",
       writeManually: "직접 작성하기",
       receiptScanning: "영수증 스캔중...",
       pleaseWait: "잠시만 기다려주세요",
@@ -809,6 +815,9 @@ export const menu: Record<Language, Translation> = {
     settlement: {
       title: "割り勘する",
       uploadReceipt: "レシートをアップロード",
+      takePhoto: "写真を撮る",
+      choosePhoto: "写真を選ぶ",
+      removeItem: "品目を削除",
       writeManually: "直接入力する",
       receiptScanning: "レシートを読み取り中...",
       pleaseWait: "少々お待ちください",

@@ -275,8 +275,10 @@ export default function LoginForm() {
       toast.success(`${texts.auth.welcomePrefix} ${result.user.nickname}${texts.auth.welcomeSuffix}`);
       router.push("/home"); // 메인 페이지로 이동
     } catch (error) {
-      const status = (error as { status?: number }).status;
-      const message = status === 401 ? texts.auth.errorLoginAuth
+      const { status, code } = error as { status?: number; code?: string };
+      const message = code === "SESSION_NOT_ESTABLISHED"
+        ? (lang === Language.japanese ? "ログイン状態を維持できませんでした。もう一度お試しください。" : "로그인을 유지하지 못했습니다. 다시 시도해주세요.")
+        : status === 401 ? texts.auth.errorLoginAuth
         : status === 429 ? (lang === Language.japanese ? "少し待ってから再試行してください。" : "요청이 많습니다. 잠시 후 다시 시도해주세요.")
         : texts.auth.alertServerError;
       setError("passwordLogin", {
@@ -415,7 +417,7 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 relative">
+    <div className="relative flex min-h-dvh flex-col items-center justify-center bg-white px-4 py-20 sm:py-12">
       <div className="mb-10 flex flex-col items-center gap-2">
         <Image src="/images/gachimura_logo.png" alt="Gachimura" width={140} height={50} priority />
       </div>

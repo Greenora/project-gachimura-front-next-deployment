@@ -75,5 +75,24 @@ export async function clientFetch<T = unknown>(url: string, options: FetchOption
     throw Object.assign(new Error(result?.message || `Error: ${response.status}`), { status: response.status });
   }
 
+  if (method === "POST" && ["/auth/login", "/auth/kakao", "/auth/line"].includes(path)) {
+    try {
+      // A successful login response alone does not prove its cookies were accepted.
+      const profile = await fetch(`${baseUrl}/users/profile`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!profile.ok || (
+        typeof result?.user?.email === "string" &&
+        (await profile.json()).email !== result.user.email
+      )) throw new Error("Session verification failed");
+    } catch {
+      throw Object.assign(new Error("Login session could not be verified"), {
+        status: 503,
+        code: "SESSION_NOT_ESTABLISHED",
+      });
+    }
+  }
+
   return result;
 }

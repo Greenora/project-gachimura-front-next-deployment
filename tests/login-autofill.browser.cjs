@@ -9,10 +9,24 @@ test('autofill, Enter, unchanged email blur, and visible login errors', async ()
   try {
     const page = await browser.newPage();
     const attempts = [];
+    const profileCookies = [];
+    await page.route(/^https:\/\/(developers\.kakao\.com|dapi\.kakao\.com)\//, route => route.fulfill({ contentType: 'application/javascript', body: '' }));
+    await page.route('**/api/**', route => route.fulfill({ json: [] }));
+    await page.route('**/auth/refresh', route => route.fulfill({ status: 401, json: { message: 'Unauthorized' } }));
+    await page.route('**/users/profile', async route => {
+      const cookie = (await route.request().allHeaders()).cookie || '';
+      profileCookies.push(cookie);
+      return cookie.includes('accessToken=autofill-session')
+        ? route.fulfill({ json: { id: 1, nickname: 'Tester' } })
+        : route.fulfill({ status: 401, json: { message: 'Unauthorized' } });
+    });
     await page.route('**/auth/check', route => route.fulfill({ json: { exists: true } }));
     await page.route('**/auth/login', route => {
       attempts.push(route.request().postDataJSON());
-      if (attempts.at(-1).password === 'Correct123') return route.fulfill({ json: { user: { nickname: 'Tester' }, expiresIn: 3600 } });
+      if (attempts.at(-1).password === 'Correct123') return route.fulfill({
+        headers: { 'Set-Cookie': 'accessToken=autofill-session; HttpOnly; SameSite=Lax; Path=/' },
+        json: { user: { nickname: 'Tester' }, expiresIn: 3600 },
+      });
       return route.fulfill({ status: 401, json: { message: '이메일 또는 비밀번호가 잘못되었습니다.' } });
     });
     await page.goto(`${process.env.TEST_FRONTEND_URL || 'http://localhost:3101'}/login`);
@@ -45,6 +59,12 @@ test('autofill, Enter, unchanged email blur, and visible login errors', async ()
     await password.fill('Correct123');
     await Promise.all([page.waitForURL('**/home'), password.press('Enter')]);
     assert.equal(attempts.at(-1).email, 'changed@example.com');
+    await page.getByText('Tester', { exact: true }).waitFor();
+    assert.ok(profileCookies.length > 0, 'successful login must verify its cookie-backed profile');
+    assert.ok(profileCookies.every(cookie => cookie.includes('accessToken=autofill-session')));
+    const token = (await page.context().cookies()).find(cookie => cookie.name === 'accessToken');
+    assert.equal(token?.value, 'autofill-session');
+    assert.equal(token.httpOnly, true);
   } finally {
     await browser.close();
   }

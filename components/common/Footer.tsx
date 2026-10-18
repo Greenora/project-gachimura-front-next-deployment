@@ -8,9 +8,9 @@ export default function Footer() {
   const { texts } = useLanguage();
 
   return (
-    <footer className="bg-white border-t border-gray-100 pt-16 pb-8 px-8">
+    <footer className="bg-white border-t border-gray-100 pt-10 sm:pt-16 pb-8 px-4 sm:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between gap-12 mb-16">
+        <div className="flex flex-col md:flex-row justify-between gap-8 sm:gap-12 mb-10 sm:mb-16">
           {/* 로고 및 소셜 */}
           <div className="space-y-6">
             <Logo showText={true} />
@@ -31,7 +31,7 @@ export default function Footer() {
           </div>
 
           {/* 링크 그룹 */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 sm:gap-12">
             <div className="space-y-4">
               <h4 className="text-[15px] font-black text-gray-900">{texts.footer.team}</h4>
               <ul className="space-y-2.5 text-[14px] text-gray-500 font-medium">

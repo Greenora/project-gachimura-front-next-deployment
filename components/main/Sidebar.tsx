@@ -26,6 +26,19 @@ function SidebarContent() {
   // 커뮤니티 페이지 사이드바
   if (isCommunity) {
     return (
+      <>
+      <label className="flex flex-col gap-2 text-sm font-bold text-gray-700 md:hidden">
+        {texts.main.communitySidebarTitle}
+        <select
+          value={filter}
+          onChange={event => updateParams("filter", event.target.value)}
+          className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 text-gray-900"
+        >
+          <option value="latest">{texts.main.communityLatest}</option>
+          <option value="popular">{texts.main.communityPopular}</option>
+          <option value="comments">{texts.main.communityMostComments}</option>
+        </select>
+      </label>
       <aside className="w-64 flex-shrink-0 pr-8 hidden md:block">
         <div className="sticky top-[104px] space-y-10">
           <div>
@@ -66,11 +79,35 @@ function SidebarContent() {
           </div>
         </div>
       </aside>
+      </>
     );
   }
 
   // 홈(파티) 페이지 사이드바 (기존 로직)
   return (
+    <>
+    <div className="flex flex-col gap-2 md:hidden">
+      <label className="flex flex-col gap-2 text-sm font-bold text-gray-700">
+        {texts.main.sidebarTitle}
+        <select
+          value={filter}
+          onChange={event => updateParams("filter", event.target.value)}
+          className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 text-gray-900"
+        >
+          <option value="latest">{texts.main.latest}</option>
+          <option value="imminent">{texts.main.imminent}</option>
+        </select>
+      </label>
+      <label className="flex min-h-11 items-center gap-3 text-sm font-bold text-gray-700">
+        <input
+          type="checkbox"
+          checked={showCompleted}
+          onChange={event => updateParams("completed", String(event.target.checked))}
+          className="h-5 w-5 accent-green-700"
+        />
+        {texts.main.showCompleted}
+      </label>
+    </div>
     <aside className="w-64 flex-shrink-0 pr-8 hidden md:block">
       <div className="sticky top-[104px] space-y-10">
         {/* 필터 타이틀 */}
@@ -123,6 +160,7 @@ function SidebarContent() {
         </button>
       </div>
     </aside>
+    </>
   );
 }
 

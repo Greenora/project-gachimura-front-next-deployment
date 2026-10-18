@@ -5,7 +5,7 @@ import PartyCard from "@/components/main/PartyCard";
 import { Language } from "@/app/common/types";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 
@@ -80,8 +80,19 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const needsAccountNumber = searchParams.get("error") === "accountNumber";
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    if (!isEditModalOpen && !needsAccountNumber) return;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isEditModalOpen, needsAccountNumber]);
 
   const closeEditModal = () => {
+    dialogRef.current?.close();
     setIsEditModalOpen(false);
     if (needsAccountNumber) {
       const url = new URL(window.location.href);
@@ -205,9 +216,9 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
   const level = getTreeLevel(treeScore);
 
   return (
-    <div className="flex flex-col gap-12 py-8 max-w-4xl mx-auto">
+    <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-8 py-4 sm:gap-12 sm:py-8">
       {/* 유저 프로필 섹션 */}
-      <section className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-10 bg-white p-8 border-2 border-gray-50 rounded-lg">
+      <section className="flex flex-col items-center gap-6 rounded-lg border-2 border-gray-50 bg-white p-4 sm:p-8 md:flex-row md:items-start md:gap-10">
         <div className="w-32 h-32 rounded-full border-2 border-gray-50 shadow-inner overflow-hidden relative bg-white flex-shrink-0">
           <Image
             src={user.profileImage || "/images/gachimura_logo.png"}
@@ -217,13 +228,13 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
           />
         </div>
 
-        <div className="flex-1 flex flex-col gap-4 w-full text-center md:text-left pt-2">
+        <div className="min-w-0 flex-1 flex flex-col gap-4 w-full text-center md:text-left pt-2">
           <div className="flex flex-col md:flex-row md:items-center gap-3 justify-center md:justify-start">
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">{nickname}</h1>
+            <h1 className="min-w-0 break-words [overflow-wrap:anywhere] text-2xl font-black tracking-tight text-gray-900">{nickname}</h1>
             {currentUser && currentUser.id === user.id && (
               <button
                 onClick={() => setIsEditModalOpen(true)}
-                className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors inline-flex items-center gap-1.5 self-center justify-center"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 self-center rounded-md bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-200"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -266,7 +277,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
       {/* 활동 내역 - 소분 모임 */}
       <section className="flex flex-col gap-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+          <h2 className="min-w-0 break-words text-xl font-black text-gray-900 sm:text-2xl">
             {texts.userPage.userParties.replace("{nickname}", nickname)}
           </h2>
         </div>
@@ -285,7 +296,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
       {/* 활동 내역 - 작성한 글 */}
       <section className="flex flex-col gap-8 mb-20">
-        <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+        <h2 className="min-w-0 break-words text-xl font-black text-gray-900 sm:text-2xl">
           {texts.userPage.userPosts.replace("{nickname}", nickname)}
         </h2>
         <div className="py-24 text-center bg-white rounded-lg border-2 border-gray-50 text-gray-400 font-bold text-lg">
@@ -295,15 +306,21 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
       {/* 프로필 수정 모달 */}
       {(isEditModalOpen || needsAccountNumber) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+        <dialog
+          ref={dialogRef}
+          onCancel={event => { event.preventDefault(); closeEditModal(); }}
+          onClose={closeEditModal}
+          aria-label={lang === Language.japanese ? "プロフィール編集" : "프로필 및 계좌 수정"}
+          className="fixed inset-0 m-auto w-[calc(100%-1.5rem)] max-w-md max-h-[90dvh] rounded-2xl border border-gray-100 bg-white p-0 shadow-2xl overflow-hidden backdrop:bg-black/50 backdrop:backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200"
+        >
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
               <h2 className="text-lg font-black text-gray-900">
                 {lang === Language.japanese ? "プロフィール編集" : "프로필 및 계좌 수정"}
               </h2>
               <button
                 onClick={closeEditModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={lang === Language.japanese ? "閉じる" : "닫기"}
+                className="flex min-h-11 min-w-11 items-center justify-center text-gray-400 transition-colors hover:text-gray-600"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -312,13 +329,14 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
               </button>
             </div>
             
-            <form onSubmit={handleSaveProfile} className="max-h-[calc(90vh-65px)] overflow-y-auto p-6 flex flex-col gap-4">
+            <form onSubmit={handleSaveProfile} className="flex max-h-[calc(90dvh-80px)] flex-col gap-4 overflow-y-auto p-4 sm:p-6">
               {/* 닉네임 */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500">
+                <label htmlFor="profile-nickname" className="text-xs font-bold text-gray-500">
                   {lang === Language.japanese ? "ニックネーム" : "닉네임"}
                 </label>
                 <input
+                  id="profile-nickname"
                   type="text"
                   required
                   value={editNickname}
@@ -329,10 +347,11 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
               {/* 일본어 닉네임 */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500">
+                <label htmlFor="profile-nickname-jp" className="text-xs font-bold text-gray-500">
                   {lang === Language.japanese ? "ニックネーム (日本語) - 任意" : "닉네임 (일본어) - 선택"}
                 </label>
                 <input
+                  id="profile-nickname-jp"
                   type="text"
                   value={editNicknameJp}
                   onChange={(e) => setEditNicknameJp(e.target.value)}
@@ -348,11 +367,12 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
               {/* 은행 선택 */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500">
+                <label htmlFor="profile-bank" className="text-xs font-bold text-gray-500">
                   {lang === Language.japanese ? "銀行名" : "은행 선택"}
                 </label>
                 {accountCountry === "KR" ? (
                   <select
+                    id="profile-bank"
                     value={editBankName}
                     onChange={(e) => {
                       const selectedName = e.target.value;
@@ -372,6 +392,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
                   </select>
                 ) : (
                   <input
+                    id="profile-bank"
                     type="text"
                     required
                     value={editBankName}
@@ -386,10 +407,11 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-bold text-gray-500">
+                      <label htmlFor="profile-bank-branch" className="text-xs font-bold text-gray-500">
                         {lang === Language.japanese ? "支店名" : "지점명"}
                       </label>
                       <input
+                        id="profile-bank-branch"
                         type="text"
                         required
                         value={editBankBranchName}
@@ -399,10 +421,11 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-bold text-gray-500">
+                      <label htmlFor="profile-bank-branch-code" className="text-xs font-bold text-gray-500">
                         {lang === Language.japanese ? "支店番号" : "지점번호"}
                       </label>
                       <input
+                        id="profile-bank-branch-code"
                         type="text"
                         value={editBankBranchCode}
                         onChange={(e) => setEditBankBranchCode(e.target.value.replace(/[^0-9]/g, ""))}
@@ -414,10 +437,11 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-gray-500">
+                    <label htmlFor="profile-account-type" className="text-xs font-bold text-gray-500">
                       {lang === Language.japanese ? "口座種別" : "계좌 종류"}
                     </label>
                     <select
+                      id="profile-account-type"
                       value={editAccountType}
                       onChange={(e) => setEditAccountType(e.target.value as AccountType)}
                       className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black bg-white"
@@ -434,10 +458,11 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
               {/* 계좌 번호 */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500">
+                <label htmlFor="profile-account-number" className="text-xs font-bold text-gray-500">
                   {lang === Language.japanese ? "口座番号" : "계좌번호 (- 없이 입력)"}
                 </label>
                 <input
+                  id="profile-account-number"
                   type="text"
                   required
                   pattern="[0-9]*"
@@ -451,10 +476,11 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
               {/* 예금주 */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500">
+                <label htmlFor="profile-account-holder" className="text-xs font-bold text-gray-500">
                   {lang === Language.japanese ? "口座名義" : "예금주명"}
                 </label>
                 <input
+                  id="profile-account-holder"
                   type="text"
                   required
                   value={editAccountHolder}
@@ -485,8 +511,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </dialog>
       )}
     </div>
   );

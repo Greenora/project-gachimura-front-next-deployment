@@ -93,12 +93,16 @@ export default function SettlementClient({
   const [payments, setPayments] = useState<Payment[]>(initialPayments);
   const [loading, setLoading] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
+  const [receiptFeedback, setReceiptFeedback] = useState<string | null>(null);
   const [partyData, setPartyData] = useState<PartyInfo | null>(partyInfo);
   const [isPageReady, setIsPageReady] = useState(false);
   const startFlowLockRef = React.useRef(false);
   const startSelectingLockRef = React.useRef(false);
   const revertLockRef = React.useRef(false);
   const resumedFromEditRef = React.useRef(false);
+  const receiptUploadLockRef = React.useRef(false);
+  const cameraInputRef = React.useRef<HTMLInputElement>(null);
+  const albumInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     const rafId = requestAnimationFrame(() => setIsPageReady(true));
@@ -368,7 +372,10 @@ export default function SettlementClient({
   const handleReceiptUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      e.target.value = "";
+      if (!file || receiptUploadLockRef.current) return;
+      receiptUploadLockRef.current = true;
+      setReceiptFeedback(null);
 
       const formData = new FormData();
       formData.append("receipt", file);
@@ -402,13 +409,17 @@ export default function SettlementClient({
             settlementTexts.receiptRecognized.replace("{count}", String(result.items.length))
           );
         } else {
+          setReceiptFeedback(settlementTexts.receiptUploaded);
           toast.success(settlementTexts.receiptUploaded);
         }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : settlementTexts.uploadFail);
+        const message = err instanceof Error ? err.message : settlementTexts.uploadFail;
+        setReceiptFeedback(message);
+        toast.error(message);
       } finally {
         setScanLoading(false);
         setLoading(false);
+        receiptUploadLockRef.current = false;
       }
     },
     [settlement, partyId, settlementTexts]
@@ -487,16 +498,16 @@ export default function SettlementClient({
 
   return (
     <div
-      className={`max-w-2xl mx-auto px-6 py-8 transition-all duration-200 ${
+      className={`max-w-2xl mx-auto px-4 py-6 sm:px-6 sm:py-8 transition-all duration-200 ${
         isPageReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
       }`}
     >
       {/* 제목 */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-black text-gray-900">{texts.chat.settle}</h1>
         <button
           onClick={() => router.push(`/chat/${partyId}`)}
-          className="px-4 py-2 rounded-full text-sm font-bold text-[#33612E] border border-[#33612E] hover:bg-[#33612E]/5 transition-all"
+          className="min-h-11 px-4 py-2 rounded-full text-sm font-bold text-[#33612E] border border-[#33612E] hover:bg-[#33612E]/5 transition-all"
         >
           {settlementTexts.chatRoom}
         </button>
@@ -505,8 +516,8 @@ export default function SettlementClient({
       {/* 모임 정보 */}
       {partyData && (
         <div className="border-b border-gray-100 pb-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-900">{partyData.title}</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="break-words text-lg font-bold text-gray-900">{partyData.title}</h2>
+          <p className="break-words text-sm text-gray-500 mt-1">
             {formatFullDate(partyData.meetDate)} | {partyData.storeName}
           </p>
         </div>
@@ -522,47 +533,46 @@ export default function SettlementClient({
           <button
             type="button"
             onClick={() => router.push(`/user/${currentUser.id}?error=accountNumber`)}
-            className="mt-3 rounded-full bg-amber-900 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-amber-800"
+            className="mt-3 min-h-11 rounded-full bg-amber-900 px-4 py-2 text-sm font-black text-white transition-colors hover:bg-amber-800"
           >
             {lang === Language.japanese ? "プロフィールで入力する" : "프로필에서 입력하기"}
           </button>
         </div>
       )}
 
+      {isHost && (!settlement || settlement.status === "DRAFT") && (
+        <div className="mb-6 rounded-2xl border border-gray-200 p-4" aria-busy={scanLoading}>
+          <h3 className="mb-3 text-sm font-bold text-gray-800">{settlementTexts.uploadReceipt}</h3>
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleReceiptUpload} />
+          <input ref={albumInputRef} type="file" accept="image/*" className="hidden" onChange={handleReceiptUpload} />
+          <div className="grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={loading} className="min-h-11 rounded-xl bg-gray-900 px-3 py-2 text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-50">
+              {settlementTexts.takePhoto}
+            </button>
+            <button type="button" onClick={() => albumInputRef.current?.click()} disabled={loading} className="min-h-11 rounded-xl border border-gray-300 px-3 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50 disabled:opacity-50">
+              {settlementTexts.choosePhoto}
+            </button>
+          </div>
+          {scanLoading && (
+            <div role="status" className="mt-4 flex items-center gap-3 text-sm text-gray-700">
+              <div className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-[#33612E] border-t-transparent" />
+              <p>{settlementTexts.receiptScanning} {settlementTexts.pleaseWait}</p>
+            </div>
+          )}
+          {receiptFeedback && <p role="status" className="mt-3 break-words text-sm text-gray-700">{receiptFeedback}</p>}
+        </div>
+      )}
+
       {/* === 정산 미생성 상태 (호스트만 생성 가능) === */}
       {!settlement && isHost && (
-        <div className="text-center py-16">
-          {scanLoading ? (
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-10 h-10 border-4 border-[#33612E] border-t-transparent rounded-full animate-spin" />
-              <p className="text-base font-bold text-gray-700">{settlementTexts.receiptScanning}</p>
-              <p className="text-sm text-gray-400">{settlementTexts.pleaseWait}</p>
-            </div>
-          ) : (
-            <>
-              <label className="inline-flex items-center gap-2 px-8 py-3 bg-gray-900 text-white rounded-full font-bold cursor-pointer hover:bg-gray-800 transition-all">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                {texts.settlement.uploadReceipt}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleReceiptUpload}
-                />
-              </label>
-              <button
-                onClick={handleCreateSettlement}
-                className="block mx-auto mt-4 text-sm text-gray-500 underline hover:text-gray-700 transition-colors"
-                disabled={loading}
-              >
-                {texts.settlement.writeManually}
-              </button>
-            </>
-          )}
+        <div className="text-center mb-6">
+          <button
+            onClick={handleCreateSettlement}
+            className="min-h-11 px-4 text-sm text-gray-600 underline hover:text-gray-800 transition-colors disabled:opacity-50"
+            disabled={loading}
+          >
+            {texts.settlement.writeManually}
+          </button>
         </div>
       )}
 
@@ -576,73 +586,65 @@ export default function SettlementClient({
       {/* === DRAFT: 호스트가 품목 편집 === */}
       {settlement && settlement.status === "DRAFT" && isHost && (
         <div>
-          {scanLoading && (
-            <div className="flex flex-col items-center gap-3 py-8 mb-4">
-              <div className="w-10 h-10 border-4 border-[#33612E] border-t-transparent rounded-full animate-spin" />
-              <p className="text-base font-bold text-gray-700">{settlementTexts.receiptScanning}</p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-400 cursor-pointer hover:text-gray-600">
-                {texts.settlement.uploadReceipt}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleReceiptUpload}
-                />
-              </label>
-              <button
-                onClick={handleAddItem}
-                className="text-sm text-[#33612E] font-bold hover:underline"
-              >
-                {texts.settlement.addItem}
-              </button>
-            </div>
+            <button
+              onClick={handleAddItem}
+              disabled={loading}
+              className="min-h-11 px-2 text-sm text-[#33612E] font-bold hover:underline disabled:opacity-50"
+            >
+              {texts.settlement.addItem}
+            </button>
           </div>
 
           <div className="space-y-3">
             {editItems.map((item, index) => (
               <div
                 key={index}
-                className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl"
+                className="relative grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl sm:grid-cols-[minmax(0,1fr)_72px_112px_44px]"
               >
-                <input
-                  type="text"
-                  value={item.name}
-                  onChange={(e) =>
-                    handleItemChange(index, "name", e.target.value)
-                  }
-                  placeholder={texts.settlement.itemName}
-                  className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#33612E]"
-                />
-                <input
-                  type="number"
-                  value={item.quantity || ""}
-                  onChange={(e) =>
-                    handleItemChange(index, "quantity", e.target.value)
-                  }
-                  placeholder={texts.settlement.quantity}
-                  className="w-16 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-center outline-none focus:border-[#33612E]"
-                  min={1}
-                />
-                <input
-                  type="number"
-                  value={item.price || ""}
-                  onChange={(e) =>
-                    handleItemChange(index, "price", e.target.value)
-                  }
-                  placeholder={texts.settlement.price}
-                  className="w-24 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-right outline-none focus:border-[#33612E]"
-                  min={0}
-                />
-                <span className="text-sm text-gray-500">{isKorean ? "원" : "円"}</span>
+                <label className="col-span-2 min-w-0 pr-12 sm:col-span-1 sm:pr-0">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">{texts.settlement.itemName}</span>
+                  <input
+                    type="text"
+                    value={item.name}
+                    disabled={loading}
+                    onChange={(e) => handleItemChange(index, "name", e.target.value)}
+                    placeholder={texts.settlement.itemName}
+                    className="min-w-0 w-full min-h-11 bg-white border border-gray-200 rounded-lg px-3 py-2 text-base sm:text-sm outline-none focus:border-[#33612E]"
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">{texts.settlement.quantity}</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={item.quantity || ""}
+                    disabled={loading}
+                    onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
+                    placeholder={texts.settlement.quantity}
+                    className="min-w-0 w-full min-h-11 bg-white border border-gray-200 rounded-lg px-3 py-2 text-base sm:text-sm text-center outline-none focus:border-[#33612E]"
+                    min={1}
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">{texts.settlement.price} ({isKorean ? "원" : "円"})</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={item.price || ""}
+                    disabled={loading}
+                    onChange={(e) => handleItemChange(index, "price", e.target.value)}
+                    placeholder={texts.settlement.price}
+                    className="min-w-0 w-full min-h-11 bg-white border border-gray-200 rounded-lg px-3 py-2 text-base sm:text-sm text-right outline-none focus:border-[#33612E]"
+                    min={0}
+                  />
+                </label>
                 <button
                   onClick={() => handleRemoveItem(index)}
-                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                  disabled={loading}
+                  aria-label={`${settlementTexts.removeItem}: ${item.name || index + 1}`}
+                  className="absolute right-3 top-8 flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50 sm:static sm:self-end"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -668,7 +670,7 @@ export default function SettlementClient({
           </div>
 
           {/* 버튼 영역 */}
-          <div className="flex gap-3 mt-8">
+          <div className="flex flex-col gap-3 mt-8 sm:flex-row">
             <button
               onClick={() => {
                 void handleSaveItems();
@@ -699,7 +701,7 @@ export default function SettlementClient({
       {/* === SELECTING: 게스트가 품목 선택 === */}
       {settlement && settlement.status === "SELECTING" && !isHost && (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
             <span className="text-xs text-gray-400">{texts.settlement.selectHint}</span>
           </div>
@@ -711,15 +713,17 @@ export default function SettlementClient({
                 <button
                   key={item.id}
                   onClick={() => handleToggleItem(item.id)}
-                  className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                  aria-pressed={isSelected}
+                  disabled={loading}
+                  className={`w-full flex items-center justify-between gap-3 p-4 rounded-xl border-2 transition-all ${
                     isSelected
                       ? "border-[#33612E] bg-[#33612E]/5"
                       : "border-gray-100 hover:border-gray-200"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3 text-left">
                     <div
-                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                      className={`w-5 h-5 shrink-0 rounded-md border-2 flex items-center justify-center transition-all ${
                         isSelected
                           ? "bg-[#33612E] border-[#33612E]"
                           : "border-gray-300"
@@ -731,11 +735,11 @@ export default function SettlementClient({
                         </svg>
                       )}
                     </div>
-                    <span className="text-sm font-medium text-gray-800">
+                    <span className="min-w-0 break-words text-sm font-medium text-gray-800">
                       {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
                     </span>
                   </div>
-                  <span className="text-sm font-bold text-gray-700">
+                  <span className="shrink-0 text-sm font-bold text-gray-700">
                     {formatMoney(item.price * item.quantity)}
                   </span>
                 </button>
@@ -764,13 +768,13 @@ export default function SettlementClient({
       {/* === SELECTING: 호스트 뷰 (멤버 선택 현황 + 수정/확정 버튼) === */}
       {settlement && settlement.status === "SELECTING" && isHost && (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={handleRevertToDraft}
                 disabled={loading}
-                className="text-xs text-[#33612E] font-bold hover:underline"
+                className="min-h-11 px-2 text-sm text-[#33612E] font-bold hover:underline"
               >
                 {settlementTexts.editSettlement}
               </button>
@@ -782,24 +786,24 @@ export default function SettlementClient({
             {settlement.items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between p-4 rounded-xl border border-gray-100"
+                className="flex items-center justify-between gap-3 p-4 rounded-xl border border-gray-100"
               >
-                <div>
-                  <span className="text-sm font-medium text-gray-800">
+                <div className="min-w-0">
+                  <span className="break-words text-sm font-medium text-gray-800">
                     {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
                   </span>
-                  <div className="flex gap-1 mt-1">
+                  <div className="flex flex-wrap gap-1 mt-1">
                     {item.members?.map((m) => (
                       <span
                         key={m.userId}
-                        className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full"
+                        className="max-w-full break-words text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full"
                       >
                         {m.user?.nickname}
                       </span>
                     ))}
                   </div>
                 </div>
-                <span className="text-sm font-bold text-gray-700">
+                <span className="shrink-0 text-sm font-bold text-gray-700">
                   {formatMoney(item.price * item.quantity)}
                 </span>
               </div>
@@ -835,12 +839,12 @@ export default function SettlementClient({
               {settlement.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between py-3 border-b border-gray-50"
+                  className="flex items-center justify-between gap-3 py-3 border-b border-gray-50"
                 >
-                  <span className="text-sm text-gray-700">
+                  <span className="min-w-0 break-words text-sm text-gray-700">
                     {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
                   </span>
-                  <span className="text-sm font-bold text-gray-900">
+                  <span className="shrink-0 text-sm font-bold text-gray-900">
                     {formatMoney(item.price * item.quantity)}
                   </span>
                 </div>
@@ -848,7 +852,7 @@ export default function SettlementClient({
             </div>
 
             {/* 총 가격 & 1인당 금액 */}
-            <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
+            <div className="flex flex-col gap-2 mt-8 pt-6 border-t border-gray-100 sm:flex-row sm:justify-between sm:items-center">
               <span className="text-base font-bold text-gray-900">{texts.settlement.totalPrice}</span>
               <span className="text-base font-bold text-gray-900">
                 {formatMoney(settlement.totalAmount)} / {memberCount}{settlementTexts.memberSuffix} = {settlementTexts.perPerson} {" "}
@@ -866,22 +870,22 @@ export default function SettlementClient({
                   {payments.map((payment) => (
                     <div
                       key={payment.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
+                      className="flex flex-col gap-3 p-3 bg-gray-50 rounded-xl sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         <img
                           src={
                             payment.user?.profileImage ||
                             "/images/gachimura_logo.png"
                           }
-                          className="w-8 h-8 rounded-full object-contain bg-white p-0.5"
+                          className="w-8 h-8 shrink-0 rounded-full object-contain bg-white p-0.5"
                           alt=""
                         />
-                        <span className="text-sm font-medium text-gray-800">
+                        <span className="min-w-0 break-words text-sm font-medium text-gray-800">
                           {payment.user?.nickname}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
                         <span className="text-sm font-bold text-gray-700">
                           {formatMoney(payment.amount)}
                         </span>
@@ -895,7 +899,7 @@ export default function SettlementClient({
                               handlePaymentConfirm(payment.userId)
                             }
                             disabled={loading}
-                            className="px-3 py-1 text-xs font-bold text-white bg-[#33612E] rounded-full hover:bg-[#2a5025] transition-all disabled:opacity-50"
+                            className="min-h-11 px-3 py-2 text-sm font-bold text-white bg-[#33612E] rounded-full hover:bg-[#2a5025] transition-all disabled:opacity-50"
                           >
                             {texts.settlement.confirmPayment}
                           </button>
@@ -921,7 +925,7 @@ export default function SettlementClient({
             )}
 
             {/* 하단 버튼 */}
-            <div className="flex gap-3 mt-8">
+            <div className="flex flex-col gap-3 mt-8 sm:flex-row">
               <button
                 onClick={() => router.push(`/chat/${partyId}`)}
                 className="flex-1 py-3 rounded-full font-bold text-[#33612E] border-2 border-[#33612E] hover:bg-[#33612E]/5 transition-all"
