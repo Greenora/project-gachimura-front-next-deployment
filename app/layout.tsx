@@ -6,6 +6,8 @@ import { cookies } from "next/headers";
 import { menu } from "@/app/constants/menu";
 import { Language } from "@/app/common/types";
 import { Toaster } from "react-hot-toast";
+import { UserProvider } from "@/app/hooks/UserContext";
+import { LocationProvider } from "@/app/hooks/useLocation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,8 +65,12 @@ export default async function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <LanguageProvider texts={texts} lang={validLang}>
-          <Toaster position="top-center" reverseOrder={false} />
-          {children}
+          <UserProvider>
+            <LocationProvider>
+              <Toaster position="top-center" reverseOrder={false} />
+              {children}
+            </LocationProvider>
+          </UserProvider>
         </LanguageProvider>
       </body>
     </html>

@@ -1,30 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
-import { clientFetch } from "@/app/hooks/useClientFetch";
-
-interface UserInfo {
-  id: number;
-  nickname: string;
-  nickname_jp?: string | null;
-  profileImage?: string | null;
-}
+import { useUser } from "@/app/hooks/UserContext";
 
 export default function HeaderUserInfo() {
   const { lang } = useLanguage();
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    clientFetch<UserInfo>("/users/profile", { redirectOnUnauthorized: false })
-      .then((data) => setUser(data))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
-  }, []);
+  const { user, loading } = useUser();
 
   if (loading) {
     return <div className="h-10 w-10 animate-pulse rounded-full bg-gray-100" />;

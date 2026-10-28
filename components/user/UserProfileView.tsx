@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { clientFetch } from "@/app/hooks/useClientFetch";
+import { useUser, type UserProfile } from "@/app/hooks/UserContext";
 
 const BANK_LIST = [
   { code: "089", name: "토스뱅크" },
@@ -39,23 +40,6 @@ interface UserProfileViewProps {
   lang: Language;
 }
 
-interface UserProfile {
-  id: number;
-  nickname: string;
-  nickname_jp?: string | null;
-  profileImage?: string | null;
-  treeScore?: string | number;
-  reviewsCount?: number;
-  accountCountry?: AccountCountry | null;
-  bankCode?: string | null;
-  bankName?: string | null;
-  bankBranchName?: string | null;
-  bankBranchCode?: string | null;
-  accountType?: AccountType | null;
-  accountNumber?: string | null;
-  accountHolder?: string | null;
-}
-
 interface PartySummary {
   id: number;
   title: string;
@@ -77,21 +61,23 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const { user: currentUser } = useUser();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const needsAccountNumber = searchParams.get("error") === "accountNumber";
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const editDirtyRef = useRef(false);
 
   useEffect(() => {
-    if (!isEditModalOpen && !needsAccountNumber) return;
+    if (currentUser?.id !== user.id || (!isEditModalOpen && !needsAccountNumber)) return;
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previousOverflow; };
-  }, [isEditModalOpen, needsAccountNumber]);
+  }, [isEditModalOpen, needsAccountNumber, currentUser?.id, user.id]);
 
   const closeEditModal = () => {
+    editDirtyRef.current = false;
     dialogRef.current?.close();
     setIsEditModalOpen(false);
     if (needsAccountNumber) {
@@ -118,27 +104,17 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
   // 로그인한 사용자 확인
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const data = await clientFetch<UserProfile>("/users/profile");
-        setCurrentUser(data);
-        if (data.id === user.id) {
-          setEditNickname(data.nickname || "");
-          setEditNicknameJp(data.nickname_jp || "");
-          setEditBankName(data.bankName || "");
-          setEditBankCode(data.bankCode || "");
-          setEditBankBranchName(data.bankBranchName || "");
-          setEditBankBranchCode(data.bankBranchCode || "");
-          setEditAccountType(data.accountType === "TOZA" ? "TOZA" : "FUTSU");
-          setEditAccountNumber(data.accountNumber || "");
-          setEditAccountHolder(data.accountHolder || "");
-        }
-      } catch {
-        console.log("Not logged in");
-      }
-    };
-    fetchCurrentUser();
-  }, [user.id]);
+    if (!currentUser || currentUser.id !== user.id || editDirtyRef.current) return;
+    setEditNickname(currentUser.nickname || "");
+    setEditNicknameJp(currentUser.nickname_jp || "");
+    setEditBankName(currentUser.bankName || "");
+    setEditBankCode(currentUser.bankCode || "");
+    setEditBankBranchName(currentUser.bankBranchName || "");
+    setEditBankBranchCode(currentUser.bankBranchCode || "");
+    setEditAccountType(currentUser.accountType === "TOZA" ? "TOZA" : "FUTSU");
+    setEditAccountNumber(currentUser.accountNumber || "");
+    setEditAccountHolder(currentUser.accountHolder || "");
+  }, [currentUser, user.id, isEditModalOpen, needsAccountNumber]);
 
   // 정산 단계 등에서 계좌정보 미입력으로 리다이렉트 되었을 때 경고 처리
   useEffect(() => {
@@ -305,7 +281,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
       </section>
 
       {/* 프로필 수정 모달 */}
-      {(isEditModalOpen || needsAccountNumber) && (
+      {currentUser?.id === user.id && (isEditModalOpen || needsAccountNumber) && (
         <dialog
           ref={dialogRef}
           onCancel={event => { event.preventDefault(); closeEditModal(); }}
@@ -329,7 +305,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
               </button>
             </div>
             
-            <form onSubmit={handleSaveProfile} className="flex max-h-[calc(90dvh-80px)] flex-col gap-4 overflow-y-auto p-4 sm:p-6">
+            <form onSubmit={handleSaveProfile} onChangeCapture={() => { editDirtyRef.current = true; }} className="flex max-h-[calc(90dvh-80px)] flex-col gap-4 overflow-y-auto p-4 sm:p-6">
               {/* 닉네임 */}
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="profile-nickname" className="text-xs font-bold text-gray-500">
