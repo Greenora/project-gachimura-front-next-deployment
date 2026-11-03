@@ -9,7 +9,7 @@ test('mobile location survives navigation and failed thumbnails show a local ima
   const errors = [];
   const user = { id: 1, nickname: 'MobileTester', treeScore: 50, reviewsCount: 0 };
   const party = { id: 1, title: '사진 오류 테스트 모임', storeName: '테스트마트', content: '', status: 'RECRUITING', meetDate: '2026-11-20T10:00:00Z', host: user };
-  const setup = async ({ guest = false, cache = null } = {}) => {
+  const setup = async ({ guest = false, cache = null, thumbnailImage = null, uploadAvailable = true } = {}) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 852 } });
     if (!guest) await context.addCookies([{ name: 'accessToken', value: 'browser-fixture', url: base }]);
     await context.addInitScript(({ cache }) => {
@@ -33,8 +33,11 @@ test('mobile location survives navigation and failed thumbnails show a local ima
       }
       if (path === '/api/users/profile') return route.fulfill({ json: user });
       if (path === '/api/parties/joined-parties') return route.fulfill({ json: [] });
-      return route.fulfill({ json: path === '/api/parties' ? [party] : [] });
+      return route.fulfill({ json: path === '/api/parties' ? [{ ...party, thumbnailImage }] : [] });
     });
+    await context.route('**/uploads/**', route => uploadAvailable
+      ? route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2uoAAAAASUVORK5CYII=', 'base64') })
+      : route.fulfill({ status: 404, body: 'Image not found' }));
     await context.route('**/_next/image?**', route => {
       const source = new URL(route.request().url()).searchParams.get('url');
       return source?.startsWith('http')
@@ -47,6 +50,32 @@ test('mobile location survives navigation and failed thumbnails show a local ima
   };
 
   try {
+    await t.test('a persisted party thumbnail is displayed directly from the uploads route', async () => {
+      const { context, page } = await setup({ thumbnailImage: '1793720000000-123456789.png' });
+      try {
+        await page.goto(base + '/home');
+        const image = page.getByAltText(party.title + ' 대표 이미지');
+        await image.waitFor();
+        assert.equal(new URL(await image.getAttribute('src'), base).pathname, '/uploads/1793720000000-123456789.png');
+        await page.waitForFunction(() => {
+          const image = document.querySelector('img[alt="사진 오류 테스트 모임 대표 이미지"]');
+          return image?.complete && image.naturalWidth > 0;
+        });
+        assert.equal(new URL(await image.getAttribute('src'), base).pathname, '/uploads/1793720000000-123456789.png', 'a successful uploaded image must not be replaced by a placeholder');
+      } finally { await context.close(); }
+    });
+
+    await t.test('a missing uploaded thumbnail falls back to the local image', async () => {
+      const { context, page } = await setup({ thumbnailImage: 'missing.png', uploadAvailable: false });
+      try {
+        await page.goto(base + '/home');
+        await page.waitForFunction(() => {
+          const image = document.querySelector('img[alt="사진 오류 테스트 모임 대표 이미지"]');
+          return image?.getAttribute('src')?.includes('gachimura_logo.png') && image.complete && image.naturalWidth > 0;
+        });
+      } finally { await context.close(); }
+    });
+
     await t.test('the login page does not request a location', async () => {
       const { context, page } = await setup({ guest: true });
       try {

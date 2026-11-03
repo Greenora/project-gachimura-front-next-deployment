@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useDateFormatter } from "@/app/hooks/useDateFormatter";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
+import { API_CONFIG } from "@/config/api";
 
 interface PartyCardProps {
   party: {
@@ -17,6 +18,7 @@ interface PartyCardProps {
     addressJp?: string;
     meetDate: string;
     status: string;
+    thumbnailImage?: string | null;
     host?: {
       nickname: string;
       nickname_jp?: string | null;
@@ -28,7 +30,11 @@ interface PartyCardProps {
 export default function PartyCard({ party }: PartyCardProps) {
   const { formatCardDate } = useDateFormatter();
   const { lang, texts } = useLanguage();
-  const [imageFailed, setImageFailed] = useState(false);
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const imageSource = party.thumbnailImage
+    ? `${API_CONFIG.PUBLIC_BASE_URL.replace(/\/api\/?$/, "")}/uploads/${encodeURIComponent(party.thumbnailImage)}`
+    : `https://picsum.photos/seed/${party.id}/600/600`;
+  const imageFailed = failedImage === imageSource;
 
   const displayAddress = lang === Language.korean ? party.addressKo : party.addressJp;
   const hostNickname =
@@ -46,10 +52,11 @@ export default function PartyCard({ party }: PartyCardProps) {
       {/* 썸네일 이미지 영역 */}
       <div className="relative aspect-square w-full rounded-md overflow-hidden bg-gray-100 shadow-sm">
         <Image
-          src={imageFailed ? "/images/gachimura_logo.png" : `https://picsum.photos/seed/${party.id}/600/600`}
+          src={imageFailed ? "/images/gachimura_logo.png" : imageSource}
           alt={`${party.title} 대표 이미지`}
           fill
-          onError={() => setImageFailed(true)}
+          unoptimized={Boolean(party.thumbnailImage) && !imageFailed}
+          onError={() => setFailedImage(imageSource)}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
 

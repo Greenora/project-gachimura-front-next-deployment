@@ -98,8 +98,11 @@ test('mobile navigation, chat keyboard and receipt editing preserve working flow
       socket.onMessage(message => {
         if (message === '40') socket.send('40{"sid":"mobile-fixture"}');
         if (typeof message === 'string' && message.startsWith('42')) {
-          const [event, payload] = JSON.parse(message.slice(2));
+          const payloadStart = message.indexOf('[');
+          const acknowledgement = message.slice(2, payloadStart);
+          const [event, payload] = JSON.parse(message.slice(payloadStart));
           if (event === 'message') socket.send(`42${JSON.stringify(['message', { ...payload, userId: state.userId, nickname, createdAt: new Date().toISOString() }])}`);
+          if (acknowledgement) socket.send(`43${acknowledgement}[{"ok":true}]`);
         }
       });
     });

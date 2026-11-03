@@ -7,6 +7,7 @@ import { useDateFormatter } from "@/app/hooks/useDateFormatter";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import { clientFetch } from "@/app/hooks/useClientFetch";
+import { useVisiblePolling } from "@/app/hooks/useVisiblePolling";
 
 interface ChatContainerProps {
   partyId: number;
@@ -464,19 +465,30 @@ const ChatInputArea = memo(
     isDisabled,
     disabledPlaceholder,
     sendLabel,
+    canSend,
   }: {
-    onSendMessage: (msg: string) => void;
+    onSendMessage: (msg: string) => Promise<boolean>;
     placeholder: string;
     isDisabled?: boolean;
     disabledPlaceholder: string;
     sendLabel: string;
+    canSend: boolean;
   }) => {
     const [input, setInput] = useState("");
-    const handleSubmit = (e: React.FormEvent) => {
+    const [isSending, setIsSending] = useState(false);
+    const sendingRef = useRef(false);
+    const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!input.trim() || isDisabled) return;
-      onSendMessage(input);
-      setInput("");
+      if (!input.trim() || isDisabled || !canSend || sendingRef.current) return;
+      const submitted = input;
+      sendingRef.current = true;
+      setIsSending(true);
+      try {
+        if (await onSendMessage(submitted)) setInput(current => current === submitted ? "" : current);
+      } finally {
+        sendingRef.current = false;
+        setIsSending(false);
+      }
     };
 
     return (
@@ -489,6 +501,7 @@ const ChatInputArea = memo(
               disabled={isDisabled}
               aria-label={placeholder}
               enterKeyHint="send"
+              maxLength={2000}
               autoComplete="off"
               className={`bg-gray-50 min-w-0 w-full h-[52px] sm:h-[56px] pl-4 sm:pl-8 pr-16 border border-gray-100 rounded-full text-[16px] outline-none transition-all shadow-none ${isDisabled
                 ? "cursor-not-allowed text-gray-400"
@@ -499,14 +512,15 @@ const ChatInputArea = memo(
             <button
               type="submit"
               aria-label={sendLabel}
-              disabled={isDisabled || !input.trim()}
-              className={`absolute right-1 sm:right-2 w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${input.trim() && !isDisabled ? "bg-[#33612E] text-white" : "bg-gray-200 text-gray-400 opacity-50"
+              aria-busy={isSending}
+              disabled={isDisabled || !canSend || isSending || !input.trim()}
+              className={`absolute right-1 sm:right-2 w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${input.trim() && !isDisabled && canSend && !isSending ? "bg-[#33612E] text-white" : "bg-gray-200 text-gray-400 opacity-50"
                 }`}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              {isSending ? <span aria-hidden="true" className="h-5 w-5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" /> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <line x1="12" y1="19" x2="12" y2="5"></line>
                 <polyline points="5 12 12 5 19 12"></polyline>
-              </svg>
+              </svg>}
             </button>
           </form>
         </div>
@@ -532,6 +546,22 @@ export default function ChatContainer({
   const [isNavigatingSettlement, setIsNavigatingSettlement] = useState(false);
   const [settlementInfo, setSettlementInfo] = useState<SettlementInfo | null>(null);
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus>({ hasReviewed: false, canReview: false });
+  const memberMutationVersion = useRef(0);
+
+  const refreshMembers = useCallback(async (signal: AbortSignal) => {
+    const version = memberMutationVersion.current;
+    const data = await clientFetch<Array<{ userId: number; status: string; user?: { nickname: string; nickname_jp?: string; profileImage?: string } }>>(`/party-members/${partyId}`);
+    if (!signal.aborted && version === memberMutationVersion.current) {
+      setMembers(data.map(member => ({
+        id: member.userId,
+        nickname: member.user?.nickname || "",
+        nickname_jp: member.user?.nickname_jp,
+        profileImage: member.user?.profileImage || "",
+        status: member.status,
+      })));
+    }
+  }, [partyId]);
+  useVisiblePolling(refreshMembers, isDrawerOpen);
 
   const router = useRouter();
   const { texts, lang } = useLanguage();
@@ -701,7 +731,7 @@ export default function ChatContainer({
   }, [partyId]);
 
   // props로 받은 currentUser 정보를 바로 사용
-  const { messages: realTimeMessages, sendMessage } = useChat(partyId);
+  const { messages: realTimeMessages, sendMessage, connectionStatus, connectionError, reconnect } = useChat(partyId);
 
   const { formatFullDate, formatDividerDate, formatMessageTime } = useDateFormatter();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -887,11 +917,14 @@ export default function ChatContainer({
   const handleKick = useCallback(
     async (targetId: number, nickname: string) => {
       if (!confirm(`${nickname}${texts.chat.kickConfirm}`)) return;
+      memberMutationVersion.current++;
       try {
         const result = await clientFetch<{ success: boolean }>(`/party-members/${partyId}/${targetId}`, { method: 'DELETE' });
         if (result.success) setMembers((prev) => prev.filter((m) => m.id !== targetId));
       } catch (error) {
         alert(error instanceof Error ? error.message : texts.chat.genericError);
+      } finally {
+        memberMutationVersion.current++;
       }
     },
     [partyId, texts.chat.kickConfirm, texts.chat.genericError]
@@ -899,12 +932,15 @@ export default function ChatContainer({
 
   const handleApprove = useCallback(
     async (targetId: number, nickname: string) => {
+      memberMutationVersion.current++;
       try {
         await clientFetch(`/party-members/${partyId}/${targetId}/status`, { method: 'PATCH', body: { status: 'APPROVED' } });
         alert(`${nickname}${texts.chat.approveSuccess}`);
         setMembers((prev) => prev.map((m) => (m.id === targetId ? { ...m, status: 'APPROVED' } : m)));
       } catch (error) {
         alert(error instanceof Error ? error.message : texts.chat.genericFail);
+      } finally {
+        memberMutationVersion.current++;
       }
     },
     [partyId, texts.chat.approveSuccess, texts.chat.genericFail]
@@ -913,12 +949,15 @@ export default function ChatContainer({
   const handleReject = useCallback(
     async (targetId: number, nickname: string) => {
       if (!confirm(`${nickname}${texts.chat.rejectConfirm}`)) return;
+      memberMutationVersion.current++;
       try {
         await clientFetch(`/party-members/${partyId}/${targetId}/status`, { method: 'PATCH', body: { status: 'REJECTED' } });
         alert(texts.chat.rejectSuccess);
         setMembers((prev) => prev.filter((m) => m.id !== targetId));
       } catch (error) {
         alert(error instanceof Error ? error.message : texts.chat.genericFail);
+      } finally {
+        memberMutationVersion.current++;
       }
     },
     [partyId, texts.chat.rejectConfirm, texts.chat.rejectSuccess, texts.chat.genericFail]
@@ -953,6 +992,19 @@ export default function ChatContainer({
         onSettle={handleSettle}
         onUpdateStatus={handleUpdateStatus}
       />
+
+      {connectionStatus !== "connected" && (
+        <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-100 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <span>{connectionStatus === "connecting"
+            ? (lang === Language.japanese ? "チャットに接続中…" : "채팅에 연결 중입니다…")
+            : connectionError || (lang === Language.japanese ? "チャットの接続が切れました。" : "채팅 연결이 끊겼습니다.")}</span>
+          {connectionStatus !== "connecting" && (
+            <button type="button" onClick={reconnect} className="min-h-[44px] shrink-0 rounded-lg border border-amber-300 px-3 font-bold">
+              {lang === Language.japanese ? "再接続" : "다시 연결"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 3. 채팅 영역 */}
       <div
@@ -996,6 +1048,7 @@ export default function ChatContainer({
         isDisabled={currentParty?.status === 'CLOSED'}
         disabledPlaceholder={texts.chat.closedPartyPlaceholder}
         sendLabel={lang === Language.japanese ? "送信" : "전송"}
+        canSend={connectionStatus === "connected"}
       />
     </div>
   );

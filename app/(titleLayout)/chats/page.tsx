@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import ChatList, { JoinedParty } from "@/components/chat/ChatList";
+import { useVisiblePolling } from "@/app/hooks/useVisiblePolling";
 
 export default function ChatsPage() {
   const { texts } = useLanguage();
@@ -12,14 +13,17 @@ export default function ChatsPage() {
   const [error, setError] = useState("");
   const [request, setRequest] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    clientFetch<JoinedParty[]>("/parties/joined-parties")
-      .then(data => { if (!cancelled) { setChats(data || []); setError(""); } })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : texts.chat.genericError); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [request, texts.chat.genericError]);
+  const loadChats = useCallback(async (signal: AbortSignal) => {
+    try {
+      const data = await clientFetch<JoinedParty[]>("/parties/joined-parties");
+      if (!signal.aborted) { setChats(data || []); setError(""); }
+    } catch (err) {
+      if (!signal.aborted) setError(err instanceof Error ? err.message : texts.chat.genericError);
+    } finally {
+      if (!signal.aborted) setLoading(false);
+    }
+  }, [texts.chat.genericError]);
+  useVisiblePolling(loadChats, true, request);
 
   return (
     <section className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-10" aria-labelledby="chats-title">
