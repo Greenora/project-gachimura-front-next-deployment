@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clientFetch } from "@/app/hooks/useClientFetch";
@@ -9,6 +9,7 @@ import { Language } from "@/app/common/types";
 import GoogleMapViewer from "@/components/party/GoogleMapViewer";
 import Avatar from "@/components/common/Avatar";
 import toast from "react-hot-toast";
+import { useVisiblePolling } from "@/app/hooks/useVisiblePolling";
 
 interface PartyDetail {
   id: number;
@@ -40,6 +41,12 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
   const [isNavigatingChat, setIsNavigatingChat] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const joinLockRef = useRef(false);
+
+  const refreshMembership = useCallback(async (signal: AbortSignal) => {
+    const data = await clientFetch<PartyDetail>(`/parties/${partyId}`);
+    if (!signal.aborted) setParty(data);
+  }, [partyId]);
+  useVisiblePolling(refreshMembership, Boolean(party?.isJoined && !party.isAccepted && !party.isRejected));
 
   useEffect(() => {
     clientFetch<PartyDetail>(`/parties/${partyId}`)
@@ -75,7 +82,6 @@ export default function PartyDetailClient({ partyId }: PartyDetailClientProps) {
           isJoined: true,
           isAccepted: false,
           isRejected: false,
-          currentCount: prev.currentCount + 1,
         };
       });
     } catch (err) {

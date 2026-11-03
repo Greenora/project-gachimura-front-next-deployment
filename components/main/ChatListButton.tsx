@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { motion, AnimatePresence } from "framer-motion";
 import ChatList, { JoinedParty } from "@/components/chat/ChatList";
 import { useUser } from "@/app/hooks/UserContext";
+import { useVisiblePolling } from "@/app/hooks/useVisiblePolling";
 
 export default function ChatListButton() {
   const { texts } = useLanguage();
@@ -13,6 +14,7 @@ export default function ChatListButton() {
   const [chats, setChats] = useState<JoinedParty[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [request, setRequest] = useState(0);
   const { user } = useUser();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -26,20 +28,19 @@ export default function ChatListButton() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (!user) return null;
-
-  const loadChats = async () => {
-    setLoading(true);
-    setError("");
+  const loadChats = useCallback(async (signal: AbortSignal) => {
     try {
       const data = await clientFetch<JoinedParty[]>("/parties/joined-parties");
-      setChats(data || []);
+      if (!signal.aborted) { setChats(data || []); setError(""); }
     } catch (error) {
-      setError(error instanceof Error ? error.message : texts.chat.genericError);
+      if (!signal.aborted) setError(error instanceof Error ? error.message : texts.chat.genericError);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  };
+  }, [texts.chat.genericError]);
+  useVisiblePolling(loadChats, isOpen && Boolean(user), request);
+
+  if (!user) return null;
 
   return (
     <div className="hidden sm:block fixed bottom-10 left-10 z-[100]" ref={dropdownRef}>
@@ -61,7 +62,10 @@ export default function ChatListButton() {
             </div>
 
             <div className="max-h-[360px] overflow-y-auto p-2">
-              <ChatList chats={chats} loading={loading} error={error} onRetry={() => void loadChats()} onSelect={() => setIsOpen(false)} />
+              <ChatList chats={chats} loading={loading} error={error} onRetry={() => {
+                setLoading(true);
+                setRequest(value => value + 1);
+              }} onSelect={() => setIsOpen(false)} />
             </div>
           </motion.div>
         )}
@@ -69,7 +73,7 @@ export default function ChatListButton() {
 
       <button
         onClick={() => {
-          if (!isOpen) void loadChats();
+          if (!isOpen) { setLoading(true); setError(""); }
           setIsOpen(!isOpen);
         }}
         aria-label={texts.main.myChats}
