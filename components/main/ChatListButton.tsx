@@ -5,6 +5,7 @@ import { useLanguage } from "@/app/hooks/LanguageContext";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { motion, AnimatePresence } from "framer-motion";
 import ChatList, { JoinedParty } from "@/components/chat/ChatList";
+import { useUser } from "@/app/hooks/UserContext";
 
 export default function ChatListButton() {
   const { texts } = useLanguage();
@@ -12,14 +13,8 @@ export default function ChatListButton() {
   const [chats, setChats] = useState<JoinedParty[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user } = useUser();
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    clientFetch("/users/profile", { redirectOnUnauthorized: false })
-      .then(() => setIsLoggedIn(true))
-      .catch(() => setIsLoggedIn(false));
-  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -31,7 +26,7 @@ export default function ChatListButton() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (!isLoggedIn) return null;
+  if (!user) return null;
 
   const loadChats = async () => {
     setLoading(true);

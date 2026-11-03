@@ -10,12 +10,15 @@ const sessionCookie = 'accessToken=browser-session';
 
 async function prepareLogin(page, issueCookie, rejectCookie = false) {
   const requests = [];
+  let loginStarted = false;
   await page.route(/^https:\/\/(developers\.kakao\.com|dapi\.kakao\.com)\//, route => route.fulfill({ contentType: 'application/javascript', body: '' }));
   await page.route('**/api/**', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    const afterLogin = loginStarted;
+    if (path === '/api/auth/login') loginStarted = true;
     const cookie = (await request.allHeaders()).cookie || '';
-    requests.push({ path, cookie, page: new URL(page.url()).pathname });
+    requests.push({ path, cookie, afterLogin, page: new URL(page.url()).pathname });
     if (path === '/api/auth/check') return route.fulfill({ json: { exists: true } });
     if (path === '/api/auth/login') return route.fulfill({
       headers: issueCookie ? { 'Set-Cookie': `${sessionCookie}; HttpOnly; SameSite=Lax; Path=/` } : {},
@@ -52,8 +55,9 @@ test(`login HTTP success with ${issueCookie ? 'a rejected cookie' : 'no cookie'}
     await page.locator('p').filter({ hasText: '로그인을 유지하지 못했습니다. 다시 시도해주세요.' }).waitFor();
     assert.equal(new URL(page.url()).pathname, '/login');
     assert.ok(!navigations.includes('/home'), 'a successful response body alone must never navigate home');
-    assert.ok(requests.some(request => request.path === '/api/users/profile'), 'the login response must be checked against the authenticated profile');
-    assert.ok(requests.filter(request => request.path === '/api/users/profile').every(request => request.cookie.split(/;\s*/).includes(sessionCookie) === issueCookie));
+    const loginProfiles = requests.filter(request => request.afterLogin && request.path === '/api/users/profile');
+    assert.ok(loginProfiles.length > 0, 'the login response must be checked against the authenticated profile');
+    assert.ok(loginProfiles.every(request => request.cookie.split(/;\s*/).includes(sessionCookie) === issueCookie));
     assert.equal((await page.context().cookies()).some(cookie => cookie.name === 'accessToken'), issueCookie);
     assert.equal(await page.locator('input[name="passwordLogin"]').isEnabled(), true, 'failed session setup must allow retry');
   } finally {
@@ -81,11 +85,11 @@ test('browser stores the login cookie and sends it through home to the community
     await page.waitForURL('**/community');
     await page.getByText('로그인 세션을 유지한 게시글', { exact: true }).waitFor();
     await communityProfileResponse;
-    const protectedRequests = requests.filter(request => request.path === '/api/users/profile' || request.path === '/api/community/posts' || request.path === '/api/parties/user/1');
+    const protectedRequests = requests.filter(request => request.afterLogin && (request.path === '/api/users/profile' || request.path === '/api/community/posts' || request.path === '/api/parties/user/1'));
     assert.ok(protectedRequests.some(request => request.path === '/api/community/posts'));
     assert.ok(protectedRequests.some(request => request.path === '/api/parties/user/1'), 'community must finish its authenticated profile-dependent request');
     assert.ok(protectedRequests.every(request => request.cookie.split(/;\s*/).includes(sessionCookie)), 'all authenticated requests must carry the stored session');
-    assert.equal(requests.some(request => request.path === '/api/auth/refresh'), false, 'a fresh login cookie must not need recovery');
+    assert.equal(requests.some(request => request.afterLogin && request.path === '/api/auth/refresh'), false, 'a fresh login cookie must not need recovery');
     assert.equal(new URL(page.url()).pathname, '/community');
   } finally {
     await browser.close();

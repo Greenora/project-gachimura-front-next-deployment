@@ -1,44 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import toast from "react-hot-toast";
-
-interface UserMenuProfile {
-  id: number;
-  nickname: string;
-  nickname_jp?: string | null;
-  profileImage?: string | null;
-}
+import { useUser } from "@/app/hooks/UserContext";
 
 export default function UserMenu() {
-  const [user, setUser] = useState<UserMenuProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useUser();
   const { texts, lang } = useLanguage();
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const data = await clientFetch<UserMenuProfile>("/users/profile", { redirectOnUnauthorized: false });
-        setUser(data);
-      } catch {
-        console.log("Not logged in");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, []);
+  const router = useRouter();
 
   const handleLogout = async () => {
     try {
       await clientFetch("/auth/logout", { method: "POST", redirectOnUnauthorized: false });
-      window.location.href = "/login";
+      router.replace("/login");
+      router.refresh();
     } catch (error) {
       console.error("Logout failed:", error);
       toast.error(texts.auth.alertServerError);

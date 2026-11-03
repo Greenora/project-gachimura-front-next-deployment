@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { createContext, createElement, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { clientFetch } from "./useClientFetch";
 import { toast } from "react-hot-toast";
 import { useLanguage } from "./LanguageContext";
@@ -66,8 +66,23 @@ async function fetchReverseGeocode(lat: number, lon: number, langCode: string = 
   return null;
 }
 
+const LocationContext = createContext<ReturnType<typeof useLocationState> | null>(null);
+
+export function LocationProvider({ children }: { children: ReactNode }) {
+  return createElement(LocationContext.Provider, { value: useLocationState() }, children);
+}
+
 export function useLocation() {
+  const location = useContext(LocationContext);
+  const initialize = location?.initialize;
+  useEffect(() => { initialize?.(); }, [initialize]);
+  if (!location) throw new Error("useLocation must be used within LocationProvider");
+  return { ...location.state, updateLocation: location.updateLocation };
+}
+
+function useLocationState() {
   const { texts, lang } = useLanguage();
+  const initialized = useRef(false);
   const [location, setLocation] = useState<LocationState>({
     latitude: null,
     longitude: null,
@@ -235,31 +250,32 @@ export function useLocation() {
     texts.main.locationTimeout,
   ]);
 
-  useEffect(() => {
-    const cached = typeof window !== "undefined" ? localStorage.getItem("userLocation") : null;
-    let hasValidCache = false;
-    if (cached) {
-      try {
+  const initialize = useCallback(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    try {
+      const cached = localStorage.getItem("userLocation");
+      if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed.latitude !== undefined && parsed.longitude !== undefined) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- initialize from browser-only localStorage after hydration
+        if (typeof parsed?.latitude === "number" && Number.isFinite(parsed.latitude) && Math.abs(parsed.latitude) <= 90 &&
+            typeof parsed.longitude === "number" && Number.isFinite(parsed.longitude) && Math.abs(parsed.longitude) <= 180) {
           setLocation({
-            ...parsed,
+            latitude: parsed.latitude,
+            longitude: parsed.longitude,
+            region: typeof parsed.region === "string" ? parsed.region : null,
+            district: typeof parsed.district === "string" ? parsed.district : null,
             isLoading: false,
             error: null,
           });
-          hasValidCache = true;
+          return;
         }
-      } catch (e) {
         localStorage.removeItem("userLocation");
       }
+    } catch {
+      // Browser storage may be unavailable; location remains usable without it.
     }
+    updateLocation(true);
+  }, [updateLocation]);
 
-    // 캐시된 위치 정보가 없을 때만 컴포넌트 마운트 시 자동으로 위치를 가져옴
-    if (!hasValidCache) {
-      updateLocation(true);
-    }
-  }, []);
-
-  return { ...location, updateLocation: () => updateLocation(false) };
+  return { state: location, initialize, updateLocation: () => updateLocation(false) };
 }
