@@ -269,7 +269,7 @@ interface Translation {
     quantitySuffix: string;
     memberSuffix: string;
     receiptRecognized: string;
-    receiptUploaded: string;
+    receiptNoItems: string;
     settlementCreated: string;
     settlementCreateFail: string;
     minItemRequired: string;
@@ -564,7 +564,7 @@ export const menu: Record<Language, Translation> = {
       quantitySuffix: "개",
       memberSuffix: "명",
       receiptRecognized: "영수증 인식 완료! {count}개 품목이 자동 입력되었습니다.",
-      receiptUploaded: "영수증이 업로드되었습니다. 품목을 직접 입력해주세요.",
+      receiptNoItems: "영수증에서 품목을 인식하지 못했습니다. 사진을 다시 촬영하거나 품목을 직접 입력해주세요.",
       settlementCreated: "정산이 생성되었습니다.",
       settlementCreateFail: "정산 생성 실패",
       minItemRequired: "최소 1개 이상의 품목을 입력해주세요.",
@@ -856,7 +856,7 @@ export const menu: Record<Language, Translation> = {
       quantitySuffix: "個",
       memberSuffix: "人",
       receiptRecognized: "レシート認識完了！{count}件の品目が自動入力されました。",
-      receiptUploaded: "レシートがアップロードされました。品目を直接入力してください。",
+      receiptNoItems: "レシートから品目を読み取れませんでした。撮り直すか、品目を直接入力してください。",
       settlementCreated: "割り勘が作成されました。",
       settlementCreateFail: "割り勘の作成に失敗しました。",
       minItemRequired: "少なくとも1つ以上の品目を入力してください。",
