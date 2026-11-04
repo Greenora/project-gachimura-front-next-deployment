@@ -20,6 +20,7 @@ import {
   CalendarIcon 
 } from "@/components/common/Icons";
 import LineLogin from "@/components/auth/LineLogin";
+import { isMemberBirthdate, normalizeMemberPhone } from "@/app/lib/member-details";
 
 /**
  * 통합 로그인 폼 컴포넌트
@@ -46,7 +47,7 @@ interface RegisterData {
   email: string;
   passwordRegister: string;
   phone?: string;
-  birthdate?: string; // YYMMDD 형식 (6자리)
+  birthdate?: string; // YYYY-MM-DD
   emailVerificationToken: string;
 }
 
@@ -306,7 +307,7 @@ export default function LoginForm() {
       email: data.email,
       password: data.passwordRegister,
       nickname: undefined, 
-      phone: data.phone || undefined, 
+      phone: data.phone ? normalizeMemberPhone(data.phone) : undefined,
       birthdate: data.birthdate || undefined,
       language: langCode,
       emailVerificationToken: data.emailVerificationToken,
@@ -576,14 +577,20 @@ export default function LoginForm() {
           <div className={`transition-all duration-500 overflow-hidden flex flex-col gap-5 ${step === "REGISTER_FORM" ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}>
             {/* 생년월일 */}
             <div>
+              <label htmlFor="signup-birthdate" className="mb-2 block text-sm font-medium text-gray-700">{texts.auth.birthPlaceholder}</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
                   <CalendarIcon />
                 </span>
                 <input
+                  id="signup-birthdate"
+                  type="date"
+                  autoComplete="bday"
+                  min="1000-01-01"
+                  max={new Date().toISOString().slice(0, 10)}
                   {...register("birthdate", {
                     required: step === "REGISTER_FORM",
-                    pattern: { value: /^\d{6}$/, message: texts.auth.errorBirth },
+                    validate: value => step !== "REGISTER_FORM" || (!!value && isMemberBirthdate(value)) || texts.auth.errorBirth,
                   })}
                   disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.birthPlaceholder}
@@ -600,9 +607,13 @@ export default function LoginForm() {
                   <PhoneIcon />
                 </span>
                 <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  aria-label={texts.auth.phonePlaceholder}
                   {...register("phone", {
                     required: step === "REGISTER_FORM",
-                    pattern: { value: /^0[0-9]{1,2}-?[0-9]{3,4}-?[0-9]{4}$/, message: texts.auth.errorPhone },
+                    validate: value => step !== "REGISTER_FORM" || (!!value && !!normalizeMemberPhone(value)) || texts.auth.errorPhone,
                   })}
                   disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.phonePlaceholder}
