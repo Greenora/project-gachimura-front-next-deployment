@@ -8,6 +8,7 @@ import { Language } from "@/app/common/types";
 import { Toaster } from "react-hot-toast";
 import { UserProvider } from "@/app/hooks/UserContext";
 import { LocationProvider } from "@/app/hooks/useLocation";
+import { PwaProvider } from "@/app/hooks/PwaContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,6 +25,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
+  themeColor: "#166534",
 };
 
 export const metadata: Metadata = {
@@ -40,7 +42,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/images/gachimura_logo.png",
+    apple: "/icons/apple-touch-icon.png",
   },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "가치무라", statusBarStyle: "default" },
 };
 
 export default async function RootLayout({
@@ -66,10 +71,12 @@ export default async function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <LanguageProvider texts={texts} lang={validLang}>
           <UserProvider>
-            <LocationProvider>
+            <PwaProvider>
+              <LocationProvider>
               <Toaster position="top-center" reverseOrder={false} />
               {children}
-            </LocationProvider>
+              </LocationProvider>
+            </PwaProvider>
           </UserProvider>
         </LanguageProvider>
       </body>
