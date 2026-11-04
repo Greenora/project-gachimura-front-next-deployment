@@ -8,6 +8,7 @@ import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import toast from "react-hot-toast";
 import { useUser } from "@/app/hooks/UserContext";
+import { clearPushSubscription, withPushTimeout } from "@/app/lib/push-subscription";
 
 export default function UserMenu() {
   const { user, loading } = useUser();
@@ -16,6 +17,7 @@ export default function UserMenu() {
 
   const handleLogout = async () => {
     try {
+      await withPushTimeout(clearPushSubscription()).catch(() => undefined);
       await clientFetch("/auth/logout", { method: "POST", redirectOnUnauthorized: false });
       router.replace("/login");
       router.refresh();
