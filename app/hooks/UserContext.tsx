@@ -11,6 +11,8 @@ export interface UserProfile {
   profileImage?: string | null;
   treeScore?: string | number;
   reviewsCount?: number;
+  phone?: string | null;
+  birthdate?: string | null;
   accountCountry?: "KR" | "JP" | null;
   bankCode?: string | null;
   bankName?: string | null;

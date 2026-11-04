@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useUser, type UserProfile } from "@/app/hooks/UserContext";
 import AppSettings from "@/components/common/AppSettings";
+import MemberDetails from "@/components/user/MemberDetails";
 
 const BANK_LIST = [
   { code: "089", name: "토스뱅크" },
@@ -252,6 +253,7 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
       </section>
 
       {currentUser?.id === user.id && <AppSettings />}
+      {currentUser?.id === user.id && <MemberDetails key={currentUser.id} user={currentUser} />}
 
       {/* 활동 내역 - 소분 모임 */}
       <section className="flex flex-col gap-8">
