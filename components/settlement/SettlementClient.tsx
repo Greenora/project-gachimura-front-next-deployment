@@ -409,8 +409,8 @@ export default function SettlementClient({
             settlementTexts.receiptRecognized.replace("{count}", String(result.items.length))
           );
         } else {
-          setReceiptFeedback(settlementTexts.receiptUploaded);
-          toast.success(settlementTexts.receiptUploaded);
+          setReceiptFeedback(settlementTexts.receiptNoItems);
+          toast.error(settlementTexts.receiptNoItems);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : settlementTexts.uploadFail;
