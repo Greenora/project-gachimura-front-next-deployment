@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/app/hooks/LanguageContext";
-import { clientFetch } from "@/app/hooks/useClientFetch";
+import { clientFetch, USER_CHANGED_EVENT } from "@/app/hooks/useClientFetch";
 import { useDateFormatter } from "@/app/hooks/useDateFormatter";
+import { useVisiblePolling } from "@/app/hooks/useVisiblePolling";
+import { getSettlementAmounts, formatSettlementMoney } from "@/app/lib/settlement-amounts";
 import { Language } from "@/app/common/types";
 import toast from "react-hot-toast";
 
@@ -56,6 +58,14 @@ interface SettlementClientProps {
   initialPayments: Payment[];
 }
 
+function selectionIds(settlement: Settlement | null, userId: number) {
+  return settlement?.items?.filter(item => item.members?.some(member => member.userId === userId)).map(item => item.id) || [];
+}
+
+function sameSelection(first: number[], second: number[]) {
+  return first.length === second.length && first.every(id => second.includes(id));
+}
+
 export default function SettlementClient({
   partyId,
   initialSettlement,
@@ -70,24 +80,20 @@ export default function SettlementClient({
   const settlementTexts = texts.settlement;
   const isKorean = lang === Language.korean;
 
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(isKorean ? "ko-KR" : "ja-JP", {
-        style: "currency",
-        currency: isKorean ? "KRW" : "JPY",
-        maximumFractionDigits: 0,
-      }),
-    [isKorean]
-  );
-
-  const formatMoney = useCallback(
-    (amount: number) => {
-      const displayAmount = isKorean ? amount : amount / 10;
-      return currencyFormatter.format(Math.max(0, Math.round(displayAmount)));
-    },
-    [currencyFormatter, isKorean]
-  );
-
+  const formatMoney = useCallback((amount: number) => formatSettlementMoney(amount, lang), [lang]);
+  const copy = isKorean ? {
+    saveFirst: "내 선택을 먼저 저장해주세요.", missing: "선택한 사람이 없는 품목이 {count}개 있습니다.",
+    noneSelected: "선택한 사람이 없어요", hostShare: "본인 부담액", myShare: "내 확정 금액",
+    amountPending: "금액 정보를 확인 중입니다.", noTransfer: "송금 없음", hostOnly: "본인 부담 · 송금 없음",
+    transferGuide: "입금 계좌는 방장이 채팅방에서 안내합니다. 실제 이체는 사용하는 은행 앱에서 진행해주세요.",
+    refreshFailed: "저장은 완료됐지만 최신 상태를 불러오지 못했어요. 잠시 후 다시 확인할게요.",
+  } : {
+    saveFirst: "自分の選択を先に保存してください。", missing: "選択した人がいない品目が{count}件あります。",
+    noneSelected: "まだ誰も選択していません", hostShare: "自分の負担額", myShare: "自分の確定金額",
+    amountPending: "金額を確認しています。", noTransfer: "送金不要", hostOnly: "自分の負担・送金不要",
+    transferGuide: "振込先は主催者がチャットで案内します。実際の振込は利用している銀行アプリで行ってください。",
+    refreshFailed: "保存は完了しましたが最新の状態を取得できませんでした。しばらくしてから再確認します。",
+  };
 
   const [settlement, setSettlement] = useState<Settlement | null>(initialSettlement);
   const [payments, setPayments] = useState<Payment[]>(initialPayments);
@@ -96,6 +102,14 @@ export default function SettlementClient({
   const [receiptFeedback, setReceiptFeedback] = useState<string | null>(null);
   const [partyData, setPartyData] = useState<PartyInfo | null>(partyInfo);
   const [isPageReady, setIsPageReady] = useState(false);
+  const [sessionActive, setSessionActive] = useState(true);
+  const [refreshRequest, setRefreshRequest] = useState(0);
+  const activeRef = React.useRef(false);
+  const requestVersionRef = React.useRef(0);
+  const mutationLockRef = React.useRef(false);
+  const selectionDirtyRef = React.useRef(false);
+  const itemsDirtyRef = React.useRef(false);
+  const snapshotRef = React.useRef({ id: initialSettlement?.id, status: initialSettlement?.status });
   const startFlowLockRef = React.useRef(false);
   const startSelectingLockRef = React.useRef(false);
   const revertLockRef = React.useRef(false);
@@ -105,15 +119,49 @@ export default function SettlementClient({
   const albumInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
+    activeRef.current = true;
+    const onSessionChanged = (event: Event) => {
+      if ((event as CustomEvent<{ id: number } | null>).detail?.id === currentUser.id) return;
+      activeRef.current = false;
+      requestVersionRef.current++;
+      mutationLockRef.current = true;
+      setSessionActive(false);
+      setLoading(true);
+    };
+    window.addEventListener(USER_CHANGED_EVENT, onSessionChanged);
+    return () => {
+      activeRef.current = false;
+      window.removeEventListener(USER_CHANGED_EVENT, onSessionChanged);
+    };
+  }, [currentUser.id, partyId]);
+
+  const isCurrent = useCallback((version: number) => activeRef.current && requestVersionRef.current === version, []);
+  const beginMutation = useCallback(() => {
+    if (!activeRef.current || mutationLockRef.current) return null;
+    mutationLockRef.current = true;
+    const version = ++requestVersionRef.current;
+    setLoading(true);
+    return version;
+  }, []);
+  const endMutation = useCallback((version: number) => {
+    if (!isCurrent(version)) return;
+    mutationLockRef.current = false;
+    setLoading(false);
+    setRefreshRequest(request => request + 1);
+  }, [isCurrent]);
+
+  React.useEffect(() => {
     const rafId = requestAnimationFrame(() => setIsPageReady(true));
     return () => cancelAnimationFrame(rafId);
   }, []);
 
   // 서버에서 partyInfo를 못 가져왔으면 클라이언트에서 재시도
   React.useEffect(() => {
+    let cancelled = false;
     if (!partyData && partyId) {
       clientFetch<{ id: number; title: string; meetingDate: string; location?: { name: string }; storeName?: string; host?: { id: number }; hostId: number }>(`/parties/${partyId}`)
         .then(data => {
+          if (cancelled || !activeRef.current) return;
           setPartyData({
             id: data.id,
             title: data.title || "",
@@ -124,6 +172,7 @@ export default function SettlementClient({
         })
         .catch(() => {});
     }
+    return () => { cancelled = true; };
   }, [partyData, partyId]);
 
   // 직접 작성 모드용 상태
@@ -137,49 +186,86 @@ export default function SettlementClient({
     })) || []
   );
 
-  // 게스트 선택 모드용 상태
-  const [selectedItemIds, setSelectedItemIds] = useState<number[]>(() => {
-    if (!initialSettlement?.items) return [];
-    return initialSettlement.items
-      .filter((item) =>
-        item.members?.some((m) => m.userId === currentUser.id)
-      )
-      .map((item) => item.id);
-  });
+  const [selectedItemIds, setSelectedItemIds] = useState<number[]>(() => selectionIds(initialSettlement, currentUser.id));
+  const selectionRef = React.useRef(selectedItemIds);
+
+  const applySnapshot = useCallback((next: Settlement | null, nextPayments?: Payment[]) => {
+    if (next && !Array.isArray(next.items)) next = { ...next, items: [] };
+    const changed = snapshotRef.current.id !== next?.id;
+    const phaseChanged = snapshotRef.current.status !== next?.status;
+    if (changed || next?.status !== "SELECTING") selectionDirtyRef.current = false;
+    const saved = selectionIds(next, currentUser.id);
+    const selected = selectionDirtyRef.current
+      ? selectionRef.current.filter(id => next?.items.some(item => item.id === id))
+      : saved;
+    selectionDirtyRef.current = !sameSelection(selected, saved);
+    selectionRef.current = selected;
+    setSelectedItemIds(selected);
+    if (changed || (phaseChanged && next?.status === "DRAFT")) itemsDirtyRef.current = false;
+    if (next?.status === "DRAFT" && !itemsDirtyRef.current) {
+      setEditItems(next.items.map(item => ({ name: item.name, price: item.price, quantity: item.quantity })));
+    }
+    snapshotRef.current = { id: next?.id, status: next?.status };
+    setSettlement(next);
+    if (nextPayments) setPayments(nextPayments);
+    else if (changed || !next || !["CONFIRMED", "COMPLETED"].includes(next.status)) setPayments([]);
+  }, [currentUser.id]);
+
+  const loadSnapshot = useCallback(async (version: number, signal?: AbortSignal) => {
+    const next = await clientFetch<Settlement | null>(`/settlements/party/${partyId}`);
+    if (!isCurrent(version) || signal?.aborted) return;
+    const nextPayments = next && ["CONFIRMED", "COMPLETED"].includes(next.status)
+      ? await clientFetch<Payment[]>(`/settlements/${next.id}/payments`)
+      : [];
+    if (!isCurrent(version) || signal?.aborted) return;
+    applySnapshot(next, nextPayments);
+  }, [partyId, isCurrent, applySnapshot]);
+  const refreshSnapshot = useCallback(async (signal: AbortSignal) => {
+    if (mutationLockRef.current || startFlowLockRef.current) return;
+    await loadSnapshot(requestVersionRef.current, signal);
+  }, [loadSnapshot]);
+  useVisiblePolling(refreshSnapshot, sessionActive && !loading, refreshRequest);
 
   const isHost = partyData?.hostId === currentUser.id;
-  const memberCount = members.length;
 
   // 정산 생성
   const handleCreateSettlement = useCallback(async () => {
-    setLoading(true);
+    const version = beginMutation();
+    if (version === null) return;
     try {
       const result = await clientFetch<Settlement>("/settlements", {
         method: "POST",
         body: { partyId },
       });
-      setSettlement(result);
+      if (!isCurrent(version)) return;
+      applySnapshot(result);
       toast.success(settlementTexts.settlementCreated);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : settlementTexts.settlementCreateFail);
+      if (isCurrent(version)) toast.error(err instanceof Error ? err.message : settlementTexts.settlementCreateFail);
     } finally {
-      setLoading(false);
+      endMutation(version);
     }
-  }, [partyId, settlementTexts]);
+  }, [partyId, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]);
 
   // 품목 추가
   const handleAddItem = useCallback(() => {
+    if (mutationLockRef.current) return;
+    itemsDirtyRef.current = true;
     setEditItems((prev) => [...prev, { name: "", price: 0, quantity: 1 }]);
   }, []);
 
   // 품목 삭제
   const handleRemoveItem = useCallback((index: number) => {
+    if (mutationLockRef.current) return;
+    itemsDirtyRef.current = true;
     setEditItems((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   // 품목 수정
   const handleItemChange = useCallback(
     (index: number, field: "name" | "price" | "quantity", value: string) => {
+      if (mutationLockRef.current) return;
+      itemsDirtyRef.current = true;
       setEditItems((prev) => {
         const updated = [...prev];
         if (field === "name") {
@@ -204,7 +290,8 @@ export default function SettlementClient({
       toast.error(settlementTexts.minItemRequired);
       return false;
     }
-    setLoading(true);
+    const version = beginMutation();
+    if (version === null) return false;
     try {
       const result = await clientFetch<Settlement>(
         `/settlements/${settlement.id}/items`,
@@ -213,24 +300,27 @@ export default function SettlementClient({
           body: { items: validItems },
         }
       );
-      setSettlement(result);
+      if (!isCurrent(version)) return false;
+      itemsDirtyRef.current = false;
+      applySnapshot(result);
       if (showSuccessToast) {
         toast.success(settlementTexts.itemsSaved);
       }
       return true;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : settlementTexts.itemsSaveFail);
+      if (isCurrent(version)) toast.error(err instanceof Error ? err.message : settlementTexts.itemsSaveFail);
       return false;
     } finally {
-      setLoading(false);
+      endMutation(version);
     }
-  }, [settlement, editItems, settlementTexts]);
+  }, [settlement, editItems, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]);
 
   // 정산 시작하기 (DRAFT → SELECTING)
   const handleStartSelecting = useCallback(async () => {
     if (!settlement || startSelectingLockRef.current) return;
+    const version = beginMutation();
+    if (version === null) return;
     startSelectingLockRef.current = true;
-    setLoading(true);
     try {
       const result = await clientFetch<Settlement>(
         `/settlements/${settlement.id}/start`,
@@ -239,45 +329,41 @@ export default function SettlementClient({
           body: { resumedFromEdit: resumedFromEditRef.current },
         }
       );
-      setSettlement(result);
+      if (!isCurrent(version)) return;
+      applySnapshot(result);
       toast.success(settlementTexts.settlementStarted);
       resumedFromEditRef.current = false;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : settlementTexts.settlementStartFail);
+      if (isCurrent(version)) toast.error(err instanceof Error ? err.message : settlementTexts.settlementStartFail);
     } finally {
-      setLoading(false);
+      endMutation(version);
       startSelectingLockRef.current = false;
     }
-  }, [settlement, settlementTexts]);
+  }, [settlement, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]);
 
   // 수정하기 (SELECTING → DRAFT 되돌리기)
   const handleRevertToDraft = useCallback(async () => {
     if (!settlement || revertLockRef.current) return;
+    const version = beginMutation();
+    if (version === null) return;
     revertLockRef.current = true;
-    setLoading(true);
     try {
       const result = await clientFetch<Settlement>(
         `/settlements/${settlement.id}/revert`,
         { method: "PATCH" }
       );
-      setSettlement(result);
-      // editItems를 현재 items로 다시 설정
-      setEditItems(
-        result.items?.map((i) => ({
-          name: i.name,
-          price: i.price,
-          quantity: i.quantity,
-        })) || []
-      );
+      if (!isCurrent(version)) return;
+      itemsDirtyRef.current = false;
+      applySnapshot(result);
       resumedFromEditRef.current = true;
       toast.success(settlementTexts.revertedToDraft);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : settlementTexts.revertFail);
+      if (isCurrent(version)) toast.error(err instanceof Error ? err.message : settlementTexts.revertFail);
     } finally {
-      setLoading(false);
+      endMutation(version);
       revertLockRef.current = false;
     }
-  }, [settlement, settlementTexts]);
+  }, [settlement, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]);
 
   const handleSaveAndStart = useCallback(async () => {
     if (startFlowLockRef.current) return;
@@ -291,19 +377,22 @@ export default function SettlementClient({
     }
   }, [handleSaveItems, handleStartSelecting]);
 
-  // 게스트: 품목 선택/해제
+  // 방장과 참여자 모두 본인 품목 선택/해제
   const handleToggleItem = useCallback((itemId: number) => {
-    setSelectedItemIds((prev) =>
-      prev.includes(itemId)
-        ? prev.filter((id) => id !== itemId)
-        : [...prev, itemId]
-    );
-  }, []);
+    if (mutationLockRef.current) return;
+    const next = selectedItemIds.includes(itemId)
+      ? selectedItemIds.filter(id => id !== itemId)
+      : [...selectedItemIds, itemId];
+    selectionRef.current = next;
+    selectionDirtyRef.current = !sameSelection(next, selectionIds(settlement, currentUser.id));
+    setSelectedItemIds(next);
+  }, [selectedItemIds, settlement, currentUser.id]);
 
-  // 게스트: 선택 완료
+  // 본인 선택 저장 (빈 배열은 기존 선택 전체 해제)
   const handleSubmitSelection = useCallback(async () => {
     if (!settlement) return;
-    setLoading(true);
+    const version = beginMutation();
+    if (version === null) return;
     try {
       const result = await clientFetch<Settlement>(
         `/settlements/${settlement.id}/select`,
@@ -312,60 +401,72 @@ export default function SettlementClient({
           body: { itemIds: selectedItemIds },
         }
       );
-      setSettlement(result);
+      if (!isCurrent(version)) return;
+      selectionDirtyRef.current = false;
+      applySnapshot(result);
       toast.success(settlementTexts.selectionSaved);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : settlementTexts.selectionSaveFail);
+      if (isCurrent(version)) toast.error(err instanceof Error ? err.message : settlementTexts.selectionSaveFail);
     } finally {
-      setLoading(false);
+      endMutation(version);
     }
-  }, [settlement, selectedItemIds, settlementTexts]);
+  }, [settlement, selectedItemIds, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]);
 
   // 호스트: 최종 확정
   const handleConfirm = useCallback(async () => {
-    if (!settlement) return;
+    if (!settlement || settlement.status !== "SELECTING" || settlement.items.length === 0) return;
+    if (!sameSelection(selectedItemIds, selectionIds(settlement, currentUser.id)) || settlement.items.some(item => !item.members?.length)) return;
     if (!confirm(settlementTexts.confirmPrompt)) return;
-    setLoading(true);
+    const version = beginMutation();
+    if (version === null) return;
     try {
       const result = await clientFetch<Settlement>(
         `/settlements/${settlement.id}/confirm`,
         { method: "PATCH" }
       );
-      setSettlement(result);
-      // 결제 현황 갱신
-      const paymentData = await clientFetch<Payment[]>(
-        `/settlements/${settlement.id}/payments`
-      );
-      setPayments(paymentData);
+      if (!isCurrent(version)) return;
+      applySnapshot(result);
       toast.success(settlementTexts.settlementConfirmed);
+      try {
+        await loadSnapshot(version);
+      } catch {
+        if (isCurrent(version)) toast.error(copy.refreshFailed);
+      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : settlementTexts.confirmFail);
+      if (isCurrent(version)) toast.error(err instanceof Error ? err.message : settlementTexts.confirmFail);
     } finally {
-      setLoading(false);
+      endMutation(version);
     }
-  }, [settlement, settlementTexts]);
+  }, [settlement, selectedItemIds, currentUser.id, settlementTexts, copy.refreshFailed, beginMutation, endMutation, isCurrent, applySnapshot, loadSnapshot]);
 
   // 호스트: 입금 확인
   const handlePaymentConfirm = useCallback(
     async (userId: number) => {
       if (!settlement) return;
-      setLoading(true);
+      const version = beginMutation();
+      if (version === null) return;
       try {
-        await clientFetch(`/settlements/${settlement.id}/payment`, {
+        const payment = await clientFetch<Payment>(`/settlements/${settlement.id}/payment`, {
           method: "PATCH",
           body: { userId, status: "PAID" },
         });
+        if (!isCurrent(version)) return;
         setPayments((prev) =>
-          prev.map((p) => (p.userId === userId ? { ...p, status: "PAID" } : p))
+          prev.map((p) => (p.userId === userId ? { ...p, ...payment } : p))
         );
         toast.success(settlementTexts.paymentConfirmed);
+        try {
+          await loadSnapshot(version);
+        } catch {
+          if (isCurrent(version)) toast.error(copy.refreshFailed);
+        }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : settlementTexts.paymentConfirmFail);
+        if (isCurrent(version)) toast.error(err instanceof Error ? err.message : settlementTexts.paymentConfirmFail);
       } finally {
-        setLoading(false);
+        endMutation(version);
       }
     },
-    [settlement, settlementTexts]
+    [settlement, settlementTexts, copy.refreshFailed, beginMutation, endMutation, isCurrent, loadSnapshot]
   );
 
   // 영수증 업로드 핸들러 (OCR 결과 자동 반영)
@@ -374,6 +475,8 @@ export default function SettlementClient({
       const file = e.target.files?.[0];
       e.target.value = "";
       if (!file || receiptUploadLockRef.current) return;
+      const version = beginMutation();
+      if (version === null) return;
       receiptUploadLockRef.current = true;
       setReceiptFeedback(null);
 
@@ -381,7 +484,6 @@ export default function SettlementClient({
       formData.append("receipt", file);
 
       setScanLoading(true);
-      setLoading(true);
       try {
         // 정산이 아직 없으면 먼저 생성
         let currentSettlement = settlement;
@@ -390,7 +492,8 @@ export default function SettlementClient({
             method: "POST",
             body: { partyId },
           });
-          setSettlement(currentSettlement);
+          if (!isCurrent(version)) return;
+          applySnapshot(currentSettlement);
         }
 
         const result = await clientFetch<{
@@ -403,7 +506,10 @@ export default function SettlementClient({
           body: formData,
         });
 
+        if (!isCurrent(version)) return;
+
         if (result.items && result.items.length > 0) {
+          itemsDirtyRef.current = true;
           setEditItems(result.items);
           toast.success(
             settlementTexts.receiptRecognized.replace("{count}", String(result.items.length))
@@ -413,73 +519,18 @@ export default function SettlementClient({
           toast.error(settlementTexts.receiptNoItems);
         }
       } catch (err) {
+        if (!isCurrent(version)) return;
         const message = err instanceof Error ? err.message : settlementTexts.uploadFail;
         setReceiptFeedback(message);
         toast.error(message);
       } finally {
-        setScanLoading(false);
-        setLoading(false);
+        if (isCurrent(version)) setScanLoading(false);
+        endMutation(version);
         receiptUploadLockRef.current = false;
       }
     },
-    [settlement, partyId, settlementTexts]
+    [settlement, partyId, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]
   );
-
-  // 카카오톡 정산 메시지 공유
-  const handleKakaoShare = useCallback(() => {
-    const Kakao = window.Kakao;
-    if (!Kakao) {
-      toast.error(settlementTexts.kakaoNotReady);
-      return;
-    }
-
-    // SDK 초기화 (이미 되어있으면 스킵)
-    if (!Kakao.isInitialized()) {
-      const jsKey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
-      if (!jsKey) {
-        toast.error(settlementTexts.kakaoNotReady);
-        return;
-      }
-      Kakao.init(jsKey);
-    }
-
-    // 정산 내역 텍스트 구성
-    const perPerson = memberCount > 0 ? Math.ceil((settlement?.totalAmount || 0) / memberCount) : 0;
-    const pendingPayments = payments.filter((p) => p.status === "PENDING");
-    const paymentLines = pendingPayments
-      .map((p) => `${p.user?.nickname}: ${formatMoney(p.amount)}`)
-      .join("\n");
-
-    const description = paymentLines
-      ? `${settlementTexts.perPerson} ${formatMoney(perPerson)}\n\n${paymentLines}`
-      : `${settlementTexts.perPerson} ${formatMoney(perPerson)}`;
-
-    try {
-      Kakao.Share.sendDefault({
-        objectType: "feed",
-        content: {
-          title: `${settlementTexts.kakaoShareTitle} ${partyData?.title || settlementTexts.title}`,
-          description: `${formatMoney(settlement?.totalAmount || 0)} / ${memberCount}${settlementTexts.memberSuffix}\n${description}`,
-          imageUrl: `${window.location.origin}/images/gachimura_logo.png`,
-          link: {
-            mobileWebUrl: `${window.location.origin}/settlement/${partyId}`,
-            webUrl: `${window.location.origin}/settlement/${partyId}`,
-          },
-        },
-        buttons: [
-          {
-            title: settlementTexts.kakaoShareButton,
-            link: {
-              mobileWebUrl: `${window.location.origin}/settlement/${partyId}`,
-              webUrl: `${window.location.origin}/settlement/${partyId}`,
-            },
-          },
-        ],
-      });
-    } catch {
-      toast.error(settlementTexts.kakaoShareFail);
-    }
-  }, [settlement, payments, partyData, partyId, memberCount, formatMoney, settlementTexts]);
 
   // 총 가격 계산
   const totalPrice = editItems.reduce(
@@ -487,17 +538,39 @@ export default function SettlementClient({
     0
   );
 
-  // 게스트 선택 시 예상 금액 계산
-  const estimatedAmount = settlement?.items
-    ?.filter((item) => selectedItemIds.includes(item.id))
-    .reduce((sum, item) => {
-      const memberCount = item.members?.length || 1;
-      return sum + Math.ceil((item.price * item.quantity) / Math.max(memberCount, 1));
-    }, 0) || 0;
-  const needsAccountInfo = Boolean(settlement && !currentUser.accountNumber);
+  const hasSelectionChanges = !sameSelection(selectedItemIds, selectionIds(settlement, currentUser.id));
+  const missingItemCount = settlement?.items.filter(item => !item.members?.length).length || 0;
+  const effectiveItems = settlement?.items.map(item => ({
+    ...item,
+    members: [
+      ...(item.members || []).filter(member => member.userId !== currentUser.id),
+      ...(selectedItemIds.includes(item.id) ? [{ userId: currentUser.id }] : []),
+    ],
+  })) || [];
+  const estimatedAmount = getSettlementAmounts(effectiveItems)[currentUser.id] || 0;
+  const savedAmounts = getSettlementAmounts(settlement?.items || []);
+  const allocationDataComplete = Boolean(settlement?.items.length && settlement.items.every(item => item.members?.length)
+    && Object.values(savedAmounts).reduce((sum, amount) => sum + amount, 0) === settlement.totalAmount);
+  const hostId = partyData?.hostId ?? settlement?.hostId;
+  const expectedGuestIds = Object.keys(savedAmounts).map(Number).filter(id => id !== hostId);
+  const paymentDataComplete = expectedGuestIds.every(id => payments.some(payment => payment.userId === id))
+    && new Set(payments.map(payment => payment.userId)).size === payments.length
+    && payments.every(payment => expectedGuestIds.includes(payment.userId) && Number.isSafeInteger(payment.amount) && payment.amount >= 0);
+  const guestTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const hostAmount = settlement && allocationDataComplete && paymentDataComplete && Number.isSafeInteger(settlement.totalAmount)
+    && Number.isSafeInteger(guestTotal) && guestTotal >= 0 && guestTotal <= settlement.totalAmount
+    ? settlement.totalAmount - guestTotal : null;
+  const myPayment = payments.find(payment => payment.userId === currentUser.id);
+  const myAmount = isHost ? hostAmount
+    : myPayment && Number.isSafeInteger(myPayment.amount) && myPayment.amount >= 0 ? myPayment.amount
+      : allocationDataComplete && (savedAmounts[currentUser.id] || 0) === 0 ? 0 : null;
+  const needsAccountInfo = Boolean(isHost && settlement && !currentUser.accountNumber);
+  const paymentName = (payment: Payment) => payment.user?.nickname
+    || members.find(member => member.id === payment.userId)?.nickname || texts.chat.unknownNickname;
 
   return (
     <div
+      hidden={!sessionActive}
       className={`max-w-2xl mx-auto px-4 py-6 sm:px-6 sm:py-8 transition-all duration-200 ${
         isPageReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
       }`}
@@ -527,8 +600,8 @@ export default function SettlementClient({
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
           <p className="text-sm font-bold text-amber-900">
             {lang === Language.japanese
-              ? "割り勘の入金案内を受け取るため、プロフィールに口座情報を入力しておくと安心です。"
-              : "정산 입금 안내를 받으려면 프로필에 계좌 정보를 입력해두는 것이 좋아요."}
+              ? "割り勘の代金を受け取る口座をプロフィールに登録してください。"
+              : "정산금을 받을 계좌를 프로필에 등록해주세요."}
           </p>
           <button
             type="button"
@@ -628,7 +701,7 @@ export default function SettlementClient({
                   />
                 </label>
                 <label className="min-w-0">
-                  <span className="mb-1 block text-xs font-medium text-gray-600">{texts.settlement.price} ({isKorean ? "원" : "円"})</span>
+                  <span className="mb-1 block text-xs font-medium text-gray-600">{texts.settlement.price} ({isKorean ? "원" : "ウォン"})</span>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -698,12 +771,15 @@ export default function SettlementClient({
         </div>
       )}
 
-      {/* === SELECTING: 게스트가 품목 선택 === */}
-      {settlement && settlement.status === "SELECTING" && !isHost && (
+      {/* === SELECTING: 방장과 참여자의 본인 품목 선택 === */}
+      {settlement && settlement.status === "SELECTING" && (
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
-            <span className="text-xs text-gray-400">{texts.settlement.selectHint}</span>
+            <div className="flex flex-wrap items-center gap-3">
+              {isHost && <button onClick={handleRevertToDraft} disabled={loading} className="min-h-11 px-2 text-sm text-[#33612E] font-bold hover:underline">{settlementTexts.editSettlement}</button>}
+              <span className="text-xs text-gray-400">{texts.settlement.selectHint}</span>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -735,9 +811,14 @@ export default function SettlementClient({
                         </svg>
                       )}
                     </div>
-                    <span className="min-w-0 break-words text-sm font-medium text-gray-800">
-                      {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
-                    </span>
+                    <div className="min-w-0">
+                      <span className="break-words text-sm font-medium text-gray-800">
+                        {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
+                      </span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {item.members?.length ? item.members.map(member => <span key={member.userId} className="max-w-full break-words text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{member.user?.nickname || members.find(entry => entry.id === member.userId)?.nickname || texts.chat.unknownNickname}</span>) : <span className="text-[10px] text-amber-700">{copy.noneSelected}</span>}
+                      </div>
+                    </div>
                   </div>
                   <span className="shrink-0 text-sm font-bold text-gray-700">
                     {formatMoney(item.price * item.quantity)}
@@ -757,73 +838,20 @@ export default function SettlementClient({
 
           <button
             onClick={handleSubmitSelection}
-            disabled={loading || selectedItemIds.length === 0}
+            disabled={loading || !hasSelectionChanges}
             className="w-full mt-6 py-3 rounded-full font-bold text-white bg-[#33612E] hover:bg-[#2a5025] transition-all disabled:opacity-50"
           >
             {texts.settlement.submitSelection}
           </button>
-        </div>
-      )}
-
-      {/* === SELECTING: 호스트 뷰 (멤버 선택 현황 + 수정/확정 버튼) === */}
-      {settlement && settlement.status === "SELECTING" && isHost && (
-        <div>
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h3 className="text-base font-bold text-gray-900">{texts.settlement.purchaseItems}</h3>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleRevertToDraft}
-                disabled={loading}
-                className="min-h-11 px-2 text-sm text-[#33612E] font-bold hover:underline"
-              >
-                {settlementTexts.editSettlement}
-              </button>
-              <span className="text-xs text-gray-400">{texts.settlement.membersSelecting}</span>
+          {isHost && <>
+            <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
+              <span className="text-base font-bold text-gray-900">{texts.settlement.totalPrice}</span>
+              <span className="text-base font-bold text-gray-900">{formatMoney(settlement.totalAmount)}</span>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            {settlement.items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between gap-3 p-4 rounded-xl border border-gray-100"
-              >
-                <div className="min-w-0">
-                  <span className="break-words text-sm font-medium text-gray-800">
-                    {item.name} {item.quantity > 1 ? `${item.quantity}${settlementTexts.quantitySuffix}` : ""}
-                  </span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {item.members?.map((m) => (
-                      <span
-                        key={m.userId}
-                        className="max-w-full break-words text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full"
-                      >
-                        {m.user?.nickname}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <span className="shrink-0 text-sm font-bold text-gray-700">
-                  {formatMoney(item.price * item.quantity)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
-            <span className="text-base font-bold text-gray-900">{texts.settlement.totalPrice}</span>
-            <span className="text-base font-bold text-gray-900">
-              {formatMoney(settlement.totalAmount)} / {memberCount}{settlementTexts.memberSuffix}
-            </span>
-          </div>
-
-          <button
-            onClick={handleConfirm}
-            disabled={loading}
-            className="w-full mt-6 py-3 rounded-full font-bold text-white bg-[#33612E] hover:bg-[#2a5025] transition-all disabled:opacity-50"
-          >
-            {texts.settlement.confirmSettlement}
-          </button>
+            {hasSelectionChanges && <p role="status" className="mt-3 text-sm text-amber-800">{copy.saveFirst}</p>}
+            {missingItemCount > 0 && <p role="status" className="mt-3 text-sm text-amber-800">{copy.missing.replace("{count}", String(missingItemCount))}</p>}
+            <button onClick={handleConfirm} disabled={loading || hasSelectionChanges || missingItemCount > 0 || settlement.items.length === 0} className="w-full mt-6 py-3 rounded-full font-bold text-white bg-[#33612E] hover:bg-[#2a5025] transition-all disabled:opacity-50">{texts.settlement.confirmSettlement}</button>
+          </>}
         </div>
       )}
 
@@ -851,22 +879,28 @@ export default function SettlementClient({
               ))}
             </div>
 
-            {/* 총 가격 & 1인당 금액 */}
+            {/* 총 가격과 개인별 확정 금액 */}
             <div className="flex flex-col gap-2 mt-8 pt-6 border-t border-gray-100 sm:flex-row sm:justify-between sm:items-center">
               <span className="text-base font-bold text-gray-900">{texts.settlement.totalPrice}</span>
               <span className="text-base font-bold text-gray-900">
-                {formatMoney(settlement.totalAmount)} / {memberCount}{settlementTexts.memberSuffix} = {settlementTexts.perPerson} {" "}
-                {memberCount > 0
-                  ? formatMoney(Math.ceil(settlement.totalAmount / memberCount))
-                  : 0}
+                {formatMoney(settlement.totalAmount)}
               </span>
             </div>
 
+            <div className="flex flex-wrap justify-between gap-2 mt-3 text-sm">
+              <span className="text-gray-600">{isHost ? copy.hostShare : copy.myShare}</span>
+              <strong className="text-[#33612E]">{myAmount === null ? copy.amountPending : formatMoney(myAmount)}{myAmount === 0 && <span className="ml-2 text-xs font-medium text-gray-500">{copy.noTransfer}</span>}</strong>
+            </div>
+
             {/* 입금 현황 */}
-            {payments.length > 0 && (
+            {(payments.length > 0 || isHost) && (
               <div className="mt-8">
                 <h3 className="text-base font-bold text-gray-900 mb-4">{texts.settlement.paymentStatus}</h3>
                 <div className="space-y-2">
+                  {isHost && <div className="flex flex-col gap-3 p-3 bg-gray-50 rounded-xl sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3"><span className="min-w-0 break-words text-sm font-medium text-gray-800">{currentUser.nickname}</span><span className="text-xs text-gray-500">{copy.hostOnly}</span></div>
+                    <strong className="text-sm text-gray-700">{hostAmount === null ? copy.amountPending : formatMoney(hostAmount)}</strong>
+                  </div>}
                   {payments.map((payment) => (
                     <div
                       key={payment.id}
@@ -882,7 +916,7 @@ export default function SettlementClient({
                           alt=""
                         />
                         <span className="min-w-0 break-words text-sm font-medium text-gray-800">
-                          {payment.user?.nickname}
+                          {paymentName(payment)}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
@@ -891,7 +925,7 @@ export default function SettlementClient({
                         </span>
                         {payment.status === "PAID" ? (
                           <span className="px-3 py-1 text-xs font-bold text-green-600 bg-green-50 rounded-full">
-                            {texts.settlement.paid}
+                            {payment.amount === 0 ? copy.noTransfer : texts.settlement.paid}
                           </span>
                         ) : isHost ? (
                           <button
@@ -899,6 +933,7 @@ export default function SettlementClient({
                               handlePaymentConfirm(payment.userId)
                             }
                             disabled={loading}
+                            aria-label={`${paymentName(payment)} ${texts.settlement.confirmPayment}`}
                             className="min-h-11 px-3 py-2 text-sm font-bold text-white bg-[#33612E] rounded-full hover:bg-[#2a5025] transition-all disabled:opacity-50"
                           >
                             {texts.settlement.confirmPayment}
@@ -924,6 +959,8 @@ export default function SettlementClient({
               </div>
             )}
 
+            {!isHost && myAmount !== null && myAmount > 0 && <p className="mt-6 text-sm leading-relaxed text-gray-500">{copy.transferGuide}</p>}
+
             {/* 하단 버튼 */}
             <div className="flex flex-col gap-3 mt-8 sm:flex-row">
               <button
@@ -931,12 +968,6 @@ export default function SettlementClient({
                 className="flex-1 py-3 rounded-full font-bold text-[#33612E] border-2 border-[#33612E] hover:bg-[#33612E]/5 transition-all"
               >
                 {settlementTexts.chatRoom}
-              </button>
-              <button
-                className="flex-1 py-3 rounded-full font-bold text-white bg-[#F7C948] hover:bg-[#F0B429] transition-all"
-                onClick={handleKakaoShare}
-              >
-                {texts.settlement.kakaoSettle}
               </button>
             </div>
           </div>

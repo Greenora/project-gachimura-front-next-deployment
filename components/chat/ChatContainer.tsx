@@ -8,6 +8,7 @@ import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useVisiblePolling } from "@/app/hooks/useVisiblePolling";
+import { formatSettlementMoney } from "@/app/lib/settlement-amounts";
 
 interface ChatContainerProps {
   partyId: number;
@@ -593,8 +594,7 @@ export default function ChatContainer({
   const renderSystemMessage = useCallback(
     (rawMessage: string) => {
       const formatAmount = (value: number) => {
-        const unit = lang === Language.japanese ? "円" : "원";
-        return `${value.toLocaleString()}${unit}`;
+        return formatSettlementMoney(value, lang);
       };
 
       const formatConfirmedMessage = (total: number, details: Array<{ userId: number; amount: number }>) => {

@@ -36,7 +36,7 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
     browser = await chromium.launch();
     for (const locale of [
       { language: 'korean', name: '품목명', quantity: '수량', price: '가격 (원)', empty: '영수증에서 품목을 인식하지 못했습니다. 사진을 다시 촬영하거나 품목을 직접 입력해주세요.', success: '영수증 인식 완료! 1개 품목이 자동 입력되었습니다.' },
-      { language: 'japanese', name: '品名', quantity: '数量', price: '価格 (円)', empty: 'レシートから品目を読み取れませんでした。撮り直すか、品目を直接入力してください。', success: 'レシート認識完了！1件の品目が自動入力されました。' },
+      { language: 'japanese', name: '品名', quantity: '数量', price: '価格 (ウォン)', empty: 'レシートから品目を読み取れませんでした。撮り直すか、品目を直接入力してください。', success: 'レシート認識完了！1件の品目が自動入力されました。' },
     ]) {
       state.upload = 'unavailable';
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
