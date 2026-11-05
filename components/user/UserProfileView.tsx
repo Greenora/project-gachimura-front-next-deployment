@@ -1,46 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import PartyCard from "@/components/main/PartyCard";
 import { Language } from "@/app/common/types";
 import { useLanguage } from "@/app/hooks/LanguageContext";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import toast from "react-hot-toast";
-import { clientFetch } from "@/app/hooks/useClientFetch";
+import { useSearchParams } from "next/navigation";
+import { useState, type KeyboardEvent } from "react";
 import { useUser, type UserProfile } from "@/app/hooks/UserContext";
 import AppSettings from "@/components/common/AppSettings";
-import MemberDetails from "@/components/user/MemberDetails";
-
-const BANK_LIST = [
-  { code: "089", name: "토스뱅크" },
-  { code: "090", name: "카카오뱅크" },
-  { code: "004", name: "KB국민은행" },
-  { code: "088", name: "신한은행" },
-  { code: "020", name: "우리은행" },
-  { code: "081", name: "하나은행" },
-  { code: "011", name: "NH농협은행" },
-  { code: "003", name: "IBK기업은행" },
-  { code: "071", name: "우체국" },
-  { code: "045", name: "새마을금고" },
-  { code: "048", name: "신협" },
-  { code: "032", name: "부산은행" },
-  { code: "031", name: "대구은행" },
-];
-
-type AccountCountry = "KR" | "JP";
-type AccountType = "FUTSU" | "TOZA";
-
-const JP_ACCOUNT_TYPES: Array<{ value: AccountType; label: string }> = [
-  { value: "FUTSU", label: "普通" },
-  { value: "TOZA", label: "当座" },
-];
-
-interface UserProfileViewProps {
-  user: UserProfile;
-  parties: PartySummary[];
-  lang: Language;
-}
+import ProfileEditor, { type ProfileSection } from "@/components/user/ProfileEditor";
 
 interface PartySummary {
   id: number;
@@ -51,136 +20,60 @@ interface PartySummary {
   addressJp?: string;
   meetDate: string;
   status: string;
-  host?: {
-    nickname: string;
-    nickname_jp?: string | null;
-    profileImage?: string;
-  };
+  thumbnailImage?: string | null;
+  host?: { nickname: string; nickname_jp?: string | null; profileImage?: string };
+}
+
+interface UserProfileViewProps {
+  user: UserProfile;
+  parties: PartySummary[];
+  lang: Language;
 }
 
 export default function UserProfileView({ user, parties, lang }: UserProfileViewProps) {
   const { texts } = useLanguage();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
   const { user: currentUser } = useUser();
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const needsAccountNumber = searchParams.get("error") === "accountNumber";
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const editDirtyRef = useRef(false);
+  const searchParams = useSearchParams();
+  const [editor, setEditor] = useState<ProfileSection | null>(null);
+  const [activity, setActivity] = useState<"parties" | "posts">("parties");
+  const owner = currentUser?.id === user.id;
+  const profile = owner ? currentUser : user;
+  const needsAccountNumber = owner && searchParams.get("error") === "accountNumber";
+  const selectedSection = editor || (needsAccountNumber ? "bank" : null);
+  const japanese = lang === Language.japanese;
+  const nickname = japanese && profile.nickname_jp ? profile.nickname_jp : profile.nickname;
+  const rawScore = Number(profile.treeScore ?? 50);
+  const treeScore = Number.isFinite(rawScore) ? rawScore : 50;
+  const scorePercentage = Math.min(Math.max(treeScore, 0), 100);
+  const registeredAccount = !!(currentUser?.bankName && currentUser?.accountNumber && currentUser?.accountHolder);
+  const copy = japanese ? {
+    page: "マイページ", edit: "プロフィール編集", bank: "振込先口座", registered: "登録済み", missing: "未登録",
+    register: "登録する", editBank: "変更する", parties: "小分け会", posts: "投稿", activities: "活動履歴",
+    noParties: "まだ小分け会がありません", partyHint: "一緒に買い物する仲間を探してみましょう。",
+    postHint: "投稿はコミュニティで確認できます。", community: "コミュニティへ",
+  } : {
+    page: "마이페이지", edit: "정보 수정", bank: "정산 계좌", registered: "등록됨", missing: "미등록",
+    register: "등록하기", editBank: "수정하기", parties: "소분 모임", posts: "작성한 글", activities: "활동 내역",
+    noParties: "아직 소분 모임이 없어요", partyHint: "함께 장볼 모임을 찾아보세요.",
+    postHint: "작성한 글은 커뮤니티에서 확인할 수 있어요.", community: "커뮤니티로 이동",
+  };
 
-  useEffect(() => {
-    if (currentUser?.id !== user.id || (!isEditModalOpen && !needsAccountNumber)) return;
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [isEditModalOpen, needsAccountNumber, currentUser?.id, user.id]);
-
-  const closeEditModal = () => {
-    editDirtyRef.current = false;
-    dialogRef.current?.close();
-    setIsEditModalOpen(false);
+  function closeEditor() {
+    setEditor(null);
     if (needsAccountNumber) {
       const url = new URL(window.location.href);
       url.searchParams.delete("error");
       window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     }
-  };
-  
-  // 수정할 필드 상태들
-  const [editNickname, setEditNickname] = useState(user.nickname || "");
-  const [editNicknameJp, setEditNicknameJp] = useState(user.nickname_jp || "");
-  const [editBankName, setEditBankName] = useState(user.bankName || "");
-  const [editBankCode, setEditBankCode] = useState(user.bankCode || "");
-  const [editBankBranchName, setEditBankBranchName] = useState(user.bankBranchName || "");
-  const [editBankBranchCode, setEditBankBranchCode] = useState(user.bankBranchCode || "");
-  const [editAccountType, setEditAccountType] = useState<AccountType>(
-    user.accountType === "TOZA" ? "TOZA" : "FUTSU"
-  );
-  const [editAccountNumber, setEditAccountNumber] = useState(user.accountNumber || "");
-  const [editAccountHolder, setEditAccountHolder] = useState(user.accountHolder || "");
-  const [isSaving, setIsSaving] = useState(false);
-  const accountCountry: AccountCountry = lang === Language.japanese ? "JP" : "KR";
+  }
 
-  // 로그인한 사용자 확인
-  useEffect(() => {
-    if (!currentUser || currentUser.id !== user.id || editDirtyRef.current) return;
-    setEditNickname(currentUser.nickname || "");
-    setEditNicknameJp(currentUser.nickname_jp || "");
-    setEditBankName(currentUser.bankName || "");
-    setEditBankCode(currentUser.bankCode || "");
-    setEditBankBranchName(currentUser.bankBranchName || "");
-    setEditBankBranchCode(currentUser.bankBranchCode || "");
-    setEditAccountType(currentUser.accountType === "TOZA" ? "TOZA" : "FUTSU");
-    setEditAccountNumber(currentUser.accountNumber || "");
-    setEditAccountHolder(currentUser.accountHolder || "");
-  }, [currentUser, user.id, isEditModalOpen, needsAccountNumber]);
-
-  // 정산 단계 등에서 계좌정보 미입력으로 리다이렉트 되었을 때 경고 처리
-  useEffect(() => {
-    const errorParam = searchParams.get("error");
-    if (errorParam === "accountNumber") {
-      toast.error(
-        lang === Language.japanese
-          ? "割り勘の入金案内を受け取るために、口座情報を入力してください。"
-          : "정산을 받으려면 계좌 정보를 입력해주세요!",
-        {
-          duration: 6000,
-          id: "account-number-required-toast",
-        }
-      );
-    }
-  }, [searchParams, lang]);
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSaving) return;
-    setIsSaving(true);
-
-    try {
-      const response = await clientFetch<{ success: boolean }>("/users/profile", {
-        method: "PATCH",
-        body: {
-          nickname: editNickname,
-          nickname_jp: editNicknameJp || null,
-          accountCountry,
-          bankCode: accountCountry === "KR" ? editBankCode || null : null,
-          bankName: editBankName || null,
-          bankBranchName: accountCountry === "JP" ? editBankBranchName || null : null,
-          bankBranchCode: accountCountry === "JP" ? editBankBranchCode || null : null,
-          accountType: accountCountry === "JP" ? editAccountType : null,
-          accountNumber: editAccountNumber || null,
-          accountHolder: editAccountHolder || null,
-        },
-      });
-
-      if (response.success) {
-        toast.success(
-          lang === Language.japanese ? "保存されました。" : "정보가 성공적으로 저장되었습니다!"
-        );
-        closeEditModal();
-        router.refresh();
-        window.location.reload();
-      } else {
-        toast.error(
-          lang === Language.japanese ? "保存に失敗しました。" : "정보 저장에 실패했습니다."
-        );
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(
-        lang === Language.japanese ? "エラーが発生しました。" : "오류가 발생했습니다."
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const nickname = lang === Language.japanese && user.nickname_jp ? user.nickname_jp : user.nickname;
-  const treeScore = Number(user.treeScore ?? 50);
-  const scorePercentage = Math.min(Math.max(treeScore, 0), 100);
+  function moveActivity(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? "parties" : event.key === "End" ? "posts" : activity === "parties" ? "posts" : "parties";
+    setActivity(next);
+    document.getElementById(`profile-activity-${next}`)?.focus();
+  }
 
   const getTreeLevel = (score: number) => {
     if (score < 20) return { name: texts.userPage.levels.soil, emoji: "🪨", color: "text-orange-700", bg: "bg-orange-50", bar: "from-orange-300 via-orange-500 to-orange-700" };
@@ -193,307 +86,50 @@ export default function UserProfileView({ user, parties, lang }: UserProfileView
 
   const level = getTreeLevel(treeScore);
 
+
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-8 py-4 sm:gap-12 sm:py-8">
-      {/* 유저 프로필 섹션 */}
-      <section className="flex flex-col items-center gap-6 rounded-lg border-2 border-gray-50 bg-white p-4 sm:p-8 md:flex-row md:items-start md:gap-10">
-        <div className="w-32 h-32 rounded-full border-2 border-gray-50 shadow-inner overflow-hidden relative bg-white flex-shrink-0">
-          <Image
-            src={user.profileImage || "/images/gachimura_logo.png"}
-            alt="profile"
-            fill
-            className={!user.profileImage ? "p-4 object-contain" : "object-cover"}
-          />
+    <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-6 pb-8">
+      <p className="text-xs font-medium text-gray-500">{copy.page}</p>
+      <section className="rounded-[20px] border border-gray-200/80 bg-white px-5 pt-6 sm:px-8 sm:pt-8">
+        <div className="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-4 gap-y-5 sm:grid-cols-[96px_minmax(0,1fr)_auto] sm:items-center sm:gap-x-6">
+          <div className="relative h-16 w-16 overflow-hidden rounded-full border border-green-50 bg-gray-50/40 sm:h-24 sm:w-24">
+            <Image src={profile.profileImage || "/images/gachimura_logo.png"} alt={japanese ? "プロフィール画像" : "프로필 사진"} fill className={profile.profileImage ? "object-cover" : "object-contain p-2 sm:p-3"} />
+          </div>
+          <div className="min-w-0">
+            <h1 className="break-words text-xl font-extrabold tracking-tight text-gray-900 sm:text-2xl">{nickname}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2.5">
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold sm:text-xs ${level.bg} ${level.color}`}><span>{level.emoji}</span>{level.name}</span>
+              <span className="text-[10px] text-gray-400 sm:text-xs">{texts.userPage.reviewsCount.replace("{count}", String(profile.reviewsCount || 0))}</span>
+            </div>
+            <div className="mt-4 max-w-xs">
+              <div className="mb-1.5 flex items-center justify-between text-[10px] text-gray-400 sm:text-xs"><span>{texts.userPage.treeScore}</span><strong className="text-sm text-green-700">{treeScore}</strong></div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-gray-100"><div className={`h-full rounded-full bg-gradient-to-r ${level.bar}`} style={{ width: `${scorePercentage}%` }} /></div>
+            </div>
+          </div>
+          {owner && <button onClick={() => setEditor("basic")} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-green-100 bg-green-50/40 px-4 py-2.5 text-xs font-semibold text-[#166534] hover:bg-green-50 sm:col-span-1 sm:self-start sm:border-gray-200 sm:bg-white">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m14 5 5 5M5 16l-1 4 4-1L20 7a2 2 0 0 0-4-4ZM14 20h6" /></svg>{copy.edit}
+          </button>}
         </div>
+        {owner ? <div className="mt-6 flex items-center justify-between border-t border-gray-100 py-3 sm:py-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/></svg></span><span className="font-medium text-gray-700">{copy.bank}</span><span className={registeredAccount ? "text-[10px] text-green-600" : "text-[10px] text-amber-600"}>• {registeredAccount ? copy.registered : copy.missing}</span></div>
+          <button onClick={() => setEditor("bank")} className="inline-flex min-h-11 shrink-0 items-center gap-1 pl-3 text-xs font-semibold text-[#166534]">{registeredAccount ? copy.editBank : copy.register}<span aria-hidden="true">›</span></button>
+        </div> : <div className="h-6" />}
+      </section>
 
-        <div className="min-w-0 flex-1 flex flex-col gap-4 w-full text-center md:text-left pt-2">
-          <div className="flex flex-col md:flex-row md:items-center gap-3 justify-center md:justify-start">
-            <h1 className="min-w-0 break-words [overflow-wrap:anywhere] text-2xl font-black tracking-tight text-gray-900">{nickname}</h1>
-            {currentUser && currentUser.id === user.id && (
-              <button
-                onClick={() => setIsEditModalOpen(true)}
-                className="inline-flex min-h-11 items-center justify-center gap-1.5 self-center rounded-md bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-200"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-                {lang === Language.japanese ? "プロフィール編集" : "정보 수정"}
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <div className="items-center flex justify-center md:justify-start gap-3 mb-1">
-              <div className={`flex items-center gap-1.5 px-3 py-1 ${level.bg} ${level.color} rounded-full text-[12px] font-bold`}>
-                <span className="text-base">{level.emoji}</span>
-                <span>{level.name}</span>
-              </div>
-              <div className="text-[12px] font-bold text-gray-400">
-                {texts.userPage.reviewsCount.replace("{count}", String(user.reviewsCount || 0))}
-              </div>
-            </div>
-
-            {/* 신뢰 바 */}
-            <div className="flex flex-col gap-1.5 w-full max-w-xs mx-auto md:mx-0">
-              <div className="flex justify-between items-end mb-0.5">
-                <span className="text-[12px] font-bold text-gray-400">{texts.userPage.treeScore}</span>
-                <span className={`text-[16px] font-black ${treeScore < 20 ? 'text-orange-600' : 'text-green-600'}`}>{treeScore}</span>
-              </div>
-              <div className="w-full h-3 bg-gray-100 rounded-md overflow-hidden relative shadow-inner">
-                <div
-                  className={`h-full bg-gradient-to-r ${level.bar} rounded-md transition-all duration-1000 ease-out`}
-                  style={{ width: `${scorePercentage}%` }}
-                />
-              </div>
-            </div>
-
-          </div>
+      <section aria-label={copy.activities}>
+        <div role="tablist" aria-label={copy.activities} className="mb-4 flex gap-6 border-b border-gray-200/80">
+          {(["parties", "posts"] as const).map(section => <button key={section} id={`profile-activity-${section}`} type="button" role="tab" aria-selected={activity === section} aria-controls={`profile-content-${section}`} tabIndex={activity === section ? 0 : -1} onKeyDown={moveActivity} onClick={() => setActivity(section)} className={`inline-flex min-h-11 items-center gap-2 border-b-2 pb-3 text-sm font-semibold ${activity === section ? "border-[#166534] text-[#166534]" : "border-transparent text-gray-400"}`}>{copy[section]}{section === "parties" && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">{parties.length}</span>}</button>)}
+        </div>
+        <div id="profile-content-parties" role="tabpanel" aria-labelledby="profile-activity-parties" hidden={activity !== "parties"}>
+          {parties.length ? <div className="grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-2 md:grid-cols-3">{parties.map(party => <PartyCard key={party.id} party={party} />)}</div> : <div className="flex min-h-40 flex-col items-center justify-center rounded-2xl border border-gray-200/80 bg-white px-4 py-7 text-center"><span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-300"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M5 9h14l-1 11H6ZM9 10V7a3 3 0 0 1 6 0v3"/></svg></span><p className="text-sm font-medium text-gray-600">{copy.noParties}</p><p className="mt-1 text-xs text-gray-400">{copy.partyHint}</p></div>}
+        </div>
+        <div id="profile-content-posts" role="tabpanel" aria-labelledby="profile-activity-posts" hidden={activity !== "posts"} className="rounded-2xl border border-gray-200/80 bg-white px-4 py-9 text-center">
+          <p className="text-sm text-gray-500">{copy.postHint}</p><Link href="/community" className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-[#166534]">{copy.community} ›</Link>
         </div>
       </section>
 
-      {currentUser?.id === user.id && <AppSettings />}
-      {currentUser?.id === user.id && <MemberDetails key={currentUser.id} user={currentUser} />}
-
-      {/* 활동 내역 - 소분 모임 */}
-      <section className="flex flex-col gap-8">
-        <div className="flex items-center justify-between">
-          <h2 className="min-w-0 break-words text-xl font-black text-gray-900 sm:text-2xl">
-            {texts.userPage.userParties.replace("{nickname}", nickname)}
-          </h2>
-        </div>
-        {parties && parties.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-12">
-            {parties.map((party) => (
-              <PartyCard key={party.id} party={party} />
-            ))}
-          </div>
-        ) : (
-          <div className="py-24 text-center bg-white rounded-lg border-2 border-gray-50 text-gray-400 font-bold text-lg">
-            {texts.userPage.noParties}
-          </div>
-        )}
-      </section>
-
-      {/* 활동 내역 - 작성한 글 */}
-      <section className="flex flex-col gap-8 mb-20">
-        <h2 className="min-w-0 break-words text-xl font-black text-gray-900 sm:text-2xl">
-          {texts.userPage.userPosts.replace("{nickname}", nickname)}
-        </h2>
-        <div className="py-24 text-center bg-white rounded-lg border-2 border-gray-50 text-gray-400 font-bold text-lg">
-          {texts.userPage.noPosts}
-        </div>
-      </section>
-
-      {/* 프로필 수정 모달 */}
-      {currentUser?.id === user.id && (isEditModalOpen || needsAccountNumber) && (
-        <dialog
-          ref={dialogRef}
-          onCancel={event => { event.preventDefault(); closeEditModal(); }}
-          onClose={closeEditModal}
-          aria-label={lang === Language.japanese ? "プロフィール編集" : "프로필 및 계좌 수정"}
-          className="fixed inset-0 m-auto w-[calc(100%-1.5rem)] max-w-md max-h-[90dvh] rounded-2xl border border-gray-100 bg-white p-0 shadow-2xl overflow-hidden backdrop:bg-black/50 backdrop:backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200"
-        >
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-lg font-black text-gray-900">
-                {lang === Language.japanese ? "プロフィール編集" : "프로필 및 계좌 수정"}
-              </h2>
-              <button
-                onClick={closeEditModal}
-                aria-label={lang === Language.japanese ? "閉じる" : "닫기"}
-                className="flex min-h-11 min-w-11 items-center justify-center text-gray-400 transition-colors hover:text-gray-600"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-            
-            <form onSubmit={handleSaveProfile} onChangeCapture={() => { editDirtyRef.current = true; }} className="flex max-h-[calc(90dvh-80px)] flex-col gap-4 overflow-y-auto p-4 sm:p-6">
-              {/* 닉네임 */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="profile-nickname" className="text-xs font-bold text-gray-500">
-                  {lang === Language.japanese ? "ニックネーム" : "닉네임"}
-                </label>
-                <input
-                  id="profile-nickname"
-                  type="text"
-                  required
-                  value={editNickname}
-                  onChange={(e) => setEditNickname(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
-                />
-              </div>
-
-              {/* 일본어 닉네임 */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="profile-nickname-jp" className="text-xs font-bold text-gray-500">
-                  {lang === Language.japanese ? "ニックネーム (日本語) - 任意" : "닉네임 (일본어) - 선택"}
-                </label>
-                <input
-                  id="profile-nickname-jp"
-                  type="text"
-                  value={editNicknameJp}
-                  onChange={(e) => setEditNicknameJp(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
-                />
-              </div>
-
-              <p className="rounded-xl bg-green-50 px-4 py-3 text-[12px] font-medium leading-5 text-green-900">
-                {lang === Language.japanese
-                  ? "割り勘の入金案内に使う日本口座情報です。実際の送金は各メンバーが利用する銀行アプリで行ってください。"
-                  : "정산 입금 안내에 사용할 한국 계좌 정보입니다. 실제 송금은 각자 사용하는 은행 앱에서 진행해주세요."}
-              </p>
-
-              {/* 은행 선택 */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="profile-bank" className="text-xs font-bold text-gray-500">
-                  {lang === Language.japanese ? "銀行名" : "은행 선택"}
-                </label>
-                {accountCountry === "KR" ? (
-                  <select
-                    id="profile-bank"
-                    value={editBankName}
-                    onChange={(e) => {
-                      const selectedName = e.target.value;
-                      setEditBankName(selectedName);
-                      const selectedBank = BANK_LIST.find((bank) => bank.name === selectedName);
-                      setEditBankCode(selectedBank ? selectedBank.code : "");
-                    }}
-                    required
-                    className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black bg-white"
-                  >
-                    <option value="">{lang === Language.japanese ? "銀行を選択してください" : "은행을 선택해주세요"}</option>
-                    {BANK_LIST.map((bank) => (
-                      <option key={bank.code} value={bank.name}>
-                        {bank.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    id="profile-bank"
-                    type="text"
-                    required
-                    value={editBankName}
-                    onChange={(e) => setEditBankName(e.target.value)}
-                    placeholder={lang === Language.japanese ? "例) 三菱UFJ銀行" : "예) 三菱UFJ銀行"}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
-                  />
-                )}
-              </div>
-
-              {accountCountry === "JP" && (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="profile-bank-branch" className="text-xs font-bold text-gray-500">
-                        {lang === Language.japanese ? "支店名" : "지점명"}
-                      </label>
-                      <input
-                        id="profile-bank-branch"
-                        type="text"
-                        required
-                        value={editBankBranchName}
-                        onChange={(e) => setEditBankBranchName(e.target.value)}
-                        placeholder={lang === Language.japanese ? "例) 新宿支店" : "예) 新宿支店"}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="profile-bank-branch-code" className="text-xs font-bold text-gray-500">
-                        {lang === Language.japanese ? "支店番号" : "지점번호"}
-                      </label>
-                      <input
-                        id="profile-bank-branch-code"
-                        type="text"
-                        value={editBankBranchCode}
-                        onChange={(e) => setEditBankBranchCode(e.target.value.replace(/[^0-9]/g, ""))}
-                        placeholder="123"
-                        inputMode="numeric"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="profile-account-type" className="text-xs font-bold text-gray-500">
-                      {lang === Language.japanese ? "口座種別" : "계좌 종류"}
-                    </label>
-                    <select
-                      id="profile-account-type"
-                      value={editAccountType}
-                      onChange={(e) => setEditAccountType(e.target.value as AccountType)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black bg-white"
-                    >
-                      {JP_ACCOUNT_TYPES.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* 계좌 번호 */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="profile-account-number" className="text-xs font-bold text-gray-500">
-                  {lang === Language.japanese ? "口座番号" : "계좌번호 (- 없이 입력)"}
-                </label>
-                <input
-                  id="profile-account-number"
-                  type="text"
-                  required
-                  pattern="[0-9]*"
-                  inputMode="numeric"
-                  value={editAccountNumber}
-                  onChange={(e) => setEditAccountNumber(e.target.value.replace(/[^0-9]/g, ""))}
-                  placeholder={lang === Language.japanese ? "ハイフンなしで入力" : "숫자만 입력해주세요"}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
-                />
-              </div>
-
-              {/* 예금주 */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="profile-account-holder" className="text-xs font-bold text-gray-500">
-                  {lang === Language.japanese ? "口座名義" : "예금주명"}
-                </label>
-                <input
-                  id="profile-account-holder"
-                  type="text"
-                  required
-                  value={editAccountHolder}
-                  onChange={(e) => setEditAccountHolder(e.target.value)}
-                  placeholder={lang === Language.japanese ? "口座名義を入力" : "예금주 실명을 입력해주세요"}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:border-green-600 text-sm text-black"
-                />
-              </div>
-
-              {/* 버튼 */}
-              <div className="flex gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="flex-1 py-3 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-bold text-gray-700 transition-colors"
-                >
-                  {lang === Language.japanese ? "キャンセル" : "취소"}
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex-1 py-3 rounded-lg bg-green-700 hover:bg-green-800 disabled:bg-gray-300 text-sm font-bold text-white transition-colors flex justify-center items-center gap-2"
-                >
-                  {isSaving && (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  )}
-                  <span>{lang === Language.japanese ? "保存" : "저장"}</span>
-                </button>
-              </div>
-            </form>
-        </dialog>
-      )}
+      {owner && <AppSettings />}
+      {owner && selectedSection && <ProfileEditor key={currentUser.id} user={currentUser} lang={lang} initialSection={selectedSection} onClose={closeEditor} />}
     </div>
   );
 }

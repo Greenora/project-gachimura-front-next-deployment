@@ -8,3 +8,11 @@ export function isMemberBirthdate(value: string, today = new Date().toISOString(
   const date = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
+
+export function normalizeMemberBirthdate(value: string, today = new Date().toISOString().slice(0, 10)): string | null {
+  const trimmed = value.trim();
+  const date = /^\d{8}$/.test(trimmed)
+    ? `${trimmed.slice(0, 4)}-${trimmed.slice(4, 6)}-${trimmed.slice(6)}`
+    : trimmed;
+  return isMemberBirthdate(date, today) ? date : null;
+}

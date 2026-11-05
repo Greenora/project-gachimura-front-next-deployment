@@ -20,7 +20,7 @@ import {
   CalendarIcon 
 } from "@/components/common/Icons";
 import LineLogin from "@/components/auth/LineLogin";
-import { isMemberBirthdate, normalizeMemberPhone } from "@/app/lib/member-details";
+import { normalizeMemberBirthdate, normalizeMemberPhone } from "@/app/lib/member-details";
 
 /**
  * 통합 로그인 폼 컴포넌트
@@ -47,7 +47,7 @@ interface RegisterData {
   email: string;
   passwordRegister: string;
   phone?: string;
-  birthdate?: string; // YYYY-MM-DD
+  birthdate?: string; // YYYYMMDD or YYYY-MM-DD
   emailVerificationToken: string;
 }
 
@@ -307,8 +307,8 @@ export default function LoginForm() {
       email: data.email,
       password: data.passwordRegister,
       nickname: undefined, 
-      phone: data.phone ? normalizeMemberPhone(data.phone) : undefined,
-      birthdate: data.birthdate || undefined,
+      phone: data.phone?.trim() ? normalizeMemberPhone(data.phone) : undefined,
+      birthdate: data.birthdate?.trim() ? normalizeMemberBirthdate(data.birthdate) : undefined,
       language: langCode,
       emailVerificationToken: data.emailVerificationToken,
     };
@@ -584,13 +584,16 @@ export default function LoginForm() {
                 </span>
                 <input
                   id="signup-birthdate"
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
                   autoComplete="bday"
-                  min="1000-01-01"
-                  max={new Date().toISOString().slice(0, 10)}
+                  maxLength={10}
                   {...register("birthdate", {
-                    required: step === "REGISTER_FORM",
-                    validate: value => step !== "REGISTER_FORM" || (!!value && isMemberBirthdate(value)) || texts.auth.errorBirth,
+                    validate: value => step !== "REGISTER_FORM" || !value?.trim() || !!normalizeMemberBirthdate(value) || texts.auth.errorBirth,
+                    onBlur: event => {
+                      const date = normalizeMemberBirthdate(event.target.value);
+                      if (date) setValue("birthdate", date, { shouldValidate: true });
+                    },
                   })}
                   disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.birthPlaceholder}
@@ -612,8 +615,7 @@ export default function LoginForm() {
                   autoComplete="tel"
                   aria-label={texts.auth.phonePlaceholder}
                   {...register("phone", {
-                    required: step === "REGISTER_FORM",
-                    validate: value => step !== "REGISTER_FORM" || (!!value && !!normalizeMemberPhone(value)) || texts.auth.errorPhone,
+                    validate: value => step !== "REGISTER_FORM" || !value?.trim() || !!normalizeMemberPhone(value) || texts.auth.errorPhone,
                   })}
                   disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.phonePlaceholder}
