@@ -7,6 +7,7 @@ import { Language } from "@/app/common/types";
 import { type UserProfile } from "@/app/hooks/UserContext";
 import { clientFetch, USER_CHANGED_EVENT } from "@/app/hooks/useClientFetch";
 import { normalizeMemberBirthdate, normalizeMemberPhone } from "@/app/lib/member-details";
+import BirthdateSelect from "@/components/common/BirthdateSelect";
 
 const BANK_LIST = [
   { code: "089", name: "토스뱅크" }, { code: "090", name: "카카오뱅크" },
@@ -52,7 +53,7 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
   const copy = japanese ? {
     title: "プロフィール編集", basic: "基本情報", bank: "振込先口座", close: "閉じる", cancel: "キャンセル",
     nickname: "ニックネーム", nicknameJp: "ニックネーム（日本語）", optional: "任意", private: "非公開",
-    phone: "電話番号", birthday: "生年月日", birthdayHint: "数字8桁で入力できます。例：19980101",
+    phone: "電話番号", birthday: "生年月日",
     privacy: "電話番号と生年月日は他のユーザーには表示されません。",
     bankHint: "割り勘の入金案内に使う口座です。基本情報は口座を登録せずに保存できます。",
     kr: "韓国口座", jp: "日本口座", bankName: "銀行", chooseBank: "銀行を選択してください",
@@ -61,13 +62,13 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
     saveBasic: "基本情報を保存", saveBank: "口座情報を保存", saving: "保存中…", saved: "保存しました。",
     savedContinue: "保存しました。他のタブの入力内容はそのままです。", unsavedOther: "他のタブに未保存の入力があります。",
     invalidNickname: "ニックネームを入力してください。", invalidPhone: "電話番号の形式を確認してください。",
-    invalidBirthday: "生年月日を数字8桁で正しく入力してください。",
+    invalidBirthday: "生年月日の年・月・日をすべて選択してください。",
     invalidBank: "銀行・口座番号・口座名義を入力してください。日本口座は支店名も必要です。",
     failed: "保存できませんでした。入力内容はそのまま、もう一度お試しください。",
   } : {
     title: "정보 수정", basic: "기본정보", bank: "정산 계좌", close: "닫기", cancel: "취소",
     nickname: "닉네임", nicknameJp: "일본어 닉네임", optional: "선택", private: "비공개",
-    phone: "전화번호", birthday: "생년월일", birthdayHint: "숫자 8자리로 바로 입력하세요. 예: 19980101",
+    phone: "전화번호", birthday: "생년월일",
     privacy: "전화번호와 생년월일은 다른 사람에게 표시되지 않아요.",
     bankHint: "정산할 때 안내할 계좌를 등록하세요. 기본정보는 계좌 등록 없이도 저장할 수 있어요.",
     kr: "한국 계좌", jp: "일본 계좌", bankName: "은행", chooseBank: "은행을 선택해주세요",
@@ -76,7 +77,7 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
     saveBasic: "기본정보 저장", saveBank: "계좌정보 저장", saving: "저장 중…", saved: "저장했습니다.",
     savedContinue: "저장했습니다. 다른 탭의 입력 내용은 유지했어요.", unsavedOther: "다른 탭에 저장하지 않은 입력이 있어요.",
     invalidNickname: "닉네임을 입력해주세요.", invalidPhone: "전화번호 형식을 확인해주세요.",
-    invalidBirthday: "생년월일을 숫자 8자리로 정확히 입력해주세요.",
+    invalidBirthday: "생년월일의 연도·월·일을 모두 선택해주세요.",
     invalidBank: "은행·계좌번호·예금주를 입력해주세요. 일본 계좌는 지점명도 필요해요.",
     failed: "저장하지 못했습니다. 입력 내용을 유지했으니 다시 시도해주세요.",
   };
@@ -217,11 +218,9 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
                   <input id="profile-nickname-jp" maxLength={20} value={basic.nickname_jp} onChange={event => editBasic("nickname_jp", event.target.value)} className={inputClass} /></div>
                 <div><div className="mb-2 flex items-center justify-between"><label htmlFor="profile-phone" className="text-xs font-semibold text-gray-600">{copy.phone}<span className="ml-1.5 text-[10px] font-normal text-gray-400">{copy.optional}</span></label>{privateLabel}</div>
                   <input id="profile-phone" type="tel" inputMode="tel" autoComplete="tel" value={basic.phone} onChange={event => editBasic("phone", event.target.value)} className={inputClass} /></div>
-                <div><div className="mb-2 flex items-center justify-between"><label htmlFor="profile-birthdate" className="text-xs font-semibold text-gray-600">{copy.birthday}<span className="ml-1.5 text-[10px] font-normal text-gray-400">{copy.optional}</span></label>{privateLabel}</div>
-                  <input id="profile-birthdate" type="text" inputMode="numeric" autoComplete="bday" maxLength={10} placeholder="19980101" value={basic.birthdate}
-                    onChange={event => editBasic("birthdate", event.target.value)} onBlur={() => { const normalized = normalizeMemberBirthdate(basic.birthdate); if (normalized) setBasic(previous => ({ ...previous, birthdate: normalized })); }}
-                    aria-describedby="profile-birthdate-hint" className={inputClass} />
-                  <p id="profile-birthdate-hint" className="mt-2 text-[11px] leading-relaxed text-gray-400">{copy.birthdayHint}</p></div>
+                <div><div className="mb-2 flex items-center justify-between"><label htmlFor="profile-birthdate-year" className="text-xs font-semibold text-gray-600">{copy.birthday}<span className="ml-1.5 text-[10px] font-normal text-gray-400">{copy.optional}</span></label>{privateLabel}</div>
+                  <BirthdateSelect id="profile-birthdate" value={basic.birthdate} onChange={value => editBasic("birthdate", value)} lang={lang} invalid={error === copy.invalidBirthday} />
+                </div>
                 <p className="rounded-xl bg-green-50/50 px-3.5 py-3 text-xs leading-relaxed text-gray-500">{copy.privacy}</p>
               </div>
               <div id="profile-panel-bank" role="tabpanel" aria-labelledby="profile-tab-bank" hidden={tab !== "bank"} className={tab === "bank" ? "space-y-4" : "hidden"}>
