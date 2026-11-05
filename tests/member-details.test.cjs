@@ -10,7 +10,7 @@ const source = ts.transpileModule(readFileSync('app/lib/member-details.ts', 'utf
 }).outputText;
 const context = { exports: {} };
 vm.runInNewContext(source, context);
-const { normalizeMemberPhone, isMemberBirthdate } = context.exports;
+const { normalizeMemberPhone, isMemberBirthdate, normalizeMemberBirthdate } = context.exports;
 
 test('Korean and Japanese national phone numbers accept separators and keep the leading zero', () => {
   for (const phone of ['01012341234', '010-1234-1234', ' 010 1234 1234 ']) {
@@ -29,5 +29,20 @@ test('birthdates use four-digit years, real calendar days and the supported past
   }
   for (const day of ['', '980101', '0999-12-31', '1900-02-29', '2023-02-29', '2000-13-01', '2000-04-31', '2026-11-05', '2000-2-29']) {
     assert.equal(isMemberBirthdate(day, '2026-11-04'), false, day);
+  }
+});
+
+test('direct birthday input accepts eight digits or ISO dates without repairing malformed input', () => {
+  for (const [value, expected] of [
+    ['19980101', '1998-01-01'],
+    ['1998-01-01', '1998-01-01'],
+    [' 20000229 ', '2000-02-29'],
+    ['10000101', '1000-01-01'],
+    ['20261104', '2026-11-04'],
+  ]) {
+    assert.equal(normalizeMemberBirthdate(value, '2026-11-04'), expected, value);
+  }
+  for (const value of ['', ' ', '1998', '1998010', '980101', '19000229', '20230229', '19981301', '19980431', '09991231', '20261105', '1998a0101', '1998/01/01', '1998 01 01', '1998-1-01', '1998--01-01']) {
+    assert.equal(normalizeMemberBirthdate(value, '2026-11-04'), null, value);
   }
 });

@@ -92,8 +92,10 @@ test('navigation preserves the verified user and rejects late responses from a p
     await arrived;
     await page.getByRole('button', { name: '정보 수정', exact: true }).waitFor();
     await page.evaluate(() => window.history.pushState(null, '', '/user/1?error=accountNumber'));
-    const dialog = page.getByRole('dialog', { name: '프로필 및 계좌 수정' });
+    const dialog = page.getByRole('dialog', { name: '정보 수정', exact: true });
     await dialog.waitFor();
+    assert.equal(await dialog.getByRole('tab', { name: '정산 계좌', exact: true }).getAttribute('aria-selected'), 'true');
+    await dialog.getByRole('tab', { name: '기본정보', exact: true }).click();
     await dialog.locator('#profile-nickname').fill('UnsavedNickname');
     held.pop().resolve({ status: 200, json: { ...firstUser, nickname: 'ServerNickname' } });
     await page.getByRole('img', { name: 'ServerNickname profile' }).waitFor();

@@ -46,11 +46,16 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
   await new Promise(resolve => server.listen(3299, '127.0.0.1', resolve));
   let browser;
   const errors = [];
-  async function pageWithPush({ japanese = false, ios = false, standalone = false, permission = 'default', deny = false, mock = true } = {}) {
+  async function pageWithPush({ japanese = false, mobile = false, ios = false, ipad = false, standalone = false, permission = 'default', deny = false, mock = true } = {}) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     await context.addCookies([{ name: 'accessToken', value: 'pwa-fixture', url: base }, ...(japanese ? [{ name: 'language', value: 'japanese', url: base }] : [])]);
-    await context.addInitScript(({ ios, standalone, permission, deny, mock, publicKey }) => {
+    await context.addInitScript(({ mobile, ios, ipad, standalone, permission, deny, mock, publicKey }) => {
       localStorage.setItem('userLocation', JSON.stringify({ latitude: 37.5, longitude: 127, region: '서울', district: '중구' }));
+      if (mobile) Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36' });
+      if (ipad) {
+        Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' });
+        Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 5 });
+      }
       if (!mock) {
         window.pwaNativePermission = Notification.permission;
         window.pwaNativePermissionCalls = 0;
@@ -99,7 +104,7 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
         register: async (url, options) => { fixture.worker = { url, ...options }; return registration; },
         ready: Promise.resolve(registration), getRegistration: async () => registration,
       } });
-    }, { ios, standalone, permission, deny, mock, publicKey });
+    }, { mobile, ios, ipad, standalone, permission, deny, mock, publicKey });
     await context.route(/^https:\/\/(developers\.kakao\.com|dapi\.kakao\.com)\//, route => route.fulfill({ contentType: 'application/javascript', body: '' }));
     await context.route('**/api/**', async route => {
       const request = route.request();
@@ -114,6 +119,13 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
     const page = await context.newPage();
     page.on('pageerror', error => errors.push(error.message));
     return { page, context };
+  }
+
+  async function openSettings(page) {
+    const settings = page.locator('details[aria-labelledby="app-settings-title"]');
+    await settings.waitFor();
+    if (!await settings.evaluate(element => element.open)) await settings.locator('summary').click();
+    return settings;
   }
 
   try {
@@ -139,11 +151,33 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
       } finally { await context.close(); }
     });
 
-    await t.test('owner can install and toggle push only by clicking, and another profile has no controls', async () => {
+    await t.test('desktop has collapsed notification settings and no install prompt at narrow or wide widths', async () => {
       state.user = first;
       const { page, context } = await pageWithPush();
       try {
         await page.goto(base + '/user/1');
+        const settings = page.locator('details[aria-labelledby="app-settings-title"]');
+        await settings.waitFor();
+        assert.equal(await settings.evaluate(element => element.open), false);
+        assert.equal(await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).isVisible(), false);
+        assert.equal(await page.evaluate(() => window.pwaFixture.permissionCalls), 0);
+        await openSettings(page);
+        await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).waitFor();
+        assert.equal(await page.getByRole('button', { name: '앱 설치', exact: true }).count(), 0, 'a narrow desktop window is still a desktop');
+        await page.setViewportSize({ width: 1440, height: 900 });
+        assert.equal(await page.getByRole('button', { name: '앱 설치', exact: true }).count(), 0);
+        await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).click();
+        await page.getByRole('button', { name: '채팅 알림 끄기', exact: true }).waitFor();
+        assert.equal(await page.evaluate(() => window.pwaFixture.permissionCalls), 1, 'desktop notification consent remains available');
+      } finally { await context.close(); }
+    });
+
+    await t.test('owner can install and toggle push only by clicking, and another profile has no controls', async () => {
+      state.user = first;
+      const { page, context } = await pageWithPush({ mobile: true });
+      try {
+        await page.goto(base + '/user/1');
+        await openSettings(page);
         const enable = page.getByRole('button', { name: '채팅 알림 켜기', exact: true });
         await enable.waitFor();
         assert.equal(await page.evaluate(() => window.pwaFixture.permissionCalls), 0);
@@ -169,7 +203,7 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
         assert.ok(state.deleteCount > 0);
         await page.goto(base + '/user/2');
         await page.getByRole('heading', { name: 'NextOwner', exact: true }).waitFor();
-        assert.equal(await page.getByRole('heading', { name: '앱 설치 및 알림', exact: true }).count(), 0);
+        assert.equal(await page.locator('details[aria-labelledby="app-settings-title"]').count(), 0);
       } finally { await context.close(); }
     });
 
@@ -178,6 +212,7 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
       let fixture = await pageWithPush({ deny: true });
       try {
         await fixture.page.goto(base + '/user/1');
+        await openSettings(fixture.page);
         await fixture.page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).click();
         await fixture.page.getByText('알림이 차단되어 있습니다. 브라우저의 사이트 설정에서 허용해주세요.', { exact: true }).waitFor();
         assert.equal(await fixture.page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).isDisabled(), true);
@@ -186,11 +221,24 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
       fixture = await pageWithPush({ ios: true, japanese: true });
       try {
         await fixture.page.goto(base + '/user/1');
+        await openSettings(fixture.page);
         await fixture.page.getByText('ホーム画面に追加したアプリを開いて、通知をオンにしてください。', { exact: true }).waitFor();
         await fixture.page.getByRole('button', { name: 'アプリをインストール', exact: true }).click();
         await fixture.page.getByText('Safariの共有メニューから「ホーム画面に追加」を選んでください。', { exact: true }).waitFor();
         assert.equal(await fixture.page.evaluate(() => window.pwaFixture.permissionCalls), 0);
       } finally { await fixture.context.close(); }
+    });
+
+    await t.test('iPad desktop browsing mode keeps the mobile install instructions', async () => {
+      state.user = first;
+      const { page, context } = await pageWithPush({ ipad: true });
+      try {
+        await page.goto(base + '/user/1');
+        await openSettings(page);
+        await page.getByRole('button', { name: '앱 설치', exact: true }).click();
+        await page.getByText('Safari의 공유 메뉴에서 ‘홈 화면에 추가’를 선택해주세요.', { exact: true }).waitFor();
+        assert.equal(await page.evaluate(() => window.pwaFixture.permissionCalls), 0);
+      } finally { await context.close(); }
     });
 
     await t.test('account switch revokes the old browser subscription, and failed cleanup cannot block logout', async () => {
@@ -199,6 +247,7 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
       const { page, context } = await pageWithPush();
       try {
         await page.goto(base + '/user/1');
+        await openSettings(page);
         await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).click();
         await page.waitForFunction(() => window.pwaFixture.subscribed);
         if (!state.holds.length) await new Promise(resolve => { state.postArrived = resolve; });
@@ -210,6 +259,7 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
         for (const release of state.holds.splice(0)) release();
         await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '내 정보', exact: true }).click();
         await page.waitForURL('**/user/2');
+        await openSettings(page);
         await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).click();
         await page.getByRole('button', { name: '채팅 알림 끄기', exact: true }).waitFor();
         state.failDelete = true;
@@ -233,6 +283,7 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
       const { page, context } = await pageWithPush();
       try {
         await page.goto(base + '/user/1');
+        await openSettings(page);
         await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).click();
         const disable = page.getByRole('button', { name: '채팅 알림 끄기', exact: true });
         await disable.waitFor();

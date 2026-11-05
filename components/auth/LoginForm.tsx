@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type FormEvent } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import Image from "next/image";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
@@ -16,11 +16,11 @@ import {
   LockIcon, 
   EyeIcon, 
   EyeOffIcon, 
-  PhoneIcon, 
-  CalendarIcon 
+  PhoneIcon
 } from "@/components/common/Icons";
 import LineLogin from "@/components/auth/LineLogin";
-import { isMemberBirthdate, normalizeMemberPhone } from "@/app/lib/member-details";
+import BirthdateSelect from "@/components/common/BirthdateSelect";
+import { normalizeMemberBirthdate, normalizeMemberPhone } from "@/app/lib/member-details";
 
 /**
  * 통합 로그인 폼 컴포넌트
@@ -95,6 +95,7 @@ export default function LoginForm() {
   const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
 
   const {
+    control,
     register,
     handleSubmit,
     setValue,
@@ -103,6 +104,7 @@ export default function LoginForm() {
     clearErrors,
     formState: { errors },
   } = useForm<FormData>({ mode: "onChange" });
+  const birthdate = useWatch({ control, name: "birthdate", defaultValue: "" });
 
   const emailRegister = register("email", {
     required: true,
@@ -307,8 +309,8 @@ export default function LoginForm() {
       email: data.email,
       password: data.passwordRegister,
       nickname: undefined, 
-      phone: data.phone ? normalizeMemberPhone(data.phone) : undefined,
-      birthdate: data.birthdate || undefined,
+      phone: data.phone?.trim() ? normalizeMemberPhone(data.phone) : undefined,
+      birthdate: data.birthdate?.trim() ? normalizeMemberBirthdate(data.birthdate) : undefined,
       language: langCode,
       emailVerificationToken: data.emailVerificationToken,
     };
@@ -577,26 +579,11 @@ export default function LoginForm() {
           <div className={`transition-all duration-500 overflow-hidden flex flex-col gap-5 ${step === "REGISTER_FORM" ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}>
             {/* 생년월일 */}
             <div>
-              <label htmlFor="signup-birthdate" className="mb-2 block text-sm font-medium text-gray-700">{texts.auth.birthPlaceholder}</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                  <CalendarIcon />
-                </span>
-                <input
-                  id="signup-birthdate"
-                  type="date"
-                  autoComplete="bday"
-                  min="1000-01-01"
-                  max={new Date().toISOString().slice(0, 10)}
-                  {...register("birthdate", {
-                    required: step === "REGISTER_FORM",
-                    validate: value => step !== "REGISTER_FORM" || (!!value && isMemberBirthdate(value)) || texts.auth.errorBirth,
-                  })}
-                  disabled={isLoading || step !== "REGISTER_FORM"}
-                  placeholder={texts.auth.birthPlaceholder}
-                  className={`w-full pl-12 pr-4 py-4 rounded-lg border outline-none text-black placeholder-gray-400 font-sans ${errors.birthdate ? "border-red-500" : "border-gray-300 focus:border-green-600"}`}
-                />
-              </div>
+              <label htmlFor="signup-birthdate-year" className="mb-2 block text-sm font-medium text-gray-700">{texts.auth.birthPlaceholder}</label>
+              <input type="hidden" {...register("birthdate", {
+                validate: value => step !== "REGISTER_FORM" || !value?.trim() || !!normalizeMemberBirthdate(value) || texts.auth.errorBirth,
+              })} disabled={isLoading || step !== "REGISTER_FORM"} />
+              <BirthdateSelect id="signup-birthdate" value={birthdate || ""} onChange={value => setValue("birthdate", value, { shouldDirty: true, shouldValidate: true })} lang={lang} disabled={isLoading || step !== "REGISTER_FORM"} invalid={!!errors.birthdate} />
               {errors.birthdate && <p className="text-xs text-red-500 ml-1 mt-1 font-sans">{errors.birthdate.message?.toString()}</p>}
             </div>
 
@@ -612,8 +599,7 @@ export default function LoginForm() {
                   autoComplete="tel"
                   aria-label={texts.auth.phonePlaceholder}
                   {...register("phone", {
-                    required: step === "REGISTER_FORM",
-                    validate: value => step !== "REGISTER_FORM" || (!!value && !!normalizeMemberPhone(value)) || texts.auth.errorPhone,
+                    validate: value => step !== "REGISTER_FORM" || !value?.trim() || !!normalizeMemberPhone(value) || texts.auth.errorPhone,
                   })}
                   disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.phonePlaceholder}
