@@ -316,13 +316,17 @@ test('unified profile editing keeps private details, bank accounts and birthdate
       await openEditor(page);
       await dialog.getByRole('tab', { name: '정산 계좌', exact: true }).click();
       await dialog.getByRole('button', { name: '한국 계좌', exact: true }).click();
+      assert.equal(await dialog.locator('#profile-account-number').inputValue(), '', 'switching countries must not copy the Japanese account');
+      assert.equal(await dialog.locator('#profile-account-holder').inputValue(), '');
       await dialog.locator('#profile-bank').selectOption({ label: '신한은행' });
+      await dialog.locator('#profile-account-number').fill('110012345678');
+      await dialog.locator('#profile-account-holder').fill('Korean fixture holder');
       await dialog.getByRole('button', { name: '계좌정보 저장', exact: true }).click();
       await dialog.waitFor({ state: 'hidden' });
       assert.deepEqual(state.patches.at(-1), {
         accountCountry: 'KR', bankName: '신한은행', bankCode: '088',
         bankBranchName: null, bankBranchCode: null, accountType: null,
-        accountNumber: '7654321', accountHolder: 'Updated fixture holder',
+        accountNumber: '110012345678', accountHolder: 'Korean fixture holder',
       }, 'an intentional country change submits a complete, consistent bank group');
       await page.context().close();
     });
