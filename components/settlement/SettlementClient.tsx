@@ -102,6 +102,7 @@ export default function SettlementClient({
   const [loading, setLoading] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [receiptFeedback, setReceiptFeedback] = useState<string | null>(null);
+  const [receiptTotal, setReceiptTotal] = useState<number | null>(null);
   const [partyData, setPartyData] = useState<PartyInfo | null>(partyInfo);
   const [isPageReady, setIsPageReady] = useState(false);
   const [sessionActive, setSessionActive] = useState(true);
@@ -192,11 +193,21 @@ export default function SettlementClient({
 
   const [selectedItemIds, setSelectedItemIds] = useState<number[]>(() => selectionIds(initialSettlement, currentUser.id));
   const selectionRef = React.useRef(selectedItemIds);
+  const savedItemsTotal = editItems.filter(item => item.name.trim() && item.price > 0)
+    .reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const receiptMismatch = receiptTotal !== null && savedItemsTotal !== receiptTotal;
+  const mismatchFeedback = receiptMismatch
+    ? settlementTexts.receiptTotalMismatch.replace("{recognizedTotal}", formatMoney(savedItemsTotal)).replace("{receiptTotal}", formatMoney(receiptTotal))
+    : null;
+  const visibleReceiptFeedback = mismatchFeedback
+    ? receiptFeedback && receiptFeedback !== settlementTexts.receiptReview ? `${receiptFeedback} ${mismatchFeedback}` : mismatchFeedback
+    : receiptFeedback;
 
   const applySnapshot = useCallback((next: Settlement | null, nextPayments?: Payment[]) => {
     if (next && !Array.isArray(next.items)) next = { ...next, items: [] };
     const changed = snapshotRef.current.id !== next?.id;
     const phaseChanged = snapshotRef.current.status !== next?.status;
+    if (changed || next?.status !== "DRAFT" || phaseChanged) setReceiptTotal(null);
     if (changed || next?.status !== "SELECTING") selectionDirtyRef.current = false;
     const saved = selectionIds(next, currentUser.id);
     const selected = selectionDirtyRef.current
@@ -294,6 +305,9 @@ export default function SettlementClient({
       toast.error(settlementTexts.minItemRequired);
       return false;
     }
+    if (receiptMismatch && receiptTotal !== null && !confirm(settlementTexts.receiptMismatchConfirm
+      .replaceAll("{recognizedTotal}", formatMoney(savedItemsTotal))
+      .replace("{receiptTotal}", formatMoney(receiptTotal)))) return false;
     const version = beginMutation();
     if (version === null) return false;
     try {
@@ -305,6 +319,7 @@ export default function SettlementClient({
         }
       );
       if (!isCurrent(version)) return false;
+      setReceiptTotal(null);
       itemsDirtyRef.current = false;
       applySnapshot(result);
       if (showSuccessToast) {
@@ -317,7 +332,7 @@ export default function SettlementClient({
     } finally {
       endMutation(version);
     }
-  }, [settlement, editItems, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]);
+  }, [settlement, editItems, settlementTexts, receiptMismatch, receiptTotal, savedItemsTotal, formatMoney, beginMutation, endMutation, isCurrent, applySnapshot]);
 
   // 정산 시작하기 (DRAFT → SELECTING)
   const handleStartSelecting = useCallback(async () => {
@@ -509,6 +524,7 @@ export default function SettlementClient({
           storeName: string | null;
           items: { name: string; price: number; quantity: number }[];
           totalPrice: number | null;
+          currency?: string;
         }>("/settlements/upload-receipt", {
           method: "POST",
           body: formData,
@@ -516,17 +532,24 @@ export default function SettlementClient({
 
         if (!isCurrent(version)) return;
 
+        if (result.currency && result.currency !== "KRW") {
+          setReceiptFeedback(settlementTexts.receiptCurrencyUnsupported);
+          toast.error(settlementTexts.receiptCurrencyUnsupported);
+          return;
+        }
+
         if (result.items && result.items.length > 0) {
           itemsDirtyRef.current = true;
           setEditItems(result.items);
           const recognizedTotal = result.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-          const receiptTotal = result.totalPrice;
-          const mismatch = typeof receiptTotal === "number" && Number.isSafeInteger(receiptTotal) && receiptTotal >= 0
-            && Number.isSafeInteger(recognizedTotal) && recognizedTotal >= 0 && recognizedTotal !== receiptTotal;
+          const nextReceiptTotal = typeof result.totalPrice === "number" && Number.isSafeInteger(result.totalPrice) && result.totalPrice > 0
+            ? result.totalPrice : null;
+          setReceiptTotal(nextReceiptTotal);
+          const mismatch = nextReceiptTotal !== null && recognizedTotal !== nextReceiptTotal;
           const feedback = mismatch
-            ? settlementTexts.receiptTotalMismatch.replace("{recognizedTotal}", formatMoney(recognizedTotal)).replace("{receiptTotal}", formatMoney(receiptTotal))
+            ? settlementTexts.receiptTotalMismatch.replace("{recognizedTotal}", formatMoney(recognizedTotal)).replace("{receiptTotal}", formatMoney(nextReceiptTotal))
             : settlementTexts.receiptReview;
-          setReceiptFeedback(feedback);
+          setReceiptFeedback(settlementTexts.receiptReview);
           if (mismatch) toast(feedback);
           else toast.success(settlementTexts.receiptRecognized.replace("{count}", String(result.items.length)));
         } else {
@@ -535,7 +558,9 @@ export default function SettlementClient({
         }
       } catch (err) {
         if (!isCurrent(version)) return;
-        const message = err instanceof Error ? err.message : settlementTexts.uploadFail;
+        const message = err && typeof err === "object" && "code" in err && err.code === "OCR_CURRENCY_UNSUPPORTED"
+          ? settlementTexts.receiptCurrencyUnsupported
+          : err instanceof Error ? err.message : settlementTexts.uploadFail;
         setReceiptFeedback(message);
         toast.error(message);
       } finally {
@@ -647,7 +672,7 @@ export default function SettlementClient({
               <p>{settlementTexts.receiptScanning} {settlementTexts.pleaseWait}</p>
             </div>
           )}
-          {receiptFeedback && <p role="status" className="mt-3 break-words text-sm text-gray-700">{receiptFeedback}</p>}
+          {visibleReceiptFeedback && <p role="status" className="mt-3 break-words text-sm text-gray-700">{visibleReceiptFeedback}</p>}
         </div>
       )}
 

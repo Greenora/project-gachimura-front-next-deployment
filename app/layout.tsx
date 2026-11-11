@@ -9,6 +9,7 @@ import { Toaster } from "react-hot-toast";
 import { UserProvider } from "@/app/hooks/UserContext";
 import { LocationProvider } from "@/app/hooks/useLocation";
 import { PwaProvider } from "@/app/hooks/PwaContext";
+import { ChatNotificationsProvider } from "@/app/hooks/ChatNotifications";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -72,10 +73,12 @@ export default async function RootLayout({
         <LanguageProvider texts={texts} lang={validLang}>
           <UserProvider>
             <PwaProvider>
-              <LocationProvider>
-              <Toaster position="top-center" reverseOrder={false} />
-              {children}
-              </LocationProvider>
+              <ChatNotificationsProvider>
+                <LocationProvider>
+                  <Toaster position="top-center" reverseOrder={false} />
+                  {children}
+                </LocationProvider>
+              </ChatNotificationsProvider>
             </PwaProvider>
           </UserProvider>
         </LanguageProvider>
