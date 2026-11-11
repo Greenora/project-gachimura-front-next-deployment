@@ -9,7 +9,9 @@ test('membership requests and approvals update without reloading, and offline ch
   const base = process.env.TEST_FRONTEND_URL || 'http://localhost:3101';
   const host = { id: 1, nickname: 'Host', email: 'host@example.com' };
   const guest = { id: 2, nickname: 'PendingGuest' };
-  const state = { pending: false, approved: false, secondRequest: false, participant: false, joinedList: false, holdJoin: true, saveAcknowledgement: null, joinAcknowledgement: null };
+  const state = { pending: false, approved: false, secondRequest: false, participant: false, joinedList: false, partyStatus: 'RECRUITING', holdReview: true, releaseReview: null, holdJoin: true, saveAcknowledgement: null, joinAcknowledgement: null };
+  const joinedSockets = new Set();
+  const notifyUpdated = () => joinedSockets.forEach(socket => socket.send(`42${JSON.stringify(['partyUpdated', { partyId: 1 }])}`));
   const waitForAcknowledgement = async key => {
     const started = Date.now();
     while (!state[key]) {
@@ -18,7 +20,7 @@ test('membership requests and approvals update without reloading, and offline ch
     }
   };
   const party = () => ({
-    id: 1, title: 'Membership fixture', content: 'Test party', status: 'RECRUITING',
+    id: 1, title: 'Membership fixture', content: 'Test party', status: state.partyStatus,
     meetingDate: '2027-01-01T12:00:00Z', images: [], host, hostId: 1,
     location: { name: 'Test store', address: 'Test address', lat: 0, lng: 0 },
     currentCount: state.approved ? 2 : 1, capacity: 5,
@@ -37,7 +39,7 @@ test('membership requests and approvals update without reloading, and offline ch
     if (path === '/api/party-members/1/2/status' && method === 'PATCH') { state.approved = true; return {}; }
     if (path === '/api/chat-message/1') return [];
     if (path.startsWith('/api/settlements')) return null;
-    if (path.startsWith('/api/reviews')) return { canReview: false, hasReviewed: false };
+    if (path.startsWith('/api/reviews')) return { canReview: state.partyStatus === 'CLOSED', hasReviewed: false, totalMembers: 2 };
     return [];
   }
   const server = createServer((req, res) => {
@@ -50,10 +52,18 @@ test('membership requests and approvals update without reloading, and offline ch
     browser = await chromium.launch();
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.context().addCookies([{ name: 'accessToken', value: 'membership-fixture', url: base }]);
-    await page.route('**/api/**', route => route.fulfill({ json: response(new URL(route.request().url()).pathname, route.request().method()) }));
+    await page.route('**/api/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      const json = response(path, route.request().method());
+      if (path.startsWith('/api/reviews') && state.holdReview) {
+        return new Promise(resolve => { state.releaseReview = () => route.fulfill({ json }).then(resolve); });
+      }
+      return route.fulfill({ json });
+    });
     page.on('dialog', dialog => dialog.accept());
     await page.routeWebSocket(/socket\.io/, socket => {
       socket.send('0{"sid":"membership-fixture","upgrades":[],"pingInterval":25000,"pingTimeout":20000}');
+      socket.onClose(() => joinedSockets.delete(socket));
       socket.onMessage(message => {
         if (message === '40') socket.send('40{"sid":"membership-fixture"}');
         if (typeof message !== 'string' || !message.startsWith('42')) return;
@@ -62,8 +72,9 @@ test('membership requests and approvals update without reloading, and offline ch
         const [event] = JSON.parse(message.slice(payloadStart));
         const respond = result => socket.send(`43${acknowledgement}${JSON.stringify([result])}`);
         if (event === 'joinRoom') {
-          if (state.holdJoin) state.joinAcknowledgement = respond;
-          else respond({ ok: true });
+          const join = result => { if (result.ok) joinedSockets.add(socket); respond(result); };
+          if (state.holdJoin) state.joinAcknowledgement = join;
+          else join({ ok: true });
         }
         if (event === 'message') state.saveAcknowledgement = respond;
       });
@@ -111,7 +122,7 @@ test('membership requests and approvals update without reloading, and offline ch
     await drawer.getByText('PendingGuest', { exact: true }).waitFor();
     await drawer.getByRole('button', { name: '수락', exact: true }).waitFor();
     state.secondRequest = true;
-    await page.clock.fastForward(10001);
+    notifyUpdated();
     await drawer.getByText('NextGuest', { exact: true }).waitFor();
     await drawer.getByRole('button', { name: '수락', exact: true }).first().click();
     await drawer.getByText('승인 대기 중 (1)', { exact: true }).waitFor();
@@ -119,7 +130,21 @@ test('membership requests and approvals update without reloading, and offline ch
     await drawer.getByRole('button', { name: '닫기', exact: true }).click();
     assert.equal(await input.inputValue(), 'Keep this draft while disconnected', 'membership polling must preserve an unsent chat draft');
 
+    assert.ok(state.releaseReview, 'an older pre-close review response is held');
+    state.holdReview = false;
+    state.partyStatus = 'CLOSED';
+    notifyUpdated();
+    const review = page.getByRole('button', { name: '평가하기', exact: true });
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === '평가하기' && !button.disabled));
+    await state.releaseReview();
+    state.releaseReview = null;
+    await page.waitForLoadState('networkidle');
+    assert.equal(await review.isEnabled(), true, 'a delayed pre-close response cannot disable the new review action');
+    assert.equal(await page.evaluate(() => window.membershipDocument), 'same document', 'another device closing the party updates review access without reloading');
+    assert.equal(await input.inputValue(), 'Keep this draft while disconnected');
+
     state.participant = true;
+    state.partyStatus = 'RECRUITING';
     state.approved = false;
     await page.goto(base + '/party/1');
     await page.getByRole('button', { name: '이미 참여한 모임입니다', exact: true }).waitFor();
@@ -135,6 +160,7 @@ test('membership requests and approvals update without reloading, and offline ch
     await page.clock.fastForward(10001);
     await page.getByRole('link', { name: /Membership fixture/ }).waitFor();
   } finally {
+    if (state.releaseReview) await state.releaseReview().catch(() => {});
     await browser?.close();
     await new Promise(resolve => server.close(resolve));
   }

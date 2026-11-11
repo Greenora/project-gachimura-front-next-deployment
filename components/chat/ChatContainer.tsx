@@ -548,6 +548,8 @@ export default function ChatContainer({
   const [settlementInfo, setSettlementInfo] = useState<SettlementInfo | null>(null);
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus>({ hasReviewed: false, canReview: false });
   const memberMutationVersion = useRef(0);
+  const partyMutationVersion = useRef(0);
+  const { messages: realTimeMessages, sendMessage, connectionStatus, connectionError, reconnect, settlementVersion, partyVersion } = useChat(partyId);
 
   const refreshMembers = useCallback(async (signal: AbortSignal) => {
     const version = memberMutationVersion.current;
@@ -562,7 +564,6 @@ export default function ChatContainer({
       })));
     }
   }, [partyId]);
-  useVisiblePolling(refreshMembers, isDrawerOpen);
 
   const router = useRouter();
   const { texts, lang } = useLanguage();
@@ -708,10 +709,11 @@ export default function ChatContainer({
 
   // 평가 여부 확인
   useEffect(() => {
+    let active = true;
     async function checkReviewStatus() {
       try {
         const status = await clientFetch<ReviewStatus>(`/reviews/check/${partyId}`);
-        console.log(`파티 ${partyId} 평가 상태:`, status);
+        if (!active) return;
         // canReview 필드가 없으면 기본값 설정
         const safeStatus = {
           hasReviewed: status?.hasReviewed === true,
@@ -719,19 +721,17 @@ export default function ChatContainer({
           reviewCount: status?.reviewCount ?? 0,
           totalMembers: status?.totalMembers ?? 0,
         };
-        console.log(`파티 ${partyId} 안전한 상태:`, safeStatus);
         setReviewStatus(safeStatus);
       } catch (error) {
+        if (!active) return;
         // 에러 발생 시 기본값으로 설정 (평가하지 않은 상태, 평가 불가능)
         console.error(`파티 ${partyId} 평가 상태 확인 실패:`, error);
         setReviewStatus({ hasReviewed: false, canReview: false, reviewCount: 0, totalMembers: 0 });
       }
     }
     if (partyId) checkReviewStatus();
-  }, [partyId]);
-
-  // props로 받은 currentUser 정보를 바로 사용
-  const { messages: realTimeMessages, sendMessage, connectionStatus, connectionError, reconnect } = useChat(partyId);
+    return () => { active = false; };
+  }, [partyId, currentParty?.status]);
 
   const { formatFullDate, formatDividerDate, formatMessageTime } = useDateFormatter();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -768,30 +768,26 @@ export default function ChatContainer({
     setCurrentParty(partyInfo);
   }
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchSettlementInfo = async () => {
-      try {
-        const data = await clientFetch<SettlementInfo | null>(`/settlements/party/${partyId}`);
-        if (!cancelled) {
-          setSettlementInfo(data);
-        }
-      } catch {
-        if (!cancelled) {
-          setSettlementInfo(null);
-        }
-      }
-    };
-
-    fetchSettlementInfo();
-    const interval = setInterval(fetchSettlementInfo, 10000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+  const refreshSettlementInfo = useCallback(async (signal: AbortSignal) => {
+    const data = await clientFetch<SettlementInfo | null>(`/settlements/party/${partyId}`);
+    if (!signal.aborted) setSettlementInfo(data);
   }, [partyId]);
+  useVisiblePolling(refreshSettlementInfo, true, settlementVersion);
+
+  const refreshPartyState = useCallback(async (signal: AbortSignal) => {
+    const version = partyMutationVersion.current;
+    const partyRequest = clientFetch<NonNullable<ChatContainerProps["partyInfo"]> & { meetingDate?: string; location?: { name?: string } }>(`/parties/${partyId}`)
+      .then(party => {
+        if (!signal.aborted && version === partyMutationVersion.current) setCurrentParty({
+          title: party.title,
+          status: party.status,
+          meetDate: party.meetingDate || party.meetDate,
+          storeName: party.location?.name || party.storeName,
+        });
+      });
+    await Promise.all([partyRequest, ...(isDrawerOpen ? [refreshMembers(signal)] : [])]);
+  }, [partyId, isDrawerOpen, refreshMembers]);
+  useVisiblePolling(refreshPartyState, true, partyVersion);
 
   // 자동 스크롤 하단 고정 로직
   useEffect(() => {
@@ -899,6 +895,7 @@ export default function ChatContainer({
     async (newStatus: string) => {
       if (newStatus === 'CLOSED' && !confirm(texts.chat.confirmCloseParty)) return;
 
+      partyMutationVersion.current++;
       try {
         const result = await clientFetch(`/parties/${partyId}/status`, {
           method: 'PATCH',
@@ -909,6 +906,8 @@ export default function ChatContainer({
         }
       } catch (error) {
         alert(error instanceof Error ? error.message : texts.chat.statusUpdateError);
+      } finally {
+        partyMutationVersion.current++;
       }
     },
     [partyId, texts.chat.confirmCloseParty, texts.chat.statusUpdateError]

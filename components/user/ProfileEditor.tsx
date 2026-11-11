@@ -24,13 +24,18 @@ function basicFields(user: UserProfile) {
   return { nickname: user.nickname || "", nickname_jp: user.nickname_jp || "", phone: user.phone || "", birthdate: user.birthdate || "" };
 }
 
-function bankFields(user: UserProfile) {
+type BankCountry = "KR" | "JP";
+
+function bankFields(user: UserProfile, country?: BankCountry) {
+  const savedCountry = user.accountCountry || (user.bankBranchName || user.bankBranchCode || user.accountType ? "JP" : "KR");
+  const accountCountry = country || savedCountry;
+  const account: Partial<UserProfile> = accountCountry === savedCountry ? user : {};
   return {
-    accountCountry: user.accountCountry || (user.bankBranchName || user.bankBranchCode || user.accountType ? "JP" : "KR"),
-    bankName: user.bankName || "", bankCode: user.bankCode || "",
-    bankBranchName: user.bankBranchName || "", bankBranchCode: user.bankBranchCode || "",
-    accountType: user.accountType === "TOZA" ? "TOZA" : "FUTSU",
-    accountNumber: user.accountNumber || "", accountHolder: user.accountHolder || "",
+    accountCountry,
+    bankName: account.bankName || "", bankCode: account.bankCode || "",
+    bankBranchName: account.bankBranchName || "", bankBranchCode: account.bankBranchCode || "",
+    accountType: account.accountType === "TOZA" ? "TOZA" : "FUTSU",
+    accountNumber: account.accountNumber || "", accountHolder: account.accountHolder || "",
   };
 }
 
@@ -43,10 +48,13 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const basicDirty = useRef(new Set<keyof ReturnType<typeof basicFields>>());
-  const bankDirty = useRef(new Set<keyof ReturnType<typeof bankFields>>());
+  const bankDirty = useRef({ KR: new Set<keyof ReturnType<typeof bankFields>>(), JP: new Set<keyof ReturnType<typeof bankFields>>() });
+  const bankCountryEdited = useRef(false);
   const [tab, setTab] = useState(initialSection);
   const [basic, setBasic] = useState(() => basicFields(user));
-  const [bank, setBank] = useState(() => bankFields(user));
+  const [bankCountry, setBankCountry] = useState<BankCountry>(() => bankFields(user).accountCountry);
+  const [bankDrafts, setBankDrafts] = useState(() => ({ KR: bankFields(user, "KR"), JP: bankFields(user, "JP") }));
+  const bank = bankDrafts[bankCountry];
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const japanese = lang === Language.japanese;
@@ -55,12 +63,12 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
     nickname: "ニックネーム", nicknameJp: "ニックネーム（日本語）", optional: "任意", private: "非公開",
     phone: "電話番号", birthday: "生年月日",
     privacy: "電話番号と生年月日は他のユーザーには表示されません。",
-    bankHint: "割り勘の入金案内に使う口座です。基本情報は口座を登録せずに保存できます。",
+    bankHint: "入金案内に使う口座を1件登録できます。別の国の口座を保存すると、登録済みの口座が置き換わります。",
     kr: "韓国口座", jp: "日本口座", bankName: "銀行", chooseBank: "銀行を選択してください",
     branchName: "支店名", branchCode: "支店コード", accountType: "口座種別", accountNumber: "口座番号", holder: "口座名義",
     transfer: "実際の送金は利用している銀行アプリで行ってください。",
     saveBasic: "基本情報を保存", saveBank: "口座情報を保存", saving: "保存中…", saved: "保存しました。",
-    savedContinue: "保存しました。他のタブの入力内容はそのままです。", unsavedOther: "他のタブに未保存の入力があります。",
+    savedContinue: "保存しました。他の項目の入力内容はそのままです。", unsavedOther: "他の項目に未保存の入力があります。",
     invalidNickname: "ニックネームを入力してください。", invalidPhone: "電話番号の形式を確認してください。",
     invalidBirthday: "生年月日の年・月・日をすべて選択してください。",
     invalidBank: "銀行・口座番号・口座名義を入力してください。日本口座は支店名も必要です。",
@@ -70,12 +78,12 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
     nickname: "닉네임", nicknameJp: "일본어 닉네임", optional: "선택", private: "비공개",
     phone: "전화번호", birthday: "생년월일",
     privacy: "전화번호와 생년월일은 다른 사람에게 표시되지 않아요.",
-    bankHint: "정산할 때 안내할 계좌를 등록하세요. 기본정보는 계좌 등록 없이도 저장할 수 있어요.",
+    bankHint: "정산에 사용할 계좌는 1개 등록할 수 있어요. 다른 나라의 계좌를 저장하면 기존 등록 계좌가 바뀝니다.",
     kr: "한국 계좌", jp: "일본 계좌", bankName: "은행", chooseBank: "은행을 선택해주세요",
     branchName: "지점명", branchCode: "지점 코드", accountType: "계좌 종류", accountNumber: "계좌번호", holder: "예금주",
     transfer: "실제 이체는 사용하는 은행 앱에서 진행해주세요.",
     saveBasic: "기본정보 저장", saveBank: "계좌정보 저장", saving: "저장 중…", saved: "저장했습니다.",
-    savedContinue: "저장했습니다. 다른 탭의 입력 내용은 유지했어요.", unsavedOther: "다른 탭에 저장하지 않은 입력이 있어요.",
+    savedContinue: "저장했습니다. 다른 항목의 입력 내용은 유지했어요.", unsavedOther: "다른 항목에 저장하지 않은 입력이 있어요.",
     invalidNickname: "닉네임을 입력해주세요.", invalidPhone: "전화번호 형식을 확인해주세요.",
     invalidBirthday: "생년월일의 연도·월·일을 모두 선택해주세요.",
     invalidBank: "은행·계좌번호·예금주를 입력해주세요. 일본 계좌는 지점명도 필요해요.",
@@ -92,7 +100,12 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
 
   useEffect(() => {
     setBasic(previous => ({ ...basicFields(user), ...Object.fromEntries([...basicDirty.current].map(field => [field, previous[field]])) }));
-    setBank(previous => ({ ...bankFields(user), ...Object.fromEntries([...bankDirty.current].map(field => [field, previous[field]])) }));
+    const saved = bankFields(user);
+    if (!bankCountryEdited.current) setBankCountry(saved.accountCountry);
+    setBankDrafts(previous => ({
+      ...previous,
+      [saved.accountCountry]: { ...saved, ...Object.fromEntries([...bankDirty.current[saved.accountCountry]].map(field => [field, previous[saved.accountCountry][field]])) },
+    }));
   }, [user]);
 
   function editBasic(field: keyof typeof basic, value: string) {
@@ -102,8 +115,15 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
   }
 
   function editBank(field: keyof typeof bank, value: string) {
-    bankDirty.current.add(field);
-    setBank(previous => ({ ...previous, [field]: value }));
+    bankCountryEdited.current = true;
+    bankDirty.current[bankCountry].add(field);
+    setBankDrafts(previous => ({ ...previous, [bankCountry]: { ...previous[bankCountry], [field]: value } }));
+    setError("");
+  }
+
+  function switchBankCountry(country: BankCountry) {
+    bankCountryEdited.current = true;
+    setBankCountry(country);
     setError("");
   }
 
@@ -146,9 +166,11 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
       };
       changes = bank.accountCountry !== user.accountCountry
         ? values
-        : bankDirty.current.size ? { accountCountry: values.accountCountry, ...Object.fromEntries([...bankDirty.current].map(field => [field, values[field]])) } : {};
+        : bankDirty.current[bankCountry].size ? { accountCountry: values.accountCountry, ...Object.fromEntries([...bankDirty.current[bankCountry]].map(field => [field, values[field]])) } : {};
     }
-    const otherDirty = () => tab === "basic" ? bankDirty.current.size > 0 : basicDirty.current.size > 0;
+    const otherDirty = () => tab === "basic"
+      ? bankDirty.current.KR.size > 0 || bankDirty.current.JP.size > 0
+      : basicDirty.current.size > 0 || bankDirty.current[bankCountry === "KR" ? "JP" : "KR"].size > 0;
     if (!Object.keys(changes).length) {
       if (otherDirty()) toast(copy.unsavedOther);
       else closeEditor();
@@ -162,7 +184,7 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
       if (!form.isConnected) return;
       let savedProfile = { ...user, ...changes };
       if (tab === "basic") basicDirty.current.clear();
-      else bankDirty.current.clear();
+      else bankDirty.current[bankCountry].clear();
       try {
         const profile = await clientFetch<UserProfile>("/users/profile", { redirectOnUnauthorized: false });
         if (form.isConnected && profile.id === user.id) {
@@ -174,7 +196,7 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
       }
       if (!form.isConnected) return;
       if (tab === "basic") setBasic(basicFields(savedProfile));
-      else setBank(bankFields(savedProfile));
+      else setBankDrafts(previous => ({ ...previous, [bankCountry]: bankFields(savedProfile, bankCountry) }));
       if (otherDirty()) { setSaving(false); toast.success(copy.savedContinue); }
       else { toast.success(copy.saved); closeEditor(); }
       router.refresh();
@@ -226,7 +248,7 @@ export default function ProfileEditor({ user, lang, initialSection, onClose }: {
               <div id="profile-panel-bank" role="tabpanel" aria-labelledby="profile-tab-bank" hidden={tab !== "bank"} className={tab === "bank" ? "space-y-4" : "hidden"}>
                 <p className="text-xs leading-6 text-gray-500">{copy.bankHint}</p>
                 <div role="group" aria-label={copy.bank} className="flex gap-1 rounded-xl bg-gray-50 p-1">
-                  {(["KR", "JP"] as const).map(country => <button key={country} type="button" aria-pressed={bank.accountCountry === country} onClick={() => editBank("accountCountry", country)} className={`min-h-11 flex-1 rounded-lg px-3 text-xs font-semibold ${bank.accountCountry === country ? "bg-white text-[#166534] shadow-sm" : "text-gray-400"}`}>{country === "KR" ? copy.kr : copy.jp}</button>)}
+                  {(["KR", "JP"] as const).map(country => <button key={country} type="button" aria-pressed={bank.accountCountry === country} onClick={() => switchBankCountry(country)} className={`min-h-11 flex-1 rounded-lg px-3 text-xs font-semibold ${bank.accountCountry === country ? "bg-white text-[#166534] shadow-sm" : "text-gray-400"}`}>{country === "KR" ? copy.kr : copy.jp}</button>)}
                 </div>
                 <div><label htmlFor="profile-bank" className={labelClass}>{copy.bankName}</label>
                   {bank.accountCountry === "KR" ? <select id="profile-bank" value={bank.bankName} onChange={event => { const name = event.target.value; editBank("bankName", name); editBank("bankCode", BANK_LIST.find(item => item.name === name)?.code || ""); }} className={inputClass}>

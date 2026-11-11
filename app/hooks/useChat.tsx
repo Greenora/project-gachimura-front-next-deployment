@@ -19,6 +19,8 @@ export function useChat(partyId: number) {
   const [received, setReceived] = useState<{ partyId: number; messages: ChatPayload[] }>({ partyId, messages: [] });
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("connecting");
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [settlementVersion, setSettlementVersion] = useState(0);
+  const [partyVersion, setPartyVersion] = useState(0);
 
   const buildMessageKey = (payload: ChatPayload) => {
     const normalizedType = payload.messageType ?? "TALK";
@@ -53,7 +55,19 @@ export function useChat(partyId: number) {
         }
         roomJoinedRef.current = true;
         setConnectionStatus("connected");
+        setSettlementVersion(version => version + 1);
+        setPartyVersion(version => version + 1);
       });
+    });
+
+    newSocket.on("settlementUpdated", (payload: { partyId?: number; settlementId?: number } | null) => {
+      if (!roomJoinedRef.current || payload?.partyId !== partyId || !Number.isInteger(payload.settlementId) || Number(payload.settlementId) < 1) return;
+      setSettlementVersion(version => version + 1);
+    });
+
+    newSocket.on("partyUpdated", (payload: { partyId?: number } | null) => {
+      if (!roomJoinedRef.current || payload?.partyId !== partyId) return;
+      setPartyVersion(version => version + 1);
     });
 
     // 3. 메시지 수신 (Payload 객체로 받음)
@@ -132,5 +146,7 @@ export function useChat(partyId: number) {
     connectionStatus,
     connectionError,
     reconnect,
+    settlementVersion,
+    partyVersion,
   };
 }

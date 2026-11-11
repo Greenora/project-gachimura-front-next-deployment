@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 test('host and member settlement selections, confirmed amounts and payment updates stay consistent', { timeout: 240000 }, async t => {
   const base = process.env.TEST_FRONTEND_URL || 'http://127.0.0.1:3131';
   const users = {
-    1: { id: 1, nickname: '방장', email: 'host@example.test', accountNumber: 'fixture-account' },
+    1: { id: 1, nickname: '방장', email: 'host@example.test', accountCountry: 'KR', bankName: '테스트은행', accountHolder: '예시 방장', accountNumber: '000000000000' },
     2: { id: 2, nickname: '참여자A', email: 'member-a@example.test' },
     3: { id: 3, nickname: '참여자B', email: 'member-b@example.test' },
   };
@@ -21,11 +21,13 @@ test('host and member settlement selections, confirmed amounts and payment updat
     { id: 12, name: '우유', price: 3000, quantity: 1, members: members([1, 3]) },
     { id: 13, name: '빵', price: 2000, quantity: 1, members: [] },
   ];
-  const state = { settlement: null, payments: [], selectionWrites: [], confirmations: 0, paymentWrites: [], reads: 0, failSnapshotFor: new Set(), holdFor: null, holdObserved: null, held: [] };
+  const state = { settlement: null, payments: [], selectionWrites: [], itemWrites: [], confirmations: 0, paymentWrites: [], reads: 0, failSnapshotFor: new Set(), holdFor: null, holdObserved: null, held: [] };
+  const joinedSockets = new Set();
+  const notifyUpdated = () => joinedSockets.forEach(socket => socket.send(`42${JSON.stringify(['settlementUpdated', { partyId: 1, settlementId: 10 }])}`));
   function reset() {
     Object.assign(state, {
       settlement: { id: 10, partyId: 1, hostId: 1, status: 'SELECTING', totalAmount: 15000, items: initialItems() },
-      payments: [], selectionWrites: [], confirmations: 0, paymentWrites: [], reads: 0, failSnapshotFor: new Set(), holdFor: null, holdObserved: null,
+      payments: [], sentMessages: [], selectionWrites: [], itemWrites: [], confirmations: 0, paymentWrites: [], reads: 0, failSnapshotFor: new Set(), holdFor: null, holdObserved: null,
     });
   }
   function confirmedFixture() {
@@ -49,6 +51,26 @@ test('host and member settlement selections, confirmed amounts and payment updat
       return { json: clone(state.settlement) };
     }
     if (path === '/api/settlements/10/payments') return { json: clone(state.payments) };
+    if (path === '/api/settlements/10/revert' && method === 'PATCH') {
+      state.settlement.status = 'DRAFT';
+      notifyUpdated();
+      return { json: clone(state.settlement) };
+    }
+    if (path === '/api/settlements/10/items' && method === 'PATCH') {
+      state.itemWrites.push(clone(body.items));
+      state.settlement.items = body.items.map((item, index) => ({
+        ...item, id: item.id || 100 + index,
+        members: state.settlement.items.find(saved => saved.id === item.id)?.members || [],
+      }));
+      state.settlement.totalAmount = body.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      notifyUpdated();
+      return { json: clone(state.settlement) };
+    }
+    if (path === '/api/settlements/10/start' && method === 'PATCH') {
+      state.settlement.status = 'SELECTING';
+      notifyUpdated();
+      return { json: clone(state.settlement) };
+    }
     if (path === '/api/settlements/10/select' && method === 'PATCH') {
       if (state.settlement.status !== 'SELECTING') return { status: 400, json: { message: '항목 선택 기간이 아닙니다.' } };
       state.selectionWrites.push({ userId, itemIds: body.itemIds });
@@ -56,6 +78,7 @@ test('host and member settlement selections, confirmed amounts and payment updat
         item.members = item.members.filter(member => member.userId !== userId);
         if (body.itemIds.includes(item.id)) item.members.push({ userId, user: publicUser(userId) });
       }
+      notifyUpdated();
       return { json: clone(state.settlement) };
     }
     if (path === '/api/settlements/10/confirm' && method === 'PATCH') {
@@ -63,6 +86,7 @@ test('host and member settlement selections, confirmed amounts and payment updat
       if (state.settlement.items.some(item => !item.members.length)) return { status: 400, json: { message: '선택자가 없는 품목이 있습니다.' } };
       state.confirmations++;
       confirmedFixture();
+      notifyUpdated();
       return { json: clone(state.settlement) };
     }
     if (path === '/api/settlements/10/payment' && method === 'PATCH') {
@@ -72,6 +96,7 @@ test('host and member settlement selections, confirmed amounts and payment updat
       const payment = state.payments.find(value => value.userId === body.userId);
       payment.status = 'PAID';
       if (state.payments.every(value => value.status === 'PAID')) state.settlement.status = 'COMPLETED';
+      notifyUpdated();
       return { json: clone(payment) };
     }
     return { json: [] };
@@ -100,6 +125,26 @@ test('host and member settlement selections, confirmed amounts and payment updat
     page.on('pageerror', error => pageErrors.push(error.message));
     page.on('dialog', dialog => dialog.accept());
     await page.clock.install();
+    await page.routeWebSocket(/socket\.io/, socket => {
+      socket.send('0{"sid":"settlement-fixture","upgrades":[],"pingInterval":25000,"pingTimeout":20000}');
+      socket.onClose(() => joinedSockets.delete(socket));
+      socket.onMessage(message => {
+        if (message === '40') return socket.send('40{"sid":"settlement-fixture"}');
+        if (message === '2') return socket.send('3');
+        const match = /^42(\d+)?(\[.*)$/.exec(String(message));
+        if (!match) return;
+        const [, acknowledgement, encoded] = match;
+        const [event, payload] = JSON.parse(encoded);
+        if (event === 'joinRoom' && payload.partyId === 1) {
+          joinedSockets.add(socket);
+          if (acknowledgement) socket.send(`43${acknowledgement}[{"ok":true}]`);
+        }
+        if (event === 'message' && joinedSockets.has(socket) && payload.partyId === 1) {
+          state.sentMessages.push({ userId, ...payload });
+          if (acknowledgement) socket.send(`43${acknowledgement}[{"ok":true}]`);
+        }
+      });
+    });
     await page.route(/^https:\/\/(developers\.kakao\.com|dapi\.kakao\.com)\//, route => route.fulfill({ contentType: 'application/javascript', body: '' }));
     await page.route('**/api/**', async route => {
       const request = route.request();
@@ -136,6 +181,7 @@ test('host and member settlement selections, confirmed amounts and payment updat
         for (const held of state.held.splice(0)) held.release();
         await Promise.all([...contexts].map(context => context.close()));
         contexts.clear();
+        joinedSockets.clear();
       }
     });
   }
@@ -173,6 +219,9 @@ test('host and member settlement selections, confirmed amounts and payment updat
       assert.equal(await confirm(host).isDisabled(), true, 'an unselected item blocks confirmation');
       await itemButton(host, '샐러드').click();
       await estimate(host).getByText('₩4,834', { exact: true }).waitFor();
+      await host.getByRole('button', { name: '수정하기', exact: true }).click();
+      await host.locator('[data-rht-toaster]').getByText('내 선택을 먼저 저장해주세요.', { exact: true }).last().waitFor();
+      assert.equal(state.settlement.status, 'SELECTING', 'switching to edits cannot discard an unsaved choice');
       assert.equal(await confirm(host).isDisabled(), true);
       await saveSelection(host);
       assert.equal(state.selectionWrites.at(-1).userId, 1);
@@ -209,20 +258,40 @@ test('host and member settlement selections, confirmed amounts and payment updat
       await estimate(host).getByText('₩5,834', { exact: true }).waitFor();
     });
 
-    await check('confirmation and the final host payment update reach the member without a document reload', async () => {
+    await check('reopening and saving item changes sends existing IDs and keeps saved buyers on both devices', async () => {
+      const host = await openPage(1);
+      const guest = await openPage(3);
+      await host.getByRole('button', { name: '수정하기', exact: true }).click();
+      await guest.getByText('호스트가 품목을 등록하고 있습니다...', { exact: true }).waitFor();
+      await host.getByLabel('품목명', { exact: true }).first().fill('샐러드 수정');
+      await host.getByRole('button', { name: '정산 시작하기', exact: true }).click();
+      await itemButton(host, '샐러드 수정').waitFor();
+      await itemButton(guest, '샐러드 수정').waitFor();
+      assert.deepEqual(state.itemWrites[0].map(item => item.id), [11, 12, 13]);
+      assert.equal(state.itemWrites[0][0].name, '샐러드 수정');
+      assert.equal(await itemButton(guest, '샐러드 수정').getAttribute('aria-pressed'), 'true');
+      assert.equal(await itemButton(host, '우유').getAttribute('aria-pressed'), 'true');
+      await itemButton(host, '샐러드 수정').getByText('참여자B', { exact: true }).waitFor();
+    });
+
+    await check('socket changes update selection, confirmation and final payment on another device before the polling interval', async () => {
       const host = await openPage(1);
       const guest = await openPage(3);
       await host.evaluate(() => { window.settlementDocument = 'preserved'; });
       await guest.evaluate(() => { window.settlementDocument = 'preserved'; });
+      assert.equal(joinedSockets.size, 2);
       assert.equal(await guest.getByRole('button', { name: '정산 확정하기', exact: true }).count(), 0);
       assert.equal(await guest.getByText(/정산 입금 안내를 받으려면/).count(), 0, 'payers do not need a receiving account');
       await itemButton(host, '샐러드').click();
       await itemButton(host, '빵').click();
+      await itemButton(guest, '빵').click();
+      await saveSelection(guest);
+      await itemButton(host, '빵').getByText('참여자B', { exact: true }).waitFor();
+      assert.equal(await itemButton(host, '빵').getAttribute('aria-pressed'), 'true', 'the host keeps unsaved own selection during pushed updates');
       await saveSelection(host);
       await confirm(host).click();
       await host.getByRole('heading', { name: '입금 현황', exact: true }).waitFor();
       assert.equal(state.confirmations, 1);
-      await poll(guest);
       await guest.getByRole('heading', { name: '입금 현황', exact: true }).waitFor();
       for (const page of [host, guest]) {
         await page.getByText('₩3,333', { exact: true }).first().waitFor();
@@ -237,7 +306,6 @@ test('host and member settlement selections, confirmed amounts and payment updat
       await host.getByText(/정산.*완료/).first().waitFor();
       assert.equal(state.settlement.status, 'COMPLETED');
       assert.deepEqual(state.paymentWrites, [2, 3]);
-      await poll(guest);
       await guest.getByText(/정산.*완료/).first().waitFor();
       assert.equal(await host.evaluate(() => window.settlementDocument), 'preserved');
       assert.equal(await guest.evaluate(() => window.settlementDocument), 'preserved');
@@ -277,6 +345,60 @@ test('host and member settlement selections, confirmed amounts and payment updat
       assert.equal(state.payments[0].status, 'PAID');
       assert.equal(await host.getByText('입금 확인 실패', { exact: true }).count(), 0);
       assert.equal((await host.locator('body').innerText()).includes('PRIVATE_SNAPSHOT_MARKER'), false);
+    });
+
+    await check('account sharing is explicit, compact on mobile and uses confirmed server amounts', async () => {
+      confirmedFixture();
+      state.payments[0].amount = 4200;
+      state.payments[0].status = 'PAID';
+      state.payments[1].amount = 3300;
+      const host = await openPage(1);
+      const section = host.getByRole('region', { name: '입금 계좌 안내', exact: true });
+      const toggle = section.getByRole('button', { name: '보기', exact: true });
+      assert.equal(await section.getByText('000000000000', { exact: true }).isVisible(), false);
+      await toggle.click();
+      await host.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.copiedAccount = value; } } }));
+      await section.getByRole('button', { name: '계좌번호 복사', exact: true }).click();
+      assert.equal(await host.evaluate(() => window.copiedAccount), '000000000000');
+      host.removeAllListeners('dialog');
+      host.once('dialog', dialog => dialog.dismiss());
+      await section.getByRole('button', { name: '정산 안내 공유', exact: true }).click();
+      assert.equal(state.sentMessages.length, 0);
+      host.on('dialog', dialog => dialog.accept());
+      await section.getByRole('button', { name: '정산 안내 공유', exact: true }).click();
+      await host.locator('[data-rht-toaster]').getByText('채팅방에 공유했습니다.', { exact: true }).last().waitFor();
+      assert.equal(state.sentMessages.length, 1);
+      const sent = state.sentMessages[0];
+      assert.equal(sent.userId, 1);
+      assert.equal(sent.partyId, 1);
+      assert.match(sent.message, /테스트은행 000000000000\n예시 방장/);
+      assert.match(sent.message, /참여자A: ₩4,200 \(입금 확인 완료\)/);
+      assert.match(sent.message, /참여자B: ₩3,300 \(입금 대기\)/);
+      assert.doesNotMatch(sent.message, /host@example|방장: ₩/);
+      await section.getByRole('button', { name: '접기', exact: true }).click();
+      await host.setViewportSize({ width: 1280, height: 1000 });
+      assert.equal(await section.getByText('000000000000', { exact: true }).isVisible(), true);
+      assert.equal(await host.getByRole('button', { name: '채팅방에서 모임 종료·평가', exact: true }).count(), 0);
+      const guest = await openPage(2);
+      assert.equal(await guest.getByRole('region', { name: '입금 계좌 안내', exact: true }).count(), 0);
+      state.settlement.status = 'COMPLETED';
+      state.payments.forEach(payment => { payment.status = 'PAID'; });
+      notifyUpdated();
+      await host.getByRole('button', { name: '채팅방에서 모임 종료·평가', exact: true }).waitFor();
+      assert.equal(await section.count(), 0, 'completed settlements must not offer another payment request');
+    });
+
+    await check('a Japanese account is not shared as a won settlement account', async () => {
+      confirmedFixture();
+      users[1].accountCountry = 'JP';
+      try {
+        const host = await openPage(1);
+        const section = host.getByRole('region', { name: '입금 계좌 안내', exact: true });
+        await section.getByRole('button', { name: '보기', exact: true }).click();
+        await section.getByText('원화 정산에 사용할 한국 계좌를 등록해주세요.', { exact: true }).waitFor();
+        assert.equal(await section.getByRole('button', { name: '정산 안내 공유', exact: true }).count(), 0);
+        assert.equal(state.sentMessages.length, 0);
+      } finally { users[1].accountCountry = 'KR'; }
     });
 
     await check('logout and account changes hide the previous settlement and ignore its delayed refresh', async () => {

@@ -21,7 +21,10 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       state.attempts++;
       if (state.upload === 'unavailable') return { status: 503, json: { message: 'Receipt service is unavailable', code: 'OCR_NOT_CONFIGURED' } };
       if (state.upload === 'empty') return { json: { message: 'INTERNAL_PROVIDER_DETAIL_MUST_NOT_APPEAR', items: [], storeName: null, totalPrice: null } };
-      return { json: { items: [{ name: 'Recognized item', quantity: 2, price: 4000 }], storeName: 'Fixture store', totalPrice: 8000 } };
+      const totalPrice = state.upload === 'partial' ? 10000
+        : state.upload === 'unknown-total' ? null
+          : state.upload === 'unsafe-total' ? Number.MAX_SAFE_INTEGER + 1 : 8000;
+      return { json: { items: [{ name: 'Recognized item', quantity: 2, price: 4000 }], storeName: 'Fixture store', totalPrice } };
     }
     return { json: [] };
   };
@@ -35,8 +38,8 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
   try {
     browser = await chromium.launch();
     for (const locale of [
-      { language: 'korean', name: '품목명', quantity: '수량', price: '가격 (원)', empty: '영수증에서 품목을 인식하지 못했습니다. 사진을 다시 촬영하거나 품목을 직접 입력해주세요.', success: '영수증 인식 완료! 1개 품목이 자동 입력되었습니다.' },
-      { language: 'japanese', name: '品名', quantity: '数量', price: '価格 (ウォン)', empty: 'レシートから品目を読み取れませんでした。撮り直すか、品目を直接入力してください。', success: 'レシート認識完了！1件の品目が自動入力されました。' },
+      { language: 'korean', name: '품목명', quantity: '수량', price: '가격 (원)', empty: '영수증에서 품목을 인식하지 못했습니다. 사진을 다시 촬영하거나 품목을 직접 입력해주세요.', success: '영수증 인식 완료! 1개 품목이 자동 입력되었습니다.', review: '자동 입력된 품목·수량·금액을 영수증과 확인한 뒤 저장해주세요.', mismatch: '자동 입력 합계 ₩8,000, 영수증 합계 ₩10,000로 서로 달라요. 빠진 품목·수량·할인을 확인한 뒤 수정해주세요.' },
+      { language: 'japanese', name: '品名', quantity: '数量', price: '価格 (ウォン)', empty: 'レシートから品目を読み取れませんでした。撮り直すか、品目を直接入力してください。', success: 'レシート認識完了！1件の品目が自動入力されました。', review: '自動入力された品目・数量・金額をレシートと確認してから保存してください。', mismatch: '自動入力の合計₩8,000とレシートの合計₩10,000が異なります。抜けた品目・数量・割引を確認して修正してください。' },
     ]) {
       state.upload = 'unavailable';
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -87,10 +90,30 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       assert.equal(await quantity.inputValue(), '2');
       assert.equal(await price.inputValue(), '4000');
       assert.equal(await hasSuccessIcon(), true, 'recognized items should retain the existing success feedback');
+      await page.locator('p[role=status]').getByText(locale.review, { exact: true }).waitFor();
+
+      state.upload = 'partial';
+      await album.setInputFiles(image);
+      await page.locator('p[role=status]').getByText(locale.mismatch, { exact: true }).waitFor();
+      assert.equal(await quantity.inputValue(), '2');
+      assert.equal(await price.inputValue(), '4000', 'a receipt total mismatch must not rewrite a recognized price');
+      assert.equal(await page.getByText('₩8,000', { exact: true }).count(), 1, 'the editable item sum must stay unchanged');
+      for (const width of [320, 390, 1280]) {
+        await page.setViewportSize({ width, height: 1000 });
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      }
+
+      for (const upload of ['unknown-total', 'unsafe-total']) {
+        state.upload = upload;
+        await album.setInputFiles(image);
+        await page.locator('p[role=status]').getByText(locale.review, { exact: true }).waitFor();
+        assert.equal(await quantity.inputValue(), '2');
+        assert.equal(await price.inputValue(), '4000');
+      }
       assert.deepEqual(pageErrors, []);
       await page.close();
     }
-    assert.equal(state.attempts, 6, 'each locale can retry after both failure paths');
+    assert.equal(state.attempts, 12, 'each locale can retry failures and distinguish complete, partial and unknown receipt totals');
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));
