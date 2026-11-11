@@ -519,9 +519,16 @@ export default function SettlementClient({
         if (result.items && result.items.length > 0) {
           itemsDirtyRef.current = true;
           setEditItems(result.items);
-          toast.success(
-            settlementTexts.receiptRecognized.replace("{count}", String(result.items.length))
-          );
+          const recognizedTotal = result.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+          const receiptTotal = result.totalPrice;
+          const mismatch = typeof receiptTotal === "number" && Number.isSafeInteger(receiptTotal) && receiptTotal >= 0
+            && Number.isSafeInteger(recognizedTotal) && recognizedTotal >= 0 && recognizedTotal !== receiptTotal;
+          const feedback = mismatch
+            ? settlementTexts.receiptTotalMismatch.replace("{recognizedTotal}", formatMoney(recognizedTotal)).replace("{receiptTotal}", formatMoney(receiptTotal))
+            : settlementTexts.receiptReview;
+          setReceiptFeedback(feedback);
+          if (mismatch) toast(feedback);
+          else toast.success(settlementTexts.receiptRecognized.replace("{count}", String(result.items.length)));
         } else {
           setReceiptFeedback(settlementTexts.receiptNoItems);
           toast.error(settlementTexts.receiptNoItems);
@@ -537,7 +544,7 @@ export default function SettlementClient({
         receiptUploadLockRef.current = false;
       }
     },
-    [settlement, partyId, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]
+    [settlement, partyId, settlementTexts, formatMoney, beginMutation, endMutation, isCurrent, applySnapshot]
   );
 
   // 총 가격 계산

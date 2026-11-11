@@ -269,6 +269,8 @@ interface Translation {
     quantitySuffix: string;
     memberSuffix: string;
     receiptRecognized: string;
+    receiptReview: string;
+    receiptTotalMismatch: string;
     receiptNoItems: string;
     settlementCreated: string;
     settlementCreateFail: string;
@@ -564,6 +566,8 @@ export const menu: Record<Language, Translation> = {
       quantitySuffix: "개",
       memberSuffix: "명",
       receiptRecognized: "영수증 인식 완료! {count}개 품목이 자동 입력되었습니다.",
+      receiptReview: "자동 입력된 품목·수량·금액을 영수증과 확인한 뒤 저장해주세요.",
+      receiptTotalMismatch: "자동 입력 합계 {recognizedTotal}, 영수증 합계 {receiptTotal}로 서로 달라요. 빠진 품목·수량·할인을 확인한 뒤 수정해주세요.",
       receiptNoItems: "영수증에서 품목을 인식하지 못했습니다. 사진을 다시 촬영하거나 품목을 직접 입력해주세요.",
       settlementCreated: "정산이 생성되었습니다.",
       settlementCreateFail: "정산 생성 실패",
@@ -856,6 +860,8 @@ export const menu: Record<Language, Translation> = {
       quantitySuffix: "個",
       memberSuffix: "人",
       receiptRecognized: "レシート認識完了！{count}件の品目が自動入力されました。",
+      receiptReview: "自動入力された品目・数量・金額をレシートと確認してから保存してください。",
+      receiptTotalMismatch: "自動入力の合計{recognizedTotal}とレシートの合計{receiptTotal}が異なります。抜けた品目・数量・割引を確認して修正してください。",
       receiptNoItems: "レシートから品目を読み取れませんでした。撮り直すか、品目を直接入力してください。",
       settlementCreated: "割り勘が作成されました。",
       settlementCreateFail: "割り勘の作成に失敗しました。",
