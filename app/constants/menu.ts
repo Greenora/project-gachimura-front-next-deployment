@@ -273,6 +273,15 @@ interface Translation {
     receiptTotalMismatch: string;
     receiptMismatchConfirm: string;
     receiptCurrencyUnsupported: string;
+    receiptJapanesePreview: string;
+    receiptJapaneseNotice: string;
+    receiptJapaneseReadOnly: string;
+    receiptJapaneseNoItems: string;
+    receiptJapaneseDifference: string;
+    receiptUnitPrice: string;
+    receiptItemSum: string;
+    receiptPaymentTotal: string;
+    receiptAmountUnknown: string;
     receiptNoItems: string;
     settlementCreated: string;
     settlementCreateFail: string;
@@ -572,6 +581,15 @@ export const menu: Record<Language, Translation> = {
       receiptTotalMismatch: "자동 입력 합계 {recognizedTotal}, 영수증 합계 {receiptTotal}로 서로 달라요. 빠진 품목·수량·할인을 확인한 뒤 수정해주세요.",
       receiptMismatchConfirm: "영수증 합계는 {receiptTotal}, 현재 입력한 품목 합계는 {recognizedTotal}입니다. 누락·할인 또는 영수증 합계 인식 오류를 직접 확인하셨나요? 현재 입력한 {recognizedTotal}으로 저장하시겠습니까?",
       receiptCurrencyUnsupported: "현재 정산은 원화 영수증만 지원합니다. 엔화 등 다른 통화의 금액은 자동 입력하지 않습니다.",
+      receiptJapanesePreview: "일본 영수증 인식 결과",
+      receiptJapaneseNotice: "엔화 인식 결과는 보기 전용입니다. 기존 원화 품목은 그대로 유지됩니다.",
+      receiptJapaneseReadOnly: "원화 정산에 자동 입력하거나 저장하지 않습니다.",
+      receiptJapaneseNoItems: "인식된 상품이 없습니다. 사진을 다시 촬영해 확인해주세요.",
+      receiptJapaneseDifference: "품목 합계와 결제합계가 달라요. 세금·할인·빠진 품목을 확인해주세요.",
+      receiptUnitPrice: "단가",
+      receiptItemSum: "품목 합계",
+      receiptPaymentTotal: "영수증 결제합계",
+      receiptAmountUnknown: "인식되지 않음",
       receiptNoItems: "영수증에서 품목을 인식하지 못했습니다. 사진을 다시 촬영하거나 품목을 직접 입력해주세요.",
       settlementCreated: "정산이 생성되었습니다.",
       settlementCreateFail: "정산 생성 실패",
@@ -868,6 +886,15 @@ export const menu: Record<Language, Translation> = {
       receiptTotalMismatch: "自動入力の合計{recognizedTotal}とレシートの合計{receiptTotal}が異なります。抜けた品目・数量・割引を確認して修正してください。",
       receiptMismatchConfirm: "レシートの合計は{receiptTotal}、現在入力した品目の合計は{recognizedTotal}です。品目の抜け・割引・合計の認識誤りを確認しましたか？現在入力した{recognizedTotal}で保存しますか？",
       receiptCurrencyUnsupported: "現在の精算は韓国ウォンのレシートのみ対応しています。円など他の通貨の金額は自動入力しません。",
+      receiptJapanesePreview: "日本のレシート読み取り結果",
+      receiptJapaneseNotice: "円の読み取り結果は確認専用です。入力済みのウォンの品目は変更しません。",
+      receiptJapaneseReadOnly: "ウォンの精算への自動入力・保存は行いません。",
+      receiptJapaneseNoItems: "読み取れた商品がありません。写真を撮り直してご確認ください。",
+      receiptJapaneseDifference: "品目の合計と支払合計が異なります。税金・割引・抜けた品目を確認してください。",
+      receiptUnitPrice: "単価",
+      receiptItemSum: "品目の合計",
+      receiptPaymentTotal: "レシートの支払合計",
+      receiptAmountUnknown: "未認識",
       receiptNoItems: "レシートから品目を読み取れませんでした。撮り直すか、品目を直接入力してください。",
       settlementCreated: "割り勘が作成されました。",
       settlementCreateFail: "割り勘の作成に失敗しました。",

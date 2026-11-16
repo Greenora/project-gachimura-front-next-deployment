@@ -51,6 +51,11 @@ interface Member {
   profileImage?: string;
 }
 
+interface JapaneseReceipt {
+  items: { name: string; price: number; quantity: number }[];
+  totalPrice: number | null;
+}
+
 interface SettlementClientProps {
   partyId: number;
   initialSettlement: Settlement | null;
@@ -103,6 +108,7 @@ export default function SettlementClient({
   const [scanLoading, setScanLoading] = useState(false);
   const [receiptFeedback, setReceiptFeedback] = useState<string | null>(null);
   const [receiptTotal, setReceiptTotal] = useState<number | null>(null);
+  const [japaneseReceipt, setJapaneseReceipt] = useState<JapaneseReceipt | null>(null);
   const [partyData, setPartyData] = useState<PartyInfo | null>(partyInfo);
   const [isPageReady, setIsPageReady] = useState(false);
   const [sessionActive, setSessionActive] = useState(true);
@@ -131,6 +137,7 @@ export default function SettlementClient({
       mutationLockRef.current = true;
       setSessionActive(false);
       setLoading(true);
+      setJapaneseReceipt(null);
     };
     window.addEventListener(USER_CHANGED_EVENT, onSessionChanged);
     return () => {
@@ -207,6 +214,7 @@ export default function SettlementClient({
     if (next && !Array.isArray(next.items)) next = { ...next, items: [] };
     const changed = snapshotRef.current.id !== next?.id;
     const phaseChanged = snapshotRef.current.status !== next?.status;
+    if (changed || next?.status !== "DRAFT" || phaseChanged) setJapaneseReceipt(null);
     if (changed || next?.status !== "DRAFT" || phaseChanged) setReceiptTotal(null);
     if (changed || next?.status !== "SELECTING") selectionDirtyRef.current = false;
     const saved = selectionIds(next, currentUser.id);
@@ -532,6 +540,25 @@ export default function SettlementClient({
 
         if (!isCurrent(version)) return;
 
+        if (result.currency === "JPY") {
+          const validItems = Array.isArray(result.items) && result.items.every(item => item && typeof item.name === "string"
+            && item.name.trim() && Number.isSafeInteger(item.price) && item.price >= 0
+            && Number.isSafeInteger(item.quantity) && item.quantity > 0 && Number.isSafeInteger(item.price * item.quantity));
+          const itemSum = validItems ? result.items.reduce((sum, item) => sum + item.price * item.quantity, 0) : NaN;
+          if (!validItems || !Number.isSafeInteger(itemSum)) {
+            setReceiptFeedback(settlementTexts.receiptNoItems);
+            toast.error(settlementTexts.receiptNoItems);
+            return;
+          }
+          setJapaneseReceipt({
+            items: result.items,
+            totalPrice: typeof result.totalPrice === "number" && Number.isSafeInteger(result.totalPrice) && result.totalPrice >= 0 ? result.totalPrice : null,
+          });
+          setReceiptFeedback(settlementTexts.receiptJapaneseNotice);
+          toast(settlementTexts.receiptJapaneseNotice);
+          return;
+        }
+
         if (result.currency && result.currency !== "KRW") {
           setReceiptFeedback(settlementTexts.receiptCurrencyUnsupported);
           toast.error(settlementTexts.receiptCurrencyUnsupported);
@@ -539,6 +566,7 @@ export default function SettlementClient({
         }
 
         if (result.items && result.items.length > 0) {
+          setJapaneseReceipt(null);
           itemsDirtyRef.current = true;
           setEditItems(result.items);
           const recognizedTotal = result.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -673,6 +701,33 @@ export default function SettlementClient({
             </div>
           )}
           {visibleReceiptFeedback && <p role="status" className="mt-3 break-words text-sm text-gray-700">{visibleReceiptFeedback}</p>}
+          {japaneseReceipt && (
+            <details className="mt-4 border-t border-gray-100 pt-3">
+              <summary className="min-h-11 cursor-pointer text-sm font-bold text-gray-800">
+                {settlementTexts.receiptJapanesePreview} · {japaneseReceipt.items.length}{settlementTexts.quantitySuffix}
+              </summary>
+              <p className="mt-2 text-xs text-gray-500">{settlementTexts.receiptJapaneseReadOnly}</p>
+              {japaneseReceipt.items.length === 0 && <p className="mt-3 text-sm text-gray-700">{settlementTexts.receiptJapaneseNoItems}</p>}
+              <ul className="mt-3 divide-y divide-gray-100">
+                {japaneseReceipt.items.map((item, index) => (
+                  <li key={index} className="py-3">
+                    <p className="break-words text-sm font-bold text-gray-900">{item.name}</p>
+                    <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2 text-xs text-gray-600">
+                      <span>{settlementTexts.quantity} {item.quantity} · {settlementTexts.receiptUnitPrice} ¥{item.price.toLocaleString("ja-JP")}</span>
+                      <span className="text-sm font-semibold text-gray-900">¥{(item.price * item.quantity).toLocaleString("ja-JP")}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <dl className="mt-2 space-y-2 border-t border-gray-200 pt-3 text-sm">
+                <div className="flex flex-wrap justify-between gap-2"><dt>{settlementTexts.receiptItemSum}</dt><dd>¥{japaneseReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0).toLocaleString("ja-JP")}</dd></div>
+                <div className="flex flex-wrap justify-between gap-2 font-bold"><dt>{settlementTexts.receiptPaymentTotal}</dt><dd>{japaneseReceipt.totalPrice === null ? settlementTexts.receiptAmountUnknown : `¥${japaneseReceipt.totalPrice.toLocaleString("ja-JP")}`}</dd></div>
+              </dl>
+              {japaneseReceipt.totalPrice !== null && japaneseReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0) !== japaneseReceipt.totalPrice && (
+                <p className="mt-3 text-xs text-gray-600">{settlementTexts.receiptJapaneseDifference}</p>
+              )}
+            </details>
+          )}
         </div>
       )}
 
