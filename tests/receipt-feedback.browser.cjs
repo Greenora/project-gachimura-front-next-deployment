@@ -192,13 +192,13 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       const cancelMismatch = async button => {
         const beforeSaves = state.saves;
         const beforeStarts = state.starts;
-        page.once('dialog', dialog => {
+        const dismissed = page.waitForEvent('dialog').then(async dialog => {
           assert.equal(dialog.type(), 'confirm');
           assert.ok(dialog.message().includes('₩10,000'));
-          dialog.dismiss();
+          await dialog.dismiss();
         });
         await page.mouse.move(0, 0);
-        await button.click();
+        await Promise.all([dismissed, button.click()]);
         await page.waitForTimeout(100);
         assert.equal(state.saves, beforeSaves, 'cancelled mismatch must not save');
         assert.equal(state.starts, beforeStarts, 'cancelled mismatch must not start');
@@ -216,8 +216,15 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
 
       await page.getByRole('button', { name: texts.addItem, exact: true }).click();
       await page.getByRole('spinbutton', { name: locale.price, exact: true }).nth(1).fill('2000');
-      await cancelMismatch(save);
-      assert.equal(state.saves, 0, 'an unnamed row cannot hide a mismatch in the items that would be saved');
+      let invalidDialogs = 0;
+      const unexpectedInvalidDialog = async dialog => { invalidDialogs++; await dialog.dismiss(); };
+      page.on('dialog', unexpectedInvalidDialog);
+      try {
+        await save.click();
+        await page.locator('[data-rht-toaster]').getByText(isKorean ? /^품목명·단가·수량을 확인해주세요/ : /^商品名・単価・数量をご確認ください/).last().waitFor();
+        assert.equal(invalidDialogs, 0, 'an incomplete row is rejected before the amount confirmation');
+        assert.equal(state.saves, 0, 'an incomplete row must not be silently dropped from the saved items');
+      } finally { page.off('dialog', unexpectedInvalidDialog); }
       await page.getByRole('button', { name: `${texts.removeItem}: 2`, exact: true }).click();
 
       state.upload = 'unavailable';

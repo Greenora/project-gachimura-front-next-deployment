@@ -42,4 +42,8 @@ export async function clearPushSubscription(): Promise<void> {
   } catch {
     if (!locallyRevoked) throw new Error("PUSH_UNSUBSCRIBE_FAILED");
   }
+  // A surviving browser subscription would be registered again on the next focus.
+  if (!locallyRevoked && await withPushTimeout(registration.pushManager.getSubscription(), 2500)) {
+    throw new Error("PUSH_UNSUBSCRIBE_FAILED");
+  }
 }

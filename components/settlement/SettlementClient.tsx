@@ -12,6 +12,9 @@ import { getSettlementAmounts, formatSettlementMoney } from "@/app/lib/settlemen
 import { Language } from "@/app/common/types";
 import toast from "react-hot-toast";
 
+// 정산 금액을 저장하는 DB INT 범위에 맞춥니다.
+const MAX_SETTLEMENT_AMOUNT = 2_147_483_647;
+
 interface SettlementItem {
   id: number;
   name: string;
@@ -89,12 +92,14 @@ export default function SettlementClient({
     amountPending: "금액 정보를 확인 중입니다.", noTransfer: "송금 없음", hostOnly: "본인 부담 · 송금 없음",
     transferGuide: "채팅방에 공유된 정산 안내를 확인해주세요. 실제 송금은 은행 앱에서 진행하고 방장이 입금을 확인합니다.",
     refreshFailed: "저장은 완료됐지만 최신 상태를 불러오지 못했어요. 잠시 후 다시 확인할게요.",
+    invalidItems: "품목명·단가·수량을 확인해주세요. 단가는 0 이상, 수량은 1 이상의 정수이며 총액은 2,147,483,647원 이하여야 합니다.",
   } : {
     saveFirst: "自分の選択を先に保存してください。", missing: "選択した人がいない品目が{count}件あります。",
     noneSelected: "まだ誰も選択していません", hostShare: "自分の負担額", myShare: "自分の確定金額",
     amountPending: "金額を確認しています。", noTransfer: "送金不要", hostOnly: "自分の負担・送金不要",
     transferGuide: "チャットに共有された支払案内をご確認ください。送金は銀行アプリで行い、ホストが入金を確認します。",
     refreshFailed: "保存は完了しましたが最新の状態を取得できませんでした。しばらくしてから再確認します。",
+    invalidItems: "商品名・単価・数量をご確認ください。単価は0以上、数量は1以上の整数、合計は2,147,483,647ウォン以下で入力してください。",
   };
 
   const [settlement, setSettlement] = useState<Settlement | null>(initialSettlement);
@@ -284,7 +289,7 @@ export default function SettlementClient({
         } else {
           updated[index] = {
             ...updated[index],
-            [field]: parseInt(value, 10) || 0,
+            [field]: Number(value),
           };
         }
         return updated;
@@ -296,9 +301,17 @@ export default function SettlementClient({
   // 품목 저장
   const handleSaveItems = useCallback(async (showSuccessToast = true) => {
     if (!settlement) return;
-    const validItems = editItems.filter((i) => i.name.trim() && i.price > 0);
+    const validItems = editItems.filter((i) => i.id !== undefined || i.name.trim() || i.price !== 0 || i.quantity !== 1);
     if (validItems.length === 0) {
       toast.error(settlementTexts.minItemRequired);
+      return false;
+    }
+    const total = validItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    if (validItems.some(item => !item.name.trim()
+      || !Number.isSafeInteger(item.price) || item.price < 0
+      || !Number.isSafeInteger(item.quantity) || item.quantity < 1)
+      || !Number.isSafeInteger(total) || total > MAX_SETTLEMENT_AMOUNT) {
+      toast.error(copy.invalidItems);
       return false;
     }
     if (receiptMismatch && receiptTotal !== null && !confirm(settlementTexts.receiptMismatchConfirm
@@ -328,7 +341,7 @@ export default function SettlementClient({
     } finally {
       endMutation(version);
     }
-  }, [settlement, editItems, settlementTexts, receiptMismatch, receiptTotal, savedItemsTotal, formatMoney, beginMutation, endMutation, isCurrent, applySnapshot]);
+  }, [settlement, editItems, settlementTexts, copy.invalidItems, receiptMismatch, receiptTotal, savedItemsTotal, formatMoney, beginMutation, endMutation, isCurrent, applySnapshot]);
 
   // 정산 시작하기 (DRAFT → SELECTING)
   const handleStartSelecting = useCallback(async () => {
