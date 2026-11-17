@@ -7,15 +7,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import ChatList, { JoinedParty } from "@/components/chat/ChatList";
 import { useUser } from "@/app/hooks/UserContext";
 import { useVisiblePolling } from "@/app/hooks/useVisiblePolling";
+import { useChatNotifications } from "@/app/hooks/ChatNotifications";
 
 export default function ChatListButton() {
-  const { texts } = useLanguage();
+  const { texts, lang } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState<JoinedParty[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [request, setRequest] = useState(0);
   const { user } = useUser();
+  const { unreadCount } = useChatNotifications();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,6 +88,7 @@ export default function ChatListButton() {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={isOpen ? "rotate-12" : ""} aria-hidden="true">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
+          {unreadCount > 0 && <span aria-label={lang === "japanese" ? `このタブの新着チャット${unreadCount > 99 ? "99件以上" : `${unreadCount}件`}` : `이 탭의 새 채팅 ${unreadCount > 99 ? "99개 이상" : `${unreadCount}개`}`} className="absolute -right-4 -top-3 min-w-5 rounded-full bg-red-600 px-1 text-center text-[11px] leading-5 text-white">{unreadCount > 99 ? "99+" : unreadCount}</span>}
         </div>
       </button>
     </div>

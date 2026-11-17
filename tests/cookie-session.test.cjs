@@ -55,6 +55,21 @@ test('incorrect login does not refresh', async () => {
   assert.equal(calls, 1);
 });
 
+test('API errors retain the receipt currency code without copying provider details', async () => {
+  const { request } = client(async () => Response.json({
+    message: 'Unsupported receipt currency', code: 'OCR_CURRENCY_UNSUPPORTED',
+    providerDetail: 'PRIVATE_PROVIDER_DETAIL',
+  }, { status: 422 }));
+  await assert.rejects(request('/settlements/upload-receipt'), error =>
+    error.status === 422 && error.code === 'OCR_CURRENCY_UNSUPPORTED'
+      && error.providerDetail === undefined);
+  const malformed = client(async () => Response.json({ message: 'Invalid', code: { unsafe: true } }, { status: 422 }));
+  await assert.rejects(malformed.request('/settlements/upload-receipt'), error =>
+    error.status === 422 && error.code === undefined);
+  const unknown = client(async () => Response.json({ message: 'Invalid', code: 'PRIVATE_PROVIDER_DETAIL' }, { status: 422 }));
+  await assert.rejects(unknown.request('/settlements/upload-receipt'), error => error.code === undefined);
+});
+
 test('authentication succeeds only after the browser cookie authenticates a profile', async t => {
   for (const path of ['/auth/login', '/auth/kakao', '/auth/line']) {
     await t.test(path, async () => {

@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import { useUser } from "@/app/hooks/UserContext";
+import { useChatNotifications } from "@/app/hooks/ChatNotifications";
 
 export default function MobileNavigation() {
   const pathname = usePathname();
   const { lang } = useLanguage();
   const { user, loading } = useUser();
+  const { unreadCount } = useChatNotifications();
   const userId = user?.id;
   const hideNavigation = pathname.startsWith("/chat/") || pathname.startsWith("/settlement/");
 
@@ -33,9 +35,12 @@ export default function MobileNavigation() {
         {links.map(link => {
           const className = `flex h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700 ${link.active ? "text-green-700 bg-green-50" : "text-gray-600"}`;
           const content = <>
+            <span className="relative">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d={link.icon} />
             </svg>
+            {link.href === "/chats" && unreadCount > 0 && <span aria-label={isJapanese ? `このタブの新着チャット${unreadCount > 99 ? "99件以上" : `${unreadCount}件`}` : `이 탭의 새 채팅 ${unreadCount > 99 ? "99개 이상" : `${unreadCount}개`}`} className="absolute -right-3 -top-2 min-w-4 rounded-full bg-red-600 px-1 text-center text-[10px] leading-4 text-white">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+            </span>
             <span className="truncate max-w-full">{link.label}</span>
           </>;
           return link.pending ? (

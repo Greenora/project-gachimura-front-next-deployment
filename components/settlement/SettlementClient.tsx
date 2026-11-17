@@ -102,6 +102,7 @@ export default function SettlementClient({
   const [loading, setLoading] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [receiptFeedback, setReceiptFeedback] = useState<string | null>(null);
+  const [receiptTotal, setReceiptTotal] = useState<number | null>(null);
   const [partyData, setPartyData] = useState<PartyInfo | null>(partyInfo);
   const [isPageReady, setIsPageReady] = useState(false);
   const [sessionActive, setSessionActive] = useState(true);
@@ -192,11 +193,17 @@ export default function SettlementClient({
 
   const [selectedItemIds, setSelectedItemIds] = useState<number[]>(() => selectionIds(initialSettlement, currentUser.id));
   const selectionRef = React.useRef(selectedItemIds);
+  const savedItemsTotal = editItems.filter(item => item.name.trim() && item.price > 0)
+    .reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const receiptMismatch = receiptTotal !== null && savedItemsTotal !== receiptTotal;
+  const visibleReceiptFeedback = receiptMismatch && receiptFeedback === settlementTexts.receiptReview
+    ? null : receiptFeedback;
 
   const applySnapshot = useCallback((next: Settlement | null, nextPayments?: Payment[]) => {
     if (next && !Array.isArray(next.items)) next = { ...next, items: [] };
     const changed = snapshotRef.current.id !== next?.id;
     const phaseChanged = snapshotRef.current.status !== next?.status;
+    if (changed || next?.status !== "DRAFT" || phaseChanged) setReceiptTotal(null);
     if (changed || next?.status !== "SELECTING") selectionDirtyRef.current = false;
     const saved = selectionIds(next, currentUser.id);
     const selected = selectionDirtyRef.current
@@ -294,6 +301,9 @@ export default function SettlementClient({
       toast.error(settlementTexts.minItemRequired);
       return false;
     }
+    if (receiptMismatch && receiptTotal !== null && !confirm(settlementTexts.receiptMismatchConfirm
+      .replaceAll("{recognizedTotal}", formatMoney(savedItemsTotal))
+      .replace("{receiptTotal}", formatMoney(receiptTotal)))) return false;
     const version = beginMutation();
     if (version === null) return false;
     try {
@@ -305,6 +315,7 @@ export default function SettlementClient({
         }
       );
       if (!isCurrent(version)) return false;
+      setReceiptTotal(null);
       itemsDirtyRef.current = false;
       applySnapshot(result);
       if (showSuccessToast) {
@@ -317,7 +328,7 @@ export default function SettlementClient({
     } finally {
       endMutation(version);
     }
-  }, [settlement, editItems, settlementTexts, beginMutation, endMutation, isCurrent, applySnapshot]);
+  }, [settlement, editItems, settlementTexts, receiptMismatch, receiptTotal, savedItemsTotal, formatMoney, beginMutation, endMutation, isCurrent, applySnapshot]);
 
   // 정산 시작하기 (DRAFT → SELECTING)
   const handleStartSelecting = useCallback(async () => {
@@ -509,6 +520,7 @@ export default function SettlementClient({
           storeName: string | null;
           items: { name: string; price: number; quantity: number }[];
           totalPrice: number | null;
+          currency?: string;
         }>("/settlements/upload-receipt", {
           method: "POST",
           body: formData,
@@ -516,17 +528,24 @@ export default function SettlementClient({
 
         if (!isCurrent(version)) return;
 
+        if (result.currency && result.currency !== "KRW") {
+          setReceiptFeedback(settlementTexts.receiptCurrencyUnsupported);
+          toast.error(settlementTexts.receiptCurrencyUnsupported);
+          return;
+        }
+
         if (result.items && result.items.length > 0) {
           itemsDirtyRef.current = true;
           setEditItems(result.items);
           const recognizedTotal = result.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-          const receiptTotal = result.totalPrice;
-          const mismatch = typeof receiptTotal === "number" && Number.isSafeInteger(receiptTotal) && receiptTotal >= 0
-            && Number.isSafeInteger(recognizedTotal) && recognizedTotal >= 0 && recognizedTotal !== receiptTotal;
+          const nextReceiptTotal = typeof result.totalPrice === "number" && Number.isSafeInteger(result.totalPrice) && result.totalPrice > 0
+            ? result.totalPrice : null;
+          setReceiptTotal(nextReceiptTotal);
+          const mismatch = nextReceiptTotal !== null && recognizedTotal !== nextReceiptTotal;
           const feedback = mismatch
-            ? settlementTexts.receiptTotalMismatch.replace("{recognizedTotal}", formatMoney(recognizedTotal)).replace("{receiptTotal}", formatMoney(receiptTotal))
+            ? settlementTexts.receiptTotalMismatch.replace("{recognizedTotal}", formatMoney(recognizedTotal)).replace("{receiptTotal}", formatMoney(nextReceiptTotal))
             : settlementTexts.receiptReview;
-          setReceiptFeedback(feedback);
+          setReceiptFeedback(settlementTexts.receiptReview);
           if (mismatch) toast(feedback);
           else toast.success(settlementTexts.receiptRecognized.replace("{count}", String(result.items.length)));
         } else {
@@ -535,7 +554,9 @@ export default function SettlementClient({
         }
       } catch (err) {
         if (!isCurrent(version)) return;
-        const message = err instanceof Error ? err.message : settlementTexts.uploadFail;
+        const message = err && typeof err === "object" && "code" in err && err.code === "OCR_CURRENCY_UNSUPPORTED"
+          ? settlementTexts.receiptCurrencyUnsupported
+          : settlementTexts.receiptUnavailable;
         setReceiptFeedback(message);
         toast.error(message);
       } finally {
@@ -592,7 +613,7 @@ export default function SettlementClient({
     >
       {/* 제목 */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-black text-gray-900">{texts.chat.settle}</h1>
+        <h1 className="text-2xl font-black text-gray-900">{settlementTexts.title}</h1>
         <button
           onClick={() => router.push(`/chat/${partyId}`)}
           className="min-h-11 px-4 py-2 rounded-full text-sm font-bold text-[#33612E] border border-[#33612E] hover:bg-[#33612E]/5 transition-all"
@@ -615,7 +636,7 @@ export default function SettlementClient({
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
           <p className="text-sm font-bold text-amber-900">
             {lang === Language.japanese
-              ? "割り勘の代金を受け取る口座をプロフィールに登録してください。"
+              ? "精算代金の振込先をプロフィールに登録してください。"
               : "정산금을 받을 계좌를 프로필에 등록해주세요."}
           </p>
           <button
@@ -647,7 +668,29 @@ export default function SettlementClient({
               <p>{settlementTexts.receiptScanning} {settlementTexts.pleaseWait}</p>
             </div>
           )}
-          {receiptFeedback && <p role="status" className="mt-3 break-words text-sm text-gray-700">{receiptFeedback}</p>}
+          {visibleReceiptFeedback && <p role="status" className="mt-3 break-words text-sm text-gray-700">{visibleReceiptFeedback}</p>}
+          {receiptMismatch && receiptTotal !== null && (
+            <div role="status" aria-label={settlementTexts.receiptTotalCheckTitle} className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-gray-700">
+              <p className="flex items-center gap-2 text-sm font-bold text-red-700">
+                <svg aria-hidden="true" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 3 2 21h20L12 3Z" />
+                  <path d="M12 9v5m0 3v1" />
+                </svg>
+                {settlementTexts.receiptTotalCheckTitle}
+              </p>
+              <dl className="my-3 grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="break-words text-xs">{settlementTexts.receiptItemSum}</dt>
+                  <dd className="mt-1 break-all text-lg font-bold tabular-nums text-red-700">{formatMoney(savedItemsTotal)}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-xs">{settlementTexts.receiptPaymentTotal}</dt>
+                  <dd className="mt-1 break-all text-lg font-bold tabular-nums text-red-700">{formatMoney(receiptTotal)}</dd>
+                </div>
+              </dl>
+              <p className="text-sm leading-relaxed">{settlementTexts.receiptTotalCheckHint}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -991,7 +1034,7 @@ export default function SettlementClient({
                 className="flex-1 py-3 rounded-full font-bold text-[#33612E] border-2 border-[#33612E] hover:bg-[#33612E]/5 transition-all"
               >
                 {settlement.status === "COMPLETED" && isHost
-                  ? (isKorean ? "채팅방에서 모임 종료·평가" : "チャットで集まり終了・評価")
+                  ? (isKorean ? "채팅방에서 모임 종료·평가" : "チャットで集まりを終了・評価する")
                   : settlementTexts.chatRoom}
               </button>
             </div>

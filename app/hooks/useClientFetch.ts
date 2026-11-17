@@ -85,7 +85,10 @@ export async function clientFetch<T = unknown>(url: string, options: FetchOption
         window.location.href = "/login";
       }
     }
-    throw Object.assign(new Error(result?.message || `Error: ${response.status}`), { status: response.status });
+    throw Object.assign(new Error(result?.message || `Error: ${response.status}`), {
+      status: response.status,
+      ...(result?.code === "OCR_CURRENCY_UNSUPPORTED" ? { code: result.code } : {}),
+    });
   }
 
   if (isLogin) {
