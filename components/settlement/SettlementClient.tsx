@@ -51,11 +51,6 @@ interface Member {
   profileImage?: string;
 }
 
-interface JapaneseReceipt {
-  items: { name: string; price: number; quantity: number }[];
-  totalPrice: number | null;
-}
-
 interface SettlementClientProps {
   partyId: number;
   initialSettlement: Settlement | null;
@@ -108,7 +103,6 @@ export default function SettlementClient({
   const [scanLoading, setScanLoading] = useState(false);
   const [receiptFeedback, setReceiptFeedback] = useState<string | null>(null);
   const [receiptTotal, setReceiptTotal] = useState<number | null>(null);
-  const [japaneseReceipt, setJapaneseReceipt] = useState<JapaneseReceipt | null>(null);
   const [partyData, setPartyData] = useState<PartyInfo | null>(partyInfo);
   const [isPageReady, setIsPageReady] = useState(false);
   const [sessionActive, setSessionActive] = useState(true);
@@ -137,7 +131,6 @@ export default function SettlementClient({
       mutationLockRef.current = true;
       setSessionActive(false);
       setLoading(true);
-      setJapaneseReceipt(null);
     };
     window.addEventListener(USER_CHANGED_EVENT, onSessionChanged);
     return () => {
@@ -203,18 +196,13 @@ export default function SettlementClient({
   const savedItemsTotal = editItems.filter(item => item.name.trim() && item.price > 0)
     .reduce((sum, item) => sum + item.price * item.quantity, 0);
   const receiptMismatch = receiptTotal !== null && savedItemsTotal !== receiptTotal;
-  const mismatchFeedback = receiptMismatch
-    ? settlementTexts.receiptTotalMismatch.replace("{recognizedTotal}", formatMoney(savedItemsTotal)).replace("{receiptTotal}", formatMoney(receiptTotal))
-    : null;
-  const visibleReceiptFeedback = mismatchFeedback
-    ? receiptFeedback && receiptFeedback !== settlementTexts.receiptReview ? `${receiptFeedback} ${mismatchFeedback}` : mismatchFeedback
-    : receiptFeedback;
+  const visibleReceiptFeedback = receiptMismatch && receiptFeedback === settlementTexts.receiptReview
+    ? null : receiptFeedback;
 
   const applySnapshot = useCallback((next: Settlement | null, nextPayments?: Payment[]) => {
     if (next && !Array.isArray(next.items)) next = { ...next, items: [] };
     const changed = snapshotRef.current.id !== next?.id;
     const phaseChanged = snapshotRef.current.status !== next?.status;
-    if (changed || next?.status !== "DRAFT" || phaseChanged) setJapaneseReceipt(null);
     if (changed || next?.status !== "DRAFT" || phaseChanged) setReceiptTotal(null);
     if (changed || next?.status !== "SELECTING") selectionDirtyRef.current = false;
     const saved = selectionIds(next, currentUser.id);
@@ -540,25 +528,6 @@ export default function SettlementClient({
 
         if (!isCurrent(version)) return;
 
-        if (result.currency === "JPY") {
-          const validItems = Array.isArray(result.items) && result.items.every(item => item && typeof item.name === "string"
-            && item.name.trim() && Number.isSafeInteger(item.price) && item.price >= 0
-            && Number.isSafeInteger(item.quantity) && item.quantity > 0 && Number.isSafeInteger(item.price * item.quantity));
-          const itemSum = validItems ? result.items.reduce((sum, item) => sum + item.price * item.quantity, 0) : NaN;
-          if (!validItems || !Number.isSafeInteger(itemSum)) {
-            setReceiptFeedback(settlementTexts.receiptNoItems);
-            toast.error(settlementTexts.receiptNoItems);
-            return;
-          }
-          setJapaneseReceipt({
-            items: result.items,
-            totalPrice: typeof result.totalPrice === "number" && Number.isSafeInteger(result.totalPrice) && result.totalPrice >= 0 ? result.totalPrice : null,
-          });
-          setReceiptFeedback(settlementTexts.receiptJapaneseNotice);
-          toast(settlementTexts.receiptJapaneseNotice);
-          return;
-        }
-
         if (result.currency && result.currency !== "KRW") {
           setReceiptFeedback(settlementTexts.receiptCurrencyUnsupported);
           toast.error(settlementTexts.receiptCurrencyUnsupported);
@@ -566,7 +535,6 @@ export default function SettlementClient({
         }
 
         if (result.items && result.items.length > 0) {
-          setJapaneseReceipt(null);
           itemsDirtyRef.current = true;
           setEditItems(result.items);
           const recognizedTotal = result.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -588,7 +556,7 @@ export default function SettlementClient({
         if (!isCurrent(version)) return;
         const message = err && typeof err === "object" && "code" in err && err.code === "OCR_CURRENCY_UNSUPPORTED"
           ? settlementTexts.receiptCurrencyUnsupported
-          : err instanceof Error ? err.message : settlementTexts.uploadFail;
+          : settlementTexts.receiptUnavailable;
         setReceiptFeedback(message);
         toast.error(message);
       } finally {
@@ -645,7 +613,7 @@ export default function SettlementClient({
     >
       {/* 제목 */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-black text-gray-900">{texts.chat.settle}</h1>
+        <h1 className="text-2xl font-black text-gray-900">{settlementTexts.title}</h1>
         <button
           onClick={() => router.push(`/chat/${partyId}`)}
           className="min-h-11 px-4 py-2 rounded-full text-sm font-bold text-[#33612E] border border-[#33612E] hover:bg-[#33612E]/5 transition-all"
@@ -668,7 +636,7 @@ export default function SettlementClient({
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
           <p className="text-sm font-bold text-amber-900">
             {lang === Language.japanese
-              ? "割り勘の代金を受け取る口座をプロフィールに登録してください。"
+              ? "精算代金の振込先をプロフィールに登録してください。"
               : "정산금을 받을 계좌를 프로필에 등록해주세요."}
           </p>
           <button
@@ -701,32 +669,27 @@ export default function SettlementClient({
             </div>
           )}
           {visibleReceiptFeedback && <p role="status" className="mt-3 break-words text-sm text-gray-700">{visibleReceiptFeedback}</p>}
-          {japaneseReceipt && (
-            <details className="mt-4 border-t border-gray-100 pt-3">
-              <summary className="min-h-11 cursor-pointer text-sm font-bold text-gray-800">
-                {settlementTexts.receiptJapanesePreview} · {japaneseReceipt.items.length}{settlementTexts.quantitySuffix}
-              </summary>
-              <p className="mt-2 text-xs text-gray-500">{settlementTexts.receiptJapaneseReadOnly}</p>
-              {japaneseReceipt.items.length === 0 && <p className="mt-3 text-sm text-gray-700">{settlementTexts.receiptJapaneseNoItems}</p>}
-              <ul className="mt-3 divide-y divide-gray-100">
-                {japaneseReceipt.items.map((item, index) => (
-                  <li key={index} className="py-3">
-                    <p className="break-words text-sm font-bold text-gray-900">{item.name}</p>
-                    <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2 text-xs text-gray-600">
-                      <span>{settlementTexts.quantity} {item.quantity} · {settlementTexts.receiptUnitPrice} ¥{item.price.toLocaleString("ja-JP")}</span>
-                      <span className="text-sm font-semibold text-gray-900">¥{(item.price * item.quantity).toLocaleString("ja-JP")}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <dl className="mt-2 space-y-2 border-t border-gray-200 pt-3 text-sm">
-                <div className="flex flex-wrap justify-between gap-2"><dt>{settlementTexts.receiptItemSum}</dt><dd>¥{japaneseReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0).toLocaleString("ja-JP")}</dd></div>
-                <div className="flex flex-wrap justify-between gap-2 font-bold"><dt>{settlementTexts.receiptPaymentTotal}</dt><dd>{japaneseReceipt.totalPrice === null ? settlementTexts.receiptAmountUnknown : `¥${japaneseReceipt.totalPrice.toLocaleString("ja-JP")}`}</dd></div>
+          {receiptMismatch && receiptTotal !== null && (
+            <div role="status" aria-label={settlementTexts.receiptTotalCheckTitle} className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-gray-700">
+              <p className="flex items-center gap-2 text-sm font-bold text-red-700">
+                <svg aria-hidden="true" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 3 2 21h20L12 3Z" />
+                  <path d="M12 9v5m0 3v1" />
+                </svg>
+                {settlementTexts.receiptTotalCheckTitle}
+              </p>
+              <dl className="my-3 grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="break-words text-xs">{settlementTexts.receiptItemSum}</dt>
+                  <dd className="mt-1 break-all text-lg font-bold tabular-nums text-red-700">{formatMoney(savedItemsTotal)}</dd>
+                </div>
+                <div>
+                  <dt className="break-words text-xs">{settlementTexts.receiptPaymentTotal}</dt>
+                  <dd className="mt-1 break-all text-lg font-bold tabular-nums text-red-700">{formatMoney(receiptTotal)}</dd>
+                </div>
               </dl>
-              {japaneseReceipt.totalPrice !== null && japaneseReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0) !== japaneseReceipt.totalPrice && (
-                <p className="mt-3 text-xs text-gray-600">{settlementTexts.receiptJapaneseDifference}</p>
-              )}
-            </details>
+              <p className="text-sm leading-relaxed">{settlementTexts.receiptTotalCheckHint}</p>
+            </div>
           )}
         </div>
       )}
@@ -1071,7 +1034,7 @@ export default function SettlementClient({
                 className="flex-1 py-3 rounded-full font-bold text-[#33612E] border-2 border-[#33612E] hover:bg-[#33612E]/5 transition-all"
               >
                 {settlement.status === "COMPLETED" && isHost
-                  ? (isKorean ? "채팅방에서 모임 종료·평가" : "チャットで集まり終了・評価")
+                  ? (isKorean ? "채팅방에서 모임 종료·평가" : "チャットで集まりを終了・評価する")
                   : settlementTexts.chatRoom}
               </button>
             </div>

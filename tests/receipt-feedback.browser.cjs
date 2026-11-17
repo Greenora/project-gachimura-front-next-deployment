@@ -3,8 +3,18 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createServer } = require('node:http');
-const { mkdirSync } = require('node:fs');
+const { mkdirSync, readFileSync } = require('node:fs');
+const vm = require('node:vm');
+const ts = require('typescript');
 const { chromium } = require('playwright');
+
+function loadTypeScript(file, dependencies = {}) {
+  const source = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  const context = { exports: {}, require: name => dependencies[name] };
+  vm.runInNewContext(source, context);
+  return context.exports;
+}
+const { menu } = loadTypeScript('app/constants/menu.ts', { '../common/types': loadTypeScript('app/common/types.ts') });
 
 test('receipt failures and empty recognition preserve drafts, and a successful retry fills items', { timeout: 120000 }, async () => {
   const base = process.env.TEST_FRONTEND_URL || 'http://localhost:3101';
@@ -41,7 +51,7 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       const totalPrice = state.upload === 'partial' ? 10000
         : state.upload === 'unknown-total' ? null
           : state.upload === 'unsafe-total' ? Number.MAX_SAFE_INTEGER + 1 : 8000;
-      return { json: { items: [{ name: '예시 상품', quantity: 2, price: 4000 }], storeName: '테스트 매장', totalPrice } };
+      return { json: { items: [{ name: state.itemName || '예시 상품', quantity: 2, price: 4000 }], storeName: party.location.name, totalPrice } };
     }
     return { json: [] };
   };
@@ -54,10 +64,17 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
   let browser;
   try {
     browser = await chromium.launch();
-    for (const locale of [
-      { language: 'korean', name: '품목명', quantity: '수량', price: '가격 (원)', empty: '영수증에서 품목을 인식하지 못했습니다. 사진을 다시 촬영하거나 품목을 직접 입력해주세요.', success: '영수증 인식 완료! 1개 품목이 자동 입력되었습니다.', review: '자동 입력된 품목·수량·금액을 영수증과 확인한 뒤 저장해주세요.', mismatch: '자동 입력 합계 ₩8,000, 영수증 합계 ₩10,000로 서로 달라요. 빠진 품목·수량·할인을 확인한 뒤 수정해주세요.' },
-      { language: 'japanese', name: '品名', quantity: '数量', price: '価格 (ウォン)', empty: 'レシートから品目を読み取れませんでした。撮り直すか、品目を直接入力してください。', success: 'レシート認識完了！1件の品目が自動入力されました。', review: '自動入力された品目・数量・金額をレシートと確認してから保存してください。', mismatch: '自動入力の合計₩8,000とレシートの合計₩10,000が異なります。抜けた品目・数量・割引を確認して修正してください。' },
-    ]) {
+    for (const language of ['korean', 'japanese']) {
+      const itemName = language === 'japanese' ? 'サンプル商品' : '예시 상품';
+      state.itemName = itemName;
+      party.title = language === 'japanese' ? '一緒に買い物' : '함께 장보기';
+      party.location.name = language === 'japanese' ? 'サンプル店舗' : '테스트 매장';
+      const texts = menu[language].settlement;
+      const locale = {
+        language, name: texts.itemName, quantity: texts.quantity,
+        price: `${texts.price} (${language === 'korean' ? '원' : 'ウォン'})`,
+        empty: texts.receiptNoItems, success: texts.receiptRecognized.replace('{count}', '1'), review: texts.receiptReview,
+      };
       state.upload = 'unavailable';
       state.settlement = settlement;
       state.saves = 0;
@@ -76,6 +93,9 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
         return route.fulfill({ status: response.status || 200, json: response.json });
       });
       await page.goto(base + '/settlement/1');
+      const screen = page.locator('div.max-w-2xl');
+      const feedback = screen.locator('[role=status], [role=alert]');
+      await screen.getByRole('heading', { level: 1, name: texts.title, exact: true }).waitFor();
       const name = page.getByRole('textbox', { name: locale.name, exact: true });
       const quantity = page.getByRole('spinbutton', { name: locale.quantity, exact: true });
       const price = page.getByRole('spinbutton', { name: locale.price, exact: true });
@@ -85,15 +105,9 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       const album = page.locator('input[type=file]:not([capture])');
       const image = { name: 'receipt.png', mimeType: 'image/png', buffer: Buffer.from('fixture receipt') };
       const isKorean = locale.language === 'korean';
-      const save = page.getByRole('button', { name: isKorean ? '품목 저장' : '品目を保存', exact: true });
-      const start = page.getByRole('button', { name: isKorean ? '정산 시작하기' : '割り勘を開始する', exact: true });
-      const foreignMessage = isKorean
-        ? '현재 정산은 원화 영수증만 지원합니다. 엔화 등 다른 통화의 금액은 자동 입력하지 않습니다.'
-        : '現在の精算は韓国ウォンのレシートのみ対応しています。円など他の通貨の金額は自動入力しません。';
-      const japaneseTitle = isKorean ? '일본 영수증 인식 결과' : '日本のレシート読み取り結果';
-      const japaneseNotice = isKorean
-        ? '엔화 인식 결과는 보기 전용입니다. 기존 원화 품목은 그대로 유지됩니다.'
-        : '円の読み取り結果は確認専用です。入力済みのウォンの品目は変更しません。';
+      const save = page.getByRole('button', { name: texts.saveItems, exact: true });
+      const start = page.getByRole('button', { name: texts.startSettlement, exact: true });
+      const foreignMessage = texts.receiptCurrencyUnsupported;
       const hasSuccessIcon = () => page.locator('[data-rht-toaster]').evaluate(element =>
         [...element.querySelectorAll('*')].some(child => getComputedStyle(child).backgroundColor === 'rgb(97, 211, 69)'));
       const unchanged = async () => {
@@ -103,104 +117,75 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       };
 
       await album.setInputFiles(image);
-      await page.locator('p[role=status]').filter({ hasText: 'Receipt service is unavailable' }).waitFor();
+      await feedback.filter({ hasText: texts.receiptUnavailable }).waitFor();
+      assert.equal(await page.getByText('Receipt service is unavailable', { exact: true }).count(), 0, 'provider failures use the selected UI language');
       await unchanged();
       assert.equal(await hasSuccessIcon(), false, 'an unavailable OCR service must not show success');
 
-      for (const upload of ['foreign-error', 'foreign-success']) {
+      for (const upload of ['foreign-error', 'foreign-success', 'japanese', 'invalid-japanese', 'empty-japanese']) {
         state.upload = upload;
         await album.setInputFiles(image);
-        await page.locator('p[role=status]').getByText(foreignMessage, { exact: true }).waitFor();
+        await feedback.filter({ hasText: foreignMessage }).waitFor();
         await unchanged();
+        assert.equal(await hasSuccessIcon(), false, 'unsupported currency must not show a success icon');
         assert.equal(await page.getByText('BACKEND_KOREAN_MESSAGE_MUST_BE_TRANSLATED', { exact: true }).count(), 0);
+        assert.equal(await screen.locator('details').count(), 0, 'foreign receipts must not create a separate preview');
+        assert.equal(await page.getByText('おにぎり', { exact: true }).count(), 0);
+        assert.equal(await page.getByText('Invalid JPY item', { exact: true }).count(), 0);
+        assert.equal(state.saves, 0);
+        assert.equal(state.starts, 0);
       }
-
-      state.upload = 'japanese';
-      await album.setInputFiles(image);
-      await page.locator('p[role=status]').getByText(japaneseNotice, { exact: true }).waitFor();
-      await unchanged();
-      const japanesePreview = page.locator('details').filter({ has: page.locator('summary', { hasText: japaneseTitle }) });
-      assert.equal(await japanesePreview.getAttribute('open'), null, 'long Japanese results start collapsed');
-      await japanesePreview.locator('summary').click();
-      await japanesePreview.getByText('おにぎり', { exact: true }).waitFor();
-      await japanesePreview.getByText('お茶', { exact: true }).waitFor();
-      assert.equal(await japanesePreview.locator('input,button').count(), 0, 'Japanese preview has no editing or import action');
-      assert.equal(await japanesePreview.getByText('¥320', { exact: true }).count(), 1);
-      assert.equal(await japanesePreview.getByText('¥440', { exact: true }).count(), 1);
-      assert.equal(await japanesePreview.getByText('¥475', { exact: true }).count(), 1);
-      assert.equal(state.saves, 0);
-      assert.equal(state.starts, 0);
-      await page.setViewportSize({ width: 320, height: 844 });
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Japanese preview fits a narrow mobile screen');
-      if (isKorean && process.env.TEST_SCREENSHOT_DIR) {
-        await page.waitForTimeout(6000);
-        mkdirSync(process.env.TEST_SCREENSHOT_DIR, { recursive: true });
-        for (const [size, width] of [['mobile', 390], ['desktop', 1280]]) {
-          await page.setViewportSize({ width, height: 1400 });
-          await page.evaluate(() => document.fonts.ready);
-          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-          await page.locator('div.max-w-2xl').screenshot({ path: `${process.env.TEST_SCREENSHOT_DIR}/preview-${size}.png`, animations: 'disabled' });
-        }
-      }
-      await page.setViewportSize({ width: 390, height: 844 });
 
       await page.mouse.move(0, 0);
       await save.click();
-      await page.waitForFunction(label => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === label && !button.disabled), isKorean ? '품목 저장' : '品目を保存');
+      await page.waitForFunction(label => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === label && !button.disabled), texts.saveItems);
       assert.equal(state.saves, 1);
       assert.deepEqual(state.savedItems.map(({ name, quantity, price }) => ({ name, quantity, price })), [
         { name: 'Keep edited item', quantity: 3, price: 2500 },
-      ], 'saving with a Japanese preview submits only the existing won draft');
+      ], 'saving after a rejected foreign receipt submits only the existing won draft');
       state.saves = 0;
       await page.mouse.move(0, 0);
       await page.waitForFunction(() => ![...document.querySelectorAll('[data-rht-toaster] *')].some(element => getComputedStyle(element).backgroundColor === 'rgb(97, 211, 69)'));
 
-      state.upload = 'invalid-japanese';
-      await album.setInputFiles(image);
-      await page.locator('p[role=status]').filter({ hasText: locale.empty }).waitFor();
-      await unchanged();
-      await japanesePreview.getByText('おにぎり', { exact: true }).waitFor();
-      assert.equal(await page.getByText('Invalid JPY item', { exact: true }).count(), 0);
-
       state.upload = 'empty';
       await album.setInputFiles(image);
-      await page.locator('p[role=status]').filter({ hasText: locale.empty }).waitFor();
+      await feedback.filter({ hasText: locale.empty }).waitFor();
       await unchanged();
       assert.equal(await hasSuccessIcon(), false, 'an empty recognition must not show a green success icon');
       assert.equal(await page.getByText('INTERNAL_PROVIDER_DETAIL_MUST_NOT_APPEAR', { exact: true }).count(), 0);
-      await japanesePreview.getByText('おにぎり', { exact: true }).waitFor();
-
-      state.upload = 'empty-japanese';
-      await album.setInputFiles(image);
-      await japanesePreview.getByText(isKorean ? '인식된 상품이 없습니다. 사진을 다시 촬영해 확인해주세요.' : '読み取れた商品がありません。写真を撮り直してご確認ください。', { exact: true }).waitFor();
-      await unchanged();
-      assert.equal(await japanesePreview.getByText('¥475', { exact: true }).count(), 1, 'known yen payment total survives empty recognition');
-      assert.equal(await japanesePreview.getByText('おにぎり', { exact: true }).count(), 0);
 
       state.upload = 'recognized';
       await album.setInputFiles(image);
-      await page.waitForFunction(label => document.querySelector(`input[placeholder="${label}"]`)?.value === '예시 상품', locale.name);
+      await page.waitForFunction(({ label, itemName }) => document.querySelector(`input[placeholder="${label}"]`)?.value === itemName, { label: locale.name, itemName });
       await page.locator('[data-rht-toaster]').getByText(locale.success, { exact: true }).waitFor();
       assert.equal(await quantity.inputValue(), '2');
       assert.equal(await price.inputValue(), '4000');
       assert.equal(await hasSuccessIcon(), true, 'recognized items should retain the existing success feedback');
-      await page.locator('p[role=status]').getByText(locale.review, { exact: true }).waitFor();
-      assert.equal(await page.locator('summary', { hasText: japaneseTitle }).count(), 0, 'a successful won receipt replaces the old Japanese preview');
+      await feedback.getByText(locale.review, { exact: true }).waitFor();
+      assert.equal(await screen.locator('details').count(), 0);
 
       state.upload = 'partial';
       await album.setInputFiles(image);
-      await page.locator('p[role=status]').getByText(locale.mismatch, { exact: true }).waitFor();
+      await feedback.filter({ hasText: '₩10,000' }).waitFor();
+      const totalCheck = screen.getByRole('status', { name: texts.receiptTotalCheckTitle });
+      await totalCheck.waitFor();
+      assert.deepEqual(await totalCheck.locator('dt').allTextContents(), [texts.receiptItemSum, texts.receiptPaymentTotal]);
+      assert.deepEqual(await totalCheck.locator('dd').allTextContents(), ['₩8,000', '₩10,000']);
+      await totalCheck.getByText(texts.receiptTotalCheckHint, { exact: true }).waitFor();
       assert.equal(await quantity.inputValue(), '2');
       assert.equal(await price.inputValue(), '4000', 'a receipt total mismatch must not rewrite a recognized price');
-      assert.equal(await page.getByText('₩8,000', { exact: true }).count(), 1, 'the editable item sum must stay unchanged');
-      if (isKorean) await page.waitForTimeout(6000);
+      assert.ok(await screen.getByText('₩8,000', { exact: true }).count() > 0, 'the editable item sum must stay unchanged');
+      await page.waitForTimeout(6000);
       for (const width of [320, 390, 1280]) {
         await page.setViewportSize({ width, height: 1000 });
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-        if (isKorean && width !== 320) {
+        if (width !== 320) {
           mkdirSync('.github/pr-previews', { recursive: true });
           await page.evaluate(() => document.fonts.ready);
-          await page.locator('div.max-w-2xl').screenshot({ path: `.github/pr-previews/implemented-receipt-guard-${width === 390 ? 'mobile' : 'desktop'}.png`, animations: 'disabled' });
+          const captureHeight = await screen.evaluate(element => Math.ceil(element.getBoundingClientRect().height + 160));
+          await page.setViewportSize({ width, height: captureHeight });
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await page.locator('div.max-w-2xl').screenshot({ path: `.github/pr-previews/implemented-receipt-guard-${isKorean ? '' : 'ja-'}${width === 390 ? 'mobile' : 'desktop'}.png`, animations: 'disabled' });
         }
       }
 
@@ -223,39 +208,39 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
 
       state.upload = 'japanese';
       await album.setInputFiles(image);
-      await page.locator('p[role=status]').filter({ hasText: japaneseNotice }).waitFor();
-      assert.equal(await name.inputValue(), '예시 상품');
+      await feedback.filter({ hasText: foreignMessage }).waitFor();
+      assert.equal(await name.inputValue(), itemName);
       assert.equal(await quantity.inputValue(), '2');
       assert.equal(await price.inputValue(), '4000');
       await cancelMismatch(save);
 
-      await page.getByRole('button', { name: isKorean ? '+ 품목 추가' : '+ 品目追加', exact: true }).click();
+      await page.getByRole('button', { name: texts.addItem, exact: true }).click();
       await page.getByRole('spinbutton', { name: locale.price, exact: true }).nth(1).fill('2000');
       await cancelMismatch(save);
       assert.equal(state.saves, 0, 'an unnamed row cannot hide a mismatch in the items that would be saved');
-      await page.getByRole('button', { name: isKorean ? '품목 삭제: 2' : '品目を削除: 2', exact: true }).click();
+      await page.getByRole('button', { name: `${texts.removeItem}: 2`, exact: true }).click();
 
       state.upload = 'unavailable';
       await album.setInputFiles(image);
-      await page.locator('p[role=status]').filter({ hasText: 'Receipt service is unavailable' }).waitFor();
+      await feedback.filter({ hasText: texts.receiptUnavailable }).waitFor();
       assert.equal(await price.inputValue(), '4000');
       await cancelMismatch(save);
 
       await price.fill('5000');
-      await page.waitForFunction(() => ![...document.querySelectorAll('p[role=status]')].some(p => p.textContent.includes('₩8,000')));
+      await page.waitForFunction(() => ![...document.querySelectorAll('div.max-w-2xl [role=status], div.max-w-2xl [role=alert]')].some(element => element.textContent.includes('₩8,000')));
       let dialogs = 0;
       const unexpectedDialog = dialog => { dialogs++; dialog.dismiss(); };
       page.on('dialog', unexpectedDialog);
       await page.mouse.move(0, 0);
       await save.click();
-      await page.waitForFunction(label => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === label && !button.disabled), isKorean ? '품목 저장' : '品目を保存');
+      await page.waitForFunction(label => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === label && !button.disabled), texts.saveItems);
       assert.equal(state.saves, 1, 'matching manual correction saves without a mismatch confirmation');
       assert.equal(dialogs, 0);
       page.off('dialog', unexpectedDialog);
 
       state.upload = 'partial';
       await album.setInputFiles(image);
-      await page.locator('p[role=status]').getByText(locale.mismatch, { exact: true }).waitFor();
+      await feedback.filter({ hasText: '₩10,000' }).waitFor();
       page.once('dialog', dialog => {
         assert.ok(dialog.message().includes('₩8,000'));
         dialog.accept();
@@ -269,14 +254,14 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       for (const upload of ['unknown-total', 'unsafe-total']) {
         state.upload = upload;
         await album.setInputFiles(image);
-        await page.locator('p[role=status]').getByText(locale.review, { exact: true }).waitFor();
+        await feedback.getByText(locale.review, { exact: true }).waitFor();
         assert.equal(await quantity.inputValue(), '2');
         assert.equal(await price.inputValue(), '4000');
       }
 
       state.upload = 'partial';
       await album.setInputFiles(image);
-      await page.locator('p[role=status]').getByText(locale.mismatch, { exact: true }).waitFor();
+      await feedback.filter({ hasText: '₩10,000' }).waitFor();
       let startDialogs = 0;
       page.once('dialog', dialog => { startDialogs++; dialog.accept(); });
       await page.mouse.move(0, 0);
@@ -290,9 +275,10 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       await page.reload();
       state.upload = 'japanese';
       await album.setInputFiles(image);
-      await page.locator('summary', { hasText: japaneseTitle }).waitFor();
+      await feedback.filter({ hasText: foreignMessage }).waitFor();
       await page.evaluate(() => window.dispatchEvent(new CustomEvent('gachimura:user-changed', { detail: { id: 1 } })));
-      assert.equal(await page.locator('summary', { hasText: japaneseTitle }).count(), 1, 'same-account updates keep the preview');
+      assert.equal(await screen.isVisible(), true, 'same-account updates keep the settlement visible');
+      assert.equal(await feedback.filter({ hasText: foreignMessage }).count(), 1);
 
       let releaseUpload;
       let markUploadPending;
@@ -311,12 +297,13 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       releaseUpload();
       await responseCompleted;
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
-      assert.equal(await page.locator('summary', { hasText: japaneseTitle }).count(), 0, 'a late upload cannot restore a preview after logout or an account change');
+      assert.equal(await feedback.filter({ hasText: foreignMessage }).count(), 0, 'a late foreign response cannot update feedback after logout or an account change');
+      assert.equal(await screen.locator('details').count(), 0);
       assert.equal(await page.locator('div.max-w-2xl').isVisible(), false, 'old-account settlement stays hidden');
       assert.deepEqual(pageErrors, []);
       await page.close();
     }
-    assert.equal(state.attempts, 34, 'each locale preserves won drafts, checks empty yen results and discards a late upload after logout');
+    assert.equal(state.attempts, 34, 'each locale rejects yen results, preserves won drafts and mismatch checks, and discards late uploads after session changes');
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

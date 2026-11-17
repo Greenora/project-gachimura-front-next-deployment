@@ -169,7 +169,7 @@ test('host and member settlement selections, confirmed amounts and payment updat
       return route.fulfill({ status: result.status || 200, json: result.json });
     });
     await page.goto(base + '/settlement/1');
-    await page.getByRole('heading', { name: language === 'japanese' ? '割り勘する' : '정산하기', exact: true }).first().waitFor();
+    await page.getByRole('heading', { name: language === 'japanese' ? '精算' : '정산하기', exact: true }).first().waitFor();
     await page.clock.runFor(50);
     return page;
   }
