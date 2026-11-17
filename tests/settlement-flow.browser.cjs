@@ -203,6 +203,8 @@ test('host and member settlement selections, confirmed amounts and payment updat
     await page.locator('[data-rht-toaster]').getByText('품목 선택이 완료되었습니다!', { exact: true }).last().waitFor();
   }
   async function holdNextSnapshot(page, userId) {
+    // Initial socket/poll effects can start another snapshot after the first response.
+    await page.waitForLoadState('networkidle');
     state.holdFor = userId;
     const observed = new Promise(resolve => { state.holdObserved = resolve; });
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
