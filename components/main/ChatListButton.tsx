@@ -1,28 +1,24 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { clientFetch } from "@/app/hooks/useClientFetch";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
-import { Language } from "@/app/common/types";
-
-interface JoinedParty { id: number; title: string; host?: { nickname: string; nickname_jp?: string } }
+import ChatList, { JoinedParty } from "@/components/chat/ChatList";
+import { useUser } from "@/app/hooks/UserContext";
+import { useVisiblePolling } from "@/app/hooks/useVisiblePolling";
+import { useChatNotifications } from "@/app/hooks/ChatNotifications";
 
 export default function ChatListButton() {
-  const { lang, texts } = useLanguage();
+  const { texts, lang } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState<JoinedParty[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [error, setError] = useState("");
+  const [request, setRequest] = useState(0);
+  const { user } = useUser();
+  const { unreadCount } = useChatNotifications();
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    clientFetch("/users/profile", { redirectOnUnauthorized: false })
-      .then(() => setIsLoggedIn(true))
-      .catch(() => setIsLoggedIn(false));
-  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -34,28 +30,22 @@ export default function ChatListButton() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (!isLoggedIn) return null;
-
-  const loadChats = async () => {
-    setLoading(true);
+  const loadChats = useCallback(async (signal: AbortSignal) => {
     try {
       const data = await clientFetch<JoinedParty[]>("/parties/joined-parties");
-      setChats(data || []);
+      if (!signal.aborted) { setChats(data || []); setError(""); }
     } catch (error) {
-      console.error("Failed to load chats:", error);
+      if (!signal.aborted) setError(error instanceof Error ? error.message : texts.chat.genericError);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  };
+  }, [texts.chat.genericError]);
+  useVisiblePolling(loadChats, isOpen && Boolean(user), request);
 
-  const getNickname = (chat: JoinedParty) => {
-    const host = chat.host;
-    if (!host) return texts.main.anonymous;
-    return lang === Language.japanese && host.nickname_jp ? host.nickname_jp : host.nickname;
-  };
+  if (!user) return null;
 
   return (
-    <div className="fixed bottom-10 left-10 z-[100]" ref={dropdownRef}>
+    <div className="hidden sm:block fixed bottom-10 left-10 z-[100]" ref={dropdownRef}>
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -73,52 +63,11 @@ export default function ChatListButton() {
               </h3>
             </div>
 
-            <div className="max-h-[360px] overflow-y-auto p-2" aria-live="polite">
-              {loading ? (
-                <div className="py-10 text-center text-gray-400 text-sm">
-                  <div className="animate-spin inline-block w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full mb-2"></div>
-                  <p>{texts.auth.loading}</p>
-                </div>
-              ) : chats.length === 0 ? (
-                <div className="py-10 px-4 text-center text-gray-400 text-sm italic">
-                  {texts.main.noJoinedChats}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1" role="list">
-                  {chats.map((chat) => (
-                    <Link
-                      key={chat.id}
-                      href={`/chat/${chat.id}`}
-                      onClick={() => setIsOpen(false)}
-                      role="listitem"
-                      aria-label={`${chat.title} ${texts.main.chatRoomAriaSuffix}`}
-                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-all group active:scale-[0.98] focus:outline-none focus:bg-gray-50"
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden relative shadow-sm">
-                        <Image
-                          src={`https://picsum.photos/seed/${chat.id}/200/200`}
-                          alt={`${chat.title} ${texts.main.thumbnailAltSuffix}`}
-                          fill
-                          className="object-cover group-hover:scale-110 transition-transform"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-gray-900 truncate text-[14px]">
-                          {chat.title}
-                        </h4>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[11px] font-bold text-[#166534] bg-green-50 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter" aria-label={texts.main.hostAriaLabel}>
-                            {texts.main.hostLabel}
-                          </span>
-                          <p className="text-[12px] text-gray-500 truncate">
-                            {getNickname(chat)}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
+            <div className="max-h-[360px] overflow-y-auto p-2">
+              <ChatList chats={chats} loading={loading} error={error} onRetry={() => {
+                setLoading(true);
+                setRequest(value => value + 1);
+              }} onSelect={() => setIsOpen(false)} />
             </div>
           </motion.div>
         )}
@@ -126,7 +75,7 @@ export default function ChatListButton() {
 
       <button
         onClick={() => {
-          if (!isOpen) void loadChats();
+          if (!isOpen) { setLoading(true); setError(""); }
           setIsOpen(!isOpen);
         }}
         aria-label={texts.main.myChats}
@@ -139,6 +88,7 @@ export default function ChatListButton() {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={isOpen ? "rotate-12" : ""} aria-hidden="true">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
+          {unreadCount > 0 && <span aria-label={lang === "japanese" ? `このタブの新着チャット${unreadCount > 99 ? "99件以上" : `${unreadCount}件`}` : `이 탭의 새 채팅 ${unreadCount > 99 ? "99개 이상" : `${unreadCount}개`}`} className="absolute -right-4 -top-3 min-w-5 rounded-full bg-red-600 px-1 text-center text-[11px] leading-5 text-white">{unreadCount > 99 ? "99+" : unreadCount}</span>}
         </div>
       </button>
     </div>

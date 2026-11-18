@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type FormEvent } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import Image from "next/image";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
@@ -16,10 +16,11 @@ import {
   LockIcon, 
   EyeIcon, 
   EyeOffIcon, 
-  PhoneIcon, 
-  CalendarIcon 
+  PhoneIcon
 } from "@/components/common/Icons";
 import LineLogin from "@/components/auth/LineLogin";
+import BirthdateSelect from "@/components/common/BirthdateSelect";
+import { normalizeMemberBirthdate, normalizeMemberPhone } from "@/app/lib/member-details";
 
 /**
  * 통합 로그인 폼 컴포넌트
@@ -46,7 +47,7 @@ interface RegisterData {
   email: string;
   passwordRegister: string;
   phone?: string;
-  birthdate?: string; // YYMMDD 형식 (6자리)
+  birthdate?: string; // YYYY-MM-DD
   emailVerificationToken: string;
 }
 
@@ -94,6 +95,7 @@ export default function LoginForm() {
   const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
 
   const {
+    control,
     register,
     handleSubmit,
     setValue,
@@ -102,6 +104,7 @@ export default function LoginForm() {
     clearErrors,
     formState: { errors },
   } = useForm<FormData>({ mode: "onChange" });
+  const birthdate = useWatch({ control, name: "birthdate", defaultValue: "" });
 
   const emailRegister = register("email", {
     required: true,
@@ -275,8 +278,10 @@ export default function LoginForm() {
       toast.success(`${texts.auth.welcomePrefix} ${result.user.nickname}${texts.auth.welcomeSuffix}`);
       router.push("/home"); // 메인 페이지로 이동
     } catch (error) {
-      const status = (error as { status?: number }).status;
-      const message = status === 401 ? texts.auth.errorLoginAuth
+      const { status, code } = error as { status?: number; code?: string };
+      const message = code === "SESSION_NOT_ESTABLISHED"
+        ? (lang === Language.japanese ? "ログイン状態を維持できませんでした。もう一度お試しください。" : "로그인을 유지하지 못했습니다. 다시 시도해주세요.")
+        : status === 401 ? texts.auth.errorLoginAuth
         : status === 429 ? (lang === Language.japanese ? "少し待ってから再試行してください。" : "요청이 많습니다. 잠시 후 다시 시도해주세요.")
         : texts.auth.alertServerError;
       setError("passwordLogin", {
@@ -304,8 +309,8 @@ export default function LoginForm() {
       email: data.email,
       password: data.passwordRegister,
       nickname: undefined, 
-      phone: data.phone || undefined, 
-      birthdate: data.birthdate || undefined,
+      phone: data.phone?.trim() ? normalizeMemberPhone(data.phone) : undefined,
+      birthdate: data.birthdate?.trim() ? normalizeMemberBirthdate(data.birthdate) : undefined,
       language: langCode,
       emailVerificationToken: data.emailVerificationToken,
     };
@@ -415,7 +420,7 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 relative">
+    <div className="relative flex min-h-dvh flex-col items-center justify-center bg-white px-4 py-20 sm:py-12">
       <div className="mb-10 flex flex-col items-center gap-2">
         <Image src="/images/gachimura_logo.png" alt="Gachimura" width={140} height={50} priority />
       </div>
@@ -574,20 +579,11 @@ export default function LoginForm() {
           <div className={`transition-all duration-500 overflow-hidden flex flex-col gap-5 ${step === "REGISTER_FORM" ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}>
             {/* 생년월일 */}
             <div>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                  <CalendarIcon />
-                </span>
-                <input
-                  {...register("birthdate", {
-                    required: step === "REGISTER_FORM",
-                    pattern: { value: /^\d{6}$/, message: texts.auth.errorBirth },
-                  })}
-                  disabled={isLoading || step !== "REGISTER_FORM"}
-                  placeholder={texts.auth.birthPlaceholder}
-                  className={`w-full pl-12 pr-4 py-4 rounded-lg border outline-none text-black placeholder-gray-400 font-sans ${errors.birthdate ? "border-red-500" : "border-gray-300 focus:border-green-600"}`}
-                />
-              </div>
+              <label htmlFor="signup-birthdate-year" className="mb-2 block text-sm font-medium text-gray-700">{texts.auth.birthPlaceholder}</label>
+              <input type="hidden" {...register("birthdate", {
+                validate: value => step !== "REGISTER_FORM" || !value?.trim() || !!normalizeMemberBirthdate(value) || texts.auth.errorBirth,
+              })} disabled={isLoading || step !== "REGISTER_FORM"} />
+              <BirthdateSelect id="signup-birthdate" value={birthdate || ""} onChange={value => setValue("birthdate", value, { shouldDirty: true, shouldValidate: true })} lang={lang} disabled={isLoading || step !== "REGISTER_FORM"} invalid={!!errors.birthdate} />
               {errors.birthdate && <p className="text-xs text-red-500 ml-1 mt-1 font-sans">{errors.birthdate.message?.toString()}</p>}
             </div>
 
@@ -598,9 +594,12 @@ export default function LoginForm() {
                   <PhoneIcon />
                 </span>
                 <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  aria-label={texts.auth.phonePlaceholder}
                   {...register("phone", {
-                    required: step === "REGISTER_FORM",
-                    pattern: { value: /^0[0-9]{1,2}-?[0-9]{3,4}-?[0-9]{4}$/, message: texts.auth.errorPhone },
+                    validate: value => step !== "REGISTER_FORM" || !value?.trim() || !!normalizeMemberPhone(value) || texts.auth.errorPhone,
                   })}
                   disabled={isLoading || step !== "REGISTER_FORM"}
                   placeholder={texts.auth.phonePlaceholder}

@@ -31,7 +31,7 @@ export default function SearchBar() {
   };
 
   return (
-    <form onSubmit={handleSearch} className="flex-1 max-w-2xl px-8" role="search">
+    <form onSubmit={handleSearch} className="col-span-2 row-start-2 min-w-0 w-full flex-1 max-w-2xl sm:w-auto sm:px-4 lg:px-8" role="search">
       <div className="relative group">
         <input
           type="text"
@@ -44,7 +44,7 @@ export default function SearchBar() {
         <button
           type="submit"
           aria-label={texts.main.searchPlaceholder}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-green-700 transition-colors focus:outline-none focus:text-green-700"
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-gray-400 hover:text-green-700 transition-colors focus:outline-none focus:text-green-700"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8"></circle>

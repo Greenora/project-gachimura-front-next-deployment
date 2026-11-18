@@ -45,7 +45,8 @@ test('URL modals, relative time and chat opening retain their behavior', async (
     await page.getByText('3분 전', { exact: true }).waitFor();
     await page.getByRole('dialog').getByRole('button', { name: '취소' }).click();
     await page.waitForURL('**/community?filter=popular');
-    assert.equal(await page.getByRole('dialog').evaluate(el => el.classList.contains('translate-x-full')), true);
+    await page.getByRole('dialog').waitFor({ state: 'hidden' });
+    assert.equal(await page.getByRole('dialog').count(), 0);
     const chatButton = page.getByRole('button', { name: '참여 중인 채팅', exact: true });
     assert.equal(chatRequests, 0);
     await chatButton.click();

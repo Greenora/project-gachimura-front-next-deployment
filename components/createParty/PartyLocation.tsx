@@ -117,6 +117,8 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
 
   // 지도 초기화
   useEffect(() => {
+    let cancelled = false;
+    let autocompleteListener: google.maps.MapsEventListener | undefined;
     const loadGoogleMapsScript = () => {
       return new Promise<void>((resolve, reject) => {
         if (window.google?.maps) {
@@ -150,7 +152,14 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
       try {
         await loadGoogleMapsScript();
 
-        if (!mapRef.current || !window.google) return;
+        // Another page may have loaded only the map SDK or its bootstrap.
+        await Promise.all([
+          google.maps.importLibrary('maps'),
+          google.maps.importLibrary('marker'),
+          google.maps.importLibrary('places'),
+        ]);
+
+        if (cancelled || !mapRef.current || !window.google) return;
         // 초기 위치: storeInfo가 있으면 사용, 없으면 사용자 위치 사용 (지도 초기화), 코스트코 대구혁신도시점
         const initialPos = {
           lat: storeInfo.latitude || userLocation.lat,
@@ -179,7 +188,7 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
             componentRestrictions: { country: ['kr', 'jp'] } // 한국, 일본 내 검색
           });
 
-          autocompleteRef.current.addListener('place_changed', async () => {
+          autocompleteListener = autocompleteRef.current.addListener('place_changed', async () => {
             const place = autocompleteRef.current?.getPlace();
 
             if (!place || !place.geometry || !place.geometry.location || !place.place_id) return;
@@ -198,6 +207,10 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
     }
 
     initMap();
+    return () => {
+      cancelled = true;
+      autocompleteListener?.remove();
+    };
   }, [currentLang]);
 
   // 언어 변경 시 주소와 이름 모두 업데이트
@@ -270,21 +283,21 @@ export default function PartyLocation({ label, placeholder, emptyMessage, storeI
       <input type="hidden" name="longitude" value={storeInfo?.longitude ?? ''} />
       <input type="hidden" name="place_id" value={storeInfo?.place_id ?? ''} />
 
-      <div className="flex">
-        <div className="w-48" /> 
-        <div className="flex-1">
+      <div className="sm:flex">
+        <div className="hidden sm:block sm:w-48 sm:shrink-0" />
+        <div className="min-w-0 flex-1">
           <div
             ref={mapRef}
             className="w-full h-56 bg-gray-100 border border-gray-200 mb-2"
           />
 
-          <div className="flex items-center gap-2 min-h-7">
+          <div className="flex flex-col items-start gap-1 min-h-7 sm:flex-row sm:flex-wrap sm:gap-2">
             {currentDisplayName ? (
               <>
-                <span className="font-bold text-lg text-gray-900">
+                <span className="max-w-full break-words font-bold text-lg text-gray-900">
                   {currentDisplayName}
                 </span>
-                <span className="text-gray-500 text-sm">
+                <span className="max-w-full break-words text-gray-500 text-sm">
                   {getGoogleMapsLangCode(currentLang) === 'ja' ? storeInfo.address_jp : storeInfo.address_ko}
                 </span>
               </>

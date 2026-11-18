@@ -202,6 +202,7 @@ export default async function SettlementPage({
   return (
     <main className="w-full min-h-screen bg-white">
       <SettlementClient
+        key={`${partyId}:${userProfile.id}`}
         partyId={partyId}
         initialSettlement={settlement}
         partyInfo={party}

@@ -14,8 +14,8 @@ export default function Logo({ className = "", showText = true, href = "/" }: Lo
   const { texts } = useLanguage();
 
   return (
-    <Link href={href} className={`flex items-center gap-1 group ${className}`}>
-      <div className="relative w-12 h-12 transition-transform group-hover:rotate-12">
+    <Link href={href} className={`flex min-h-11 items-center gap-1 group ${className}`}>
+      <div className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 transition-transform group-hover:rotate-12">
         <Image
           src="/images/gachimura_logo.png"
           alt={texts.home.gachimura}

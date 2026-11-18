@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import PartyInput from "./PartyInput";
 import DateTimeSelector from "./DateTimeSelector";
@@ -41,6 +41,8 @@ export default function PartyForm() {
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
 
   const isJapanese = () => {
     const language = String(lang).toLowerCase();
@@ -77,7 +79,9 @@ export default function PartyForm() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    if (submitLockRef.current || !validateForm()) return;
+    submitLockRef.current = true;
+    setIsSubmitting(true);
 
     const formData = new FormData();
     formData.append('title', title);
@@ -101,12 +105,15 @@ export default function PartyForm() {
     } catch (error) {
       console.error("등록 실패:", error);
       toast.error(error instanceof Error ? error.message : "등록에 실패했습니다.");
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full">
-      <h2 className="text-2xl font-bold text-center mb-10 text-gray-800">{pf.pageTitle}</h2>
+    <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="w-full">
+      <h2 className="text-2xl font-bold text-center mb-8 text-gray-800">{pf.pageTitle}</h2>
 
       <PartyInput
         label={pf.title}
@@ -161,7 +168,7 @@ export default function PartyForm() {
       />
 
       <div className="pt-4">
-        <SubmitButton text={pf.submit} />
+        <SubmitButton text={pf.submit} disabled={isSubmitting} />
       </div>
     </form>
   );
