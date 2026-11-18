@@ -31,6 +31,7 @@ test('expired requests share one refresh, then retry with cookies', async () => 
   const { request } = client(async (url, options) => {
     assert.equal(options.credentials, 'include');
     if (url.endsWith('/auth/refresh')) {
+      assert.equal(options.headers['Content-Type'], 'application/json', 'refresh keeps the same JSON request boundary as other auth operations');
       refreshes++;
       await new Promise(resolve => setTimeout(resolve, 10));
       refreshed = true;

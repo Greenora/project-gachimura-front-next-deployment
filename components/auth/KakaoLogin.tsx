@@ -3,6 +3,7 @@
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { createOAuthState } from "@/app/lib/oauth-state";
 
 interface Props {
   buttonText?: string;
@@ -10,7 +11,7 @@ interface Props {
 
 // 카카오 OAuth 로그인 버튼 (REST API 방식)
 export default function KakaoLogin({ buttonText }: Props) {
-  const { texts } = useLanguage();
+  const { texts, lang } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
 
   const displayText = buttonText || "카카오로 로그인";
@@ -22,16 +23,20 @@ export default function KakaoLogin({ buttonText }: Props) {
     setIsLoading(true);
 
     if (!KAKAO_REST_API_KEY) {
-      toast.error("Kakao Client ID not found");
+      toast.error(lang === "japanese" ? "カカオログインは現在利用できません。しばらくしてからもう一度お試しください。" : "지금은 카카오 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
       setIsLoading(false);
       return;
     }
 
-    const redirectUri = `${window.location.origin}/kakao/callback`;
-
-    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
-    
-    window.location.href = kakaoAuthUrl;
+    try {
+      const state = createOAuthState("kakao");
+      const redirectUri = `${window.location.origin}/kakao/callback`;
+      const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`;
+      window.location.href = kakaoAuthUrl;
+    } catch {
+      toast.error(lang === "japanese" ? "ログインを開始できませんでした。ブラウザーの設定を確認して、もう一度お試しください。" : "로그인을 시작하지 못했습니다. 브라우저 설정을 확인한 뒤 다시 시도해주세요.");
+      setIsLoading(false);
+    }
   };
 
   return (
