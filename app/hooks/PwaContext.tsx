@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { clientFetch } from "./useClientFetch";
 import { useUser } from "./UserContext";
+import { useLanguage } from "./LanguageContext";
 import { clearPushSubscription, vapidPublicKeyBytes, withPushTimeout } from "@/app/lib/push-subscription";
 
 type PushStatus = "loading" | "unsupported" | "install" | "unavailable" | "denied" | "enabled" | "disabled";
@@ -46,6 +47,7 @@ function registerWorker(): Promise<ServiceWorkerRegistration> {
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
   const { user, loading } = useUser();
+  const { lang } = useLanguage();
   const installed = useSyncExternalStore(subscribeInstalled, installedDevice, serverDevice);
   const isIOS = useSyncExternalStore(subscribeDevice, iosDevice, serverDevice);
   const supported = useSyncExternalStore(subscribeDevice, () => window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window, serverDevice);
@@ -57,6 +59,19 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   const owner = useRef<number | null | undefined>(undefined);
   const epoch = useRef<object>({});
   const busy = useRef(false);
+
+  useEffect(() => {
+    if (!window.isSecureContext || !("serviceWorker" in navigator)) return;
+    let active = true;
+    const syncLanguage = () => {
+      void registerWorker().then(registration => {
+        if (active) registration.active?.postMessage({ type: "PUSH_LANGUAGE", language: lang });
+      }).catch(() => undefined);
+    };
+    syncLanguage();
+    navigator.serviceWorker.addEventListener("controllerchange", syncLanguage);
+    return () => { active = false; navigator.serviceWorker.removeEventListener("controllerchange", syncLanguage); };
+  }, [lang]);
 
   useEffect(() => {
     const beforeInstall = (event: Event) => { event.preventDefault(); installPrompt.current = event as InstallPrompt; };

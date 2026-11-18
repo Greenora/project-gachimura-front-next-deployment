@@ -61,7 +61,7 @@ export default async function RootLayout({
 
   return (
     //suppressHydrationWarning: 브라우저 환경 간섭 제거
-    <html lang={validLang} suppressHydrationWarning>
+    <html lang={validLang === Language.japanese ? "ja" : "ko"} suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="light" />
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}

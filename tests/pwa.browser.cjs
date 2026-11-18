@@ -4,7 +4,10 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createServer } = require('node:http');
 const { createECDH } = require('node:crypto');
+const { mkdirSync } = require('node:fs');
+const { join } = require('node:path');
 const { chromium } = require('playwright');
+const { expect } = require('playwright/test');
 
 test('PWA installation, explicit push consent, account cleanup and logout work on the owner profile', { timeout: 120000 }, async t => {
   const base = process.env.TEST_FRONTEND_URL || 'http://127.0.0.1:3111';
@@ -12,17 +15,17 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
   const second = { id: 2, nickname: 'NextOwner', nickname_jp: '次の所有者', email: 'next@example.test', treeScore: 50 };
   const curve = createECDH('prime256v1');
   const publicKey = curve.generateKeys().toString('base64url');
-  const state = { user: first, configEnabled: true, failDelete: false, postCount: 0, deleteCount: 0, logoutCount: 0, holds: [], holdPost: false, postArrived: null, events: [] };
+  const state = { user: first, configEnabled: true, failConfig: false, failPost: false, failDelete: false, postCount: 0, deleteCount: 0, logoutCount: 0, holds: [], holdPost: false, postArrived: null, events: [] };
   function response(path, method = 'GET', body) {
     if (path === '/api/users/profile') return state.user ? { status: 200, json: state.user } : { status: 401, json: { message: 'Unauthorized' } };
     if (path === '/api/users/1') return { json: first };
     if (path === '/api/users/2') return { json: second };
-    if (path === '/api/push/config') return { json: { enabled: state.configEnabled, publicKey: state.configEnabled ? publicKey : null } };
+    if (path === '/api/push/config') return state.failConfig ? { status: 503, json: { message: 'PRIVATE_CONFIG_FAILURE' } } : { json: { enabled: state.configEnabled, publicKey: state.configEnabled ? publicKey : null } };
     if (path === '/api/push/subscriptions' && method === 'POST') {
       state.postCount++;
       assert.deepEqual(Object.keys(body).sort(), ['endpoint', 'keys']);
       assert.deepEqual(Object.keys(body.keys).sort(), ['auth', 'p256dh']);
-      return { status: 201, json: { subscribed: true } };
+      return state.failPost ? { status: 503, json: { message: 'PRIVATE_SUBSCRIPTION_FAILURE' } } : { status: 201, json: { subscribed: true } };
     }
     if (path === '/api/push/subscriptions' && method === 'DELETE') {
       state.deleteCount++;
@@ -46,10 +49,10 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
   await new Promise(resolve => server.listen(3299, '127.0.0.1', resolve));
   let browser;
   const errors = [];
-  async function pageWithPush({ japanese = false, mobile = false, ios = false, ipad = false, standalone = false, permission = 'default', deny = false, mock = true } = {}) {
+  async function pageWithPush({ japanese = false, mobile = false, ios = false, ipad = false, standalone = false, permission = 'default', deny = false, deferPermission = false, mock = true } = {}) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     await context.addCookies([{ name: 'accessToken', value: 'pwa-fixture', url: base }, ...(japanese ? [{ name: 'language', value: 'japanese', url: base }] : [])]);
-    await context.addInitScript(({ mobile, ios, ipad, standalone, permission, deny, mock, publicKey }) => {
+    await context.addInitScript(({ mobile, ios, ipad, standalone, permission, deny, deferPermission, mock, publicKey }) => {
       localStorage.setItem('userLocation', JSON.stringify({ latitude: 37.5, longitude: 127, region: '서울', district: '중구' }));
       if (mobile) Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36' });
       if (ipad) {
@@ -59,8 +62,11 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
       if (!mock) {
         window.pwaNativePermission = Notification.permission;
         window.pwaNativePermissionCalls = 0;
+        window.pwaNativeCloseCalls = 0;
         const request = Notification.requestPermission.bind(Notification);
         Notification.requestPermission = (...args) => { window.pwaNativePermissionCalls++; return request(...args); };
+        const close = Notification.prototype.close;
+        Notification.prototype.close = function (...args) { window.pwaNativeCloseCalls++; return close.apply(this, args); };
         return;
       }
       const fixture = window.pwaFixture = { permissionCalls: 0, gesture: false, subscribed: false, subscribeCalls: 0, unsubscribeCalls: 0, closed: 0, promptCalls: 0, localFailure: false, localFalse: false };
@@ -71,6 +77,7 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
         static requestPermission() {
           fixture.permissionCalls++;
           fixture.gesture = navigator.userActivation.isActive;
+          if (deferPermission) return new Promise(resolve => { fixture.resolvePermission = value => { MockNotification.permission = value; resolve(value); }; });
           MockNotification.permission = deny ? 'denied' : 'granted';
           return Promise.resolve(MockNotification.permission);
         }
@@ -103,8 +110,9 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
       Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {
         register: async (url, options) => { fixture.worker = { url, ...options }; return registration; },
         ready: Promise.resolve(registration), getRegistration: async () => registration,
+        addEventListener() {}, removeEventListener() {},
       } });
-    }, { mobile, ios, ipad, standalone, permission, deny, mock, publicKey });
+    }, { mobile, ios, ipad, standalone, permission, deny, deferPermission, mock, publicKey });
     await context.route(/^https:\/\/(developers\.kakao\.com|dapi\.kakao\.com)\//, route => route.fulfill({ contentType: 'application/javascript', body: '' }));
     await context.route('**/api/**', async route => {
       const request = route.request();
@@ -148,6 +156,82 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
         assert.ok(info.cache.includes('no-store'));
         assert.equal(info.permission, info.initialPermission);
         assert.equal(info.permissionCalls, 0);
+      } finally { await context.close(); }
+    });
+
+    await t.test('real worker retains only the device language across restarts and language changes', async () => {
+      state.user = first;
+      const { page, context } = await pageWithPush({ japanese: true, mock: false });
+      try {
+        await page.goto(base + '/user/1');
+        await openSettings(page);
+        const storedLanguage = () => page.evaluate(async () => (await (await caches.open('gachimura-push-preferences')).match('/__push-language'))?.text());
+        await expect.poll(storedLanguage).toBe('japanese');
+        const cdp = await context.newCDPSession(page);
+        await cdp.send('ServiceWorker.enable');
+        await cdp.send('ServiceWorker.stopAllWorkers');
+        await cdp.send('ServiceWorker.startWorker', { scopeURL: base + '/' });
+        await expect.poll(storedLanguage).toBe('japanese');
+        await context.addCookies([{ name: 'language', value: 'korean', url: base }]);
+        await page.reload();
+        await openSettings(page);
+        await expect.poll(storedLanguage).toBe('korean');
+        const contents = await page.evaluate(async () => {
+          const cache = await caches.open('gachimura-push-preferences');
+          return Promise.all((await cache.keys()).map(async request => ({ path: new URL(request.url).pathname, value: await (await cache.match(request)).text() })));
+        });
+        assert.deepEqual(contents, [{ path: '/__push-language', value: 'korean' }]);
+        await cdp.detach();
+      } finally { await context.close(); }
+    });
+
+    // Headless shells can deny native notifications even when the Permissions API reports granted.
+    await t.test('native localized push notifications survive a worker restart', { skip: process.env.PWA_NATIVE_PUSH_TEST !== '1' }, async () => {
+      state.user = first;
+      const { page, context } = await pageWithPush({ japanese: true, mock: false });
+      try {
+        await context.grantPermissions(['notifications']);
+        await page.goto(base + '/user/1');
+        assert.equal(await page.evaluate(() => Notification.permission), 'granted', 'PWA_NATIVE_PUSH_TEST requires a browser with native notification permission');
+        await openSettings(page);
+        await page.getByRole('button', { name: '通知をオンにする', exact: true }).waitFor();
+        await page.waitForLoadState('networkidle');
+        await expect.poll(() => page.evaluate(async () => (await (await caches.open('gachimura-push-preferences')).match('/__push-language'))?.text())).toBe('japanese');
+        const cdp = await context.newCDPSession(page);
+        const activated = new Promise(resolve => cdp.on('ServiceWorker.workerVersionUpdated', event => {
+          const version = event.versions.find(value => value.scriptURL === base + '/sw.js' && value.status === 'activated');
+          if (version) resolve(version);
+        }));
+        const registered = new Promise(resolve => cdp.on('ServiceWorker.workerRegistrationUpdated', event => {
+          const registration = event.registrations.find(value => value.scopeURL === base + '/');
+          if (registration) resolve(registration.registrationId);
+        }));
+        await cdp.send('ServiceWorker.enable');
+        const registrationId = await registered;
+        const active = await activated;
+        await cdp.send('ServiceWorker.stopWorker', { versionId: active.versionId });
+        await cdp.send('ServiceWorker.deliverPushMessage', { origin: base, registrationId, data: JSON.stringify({ partyId: 12, body: 'PRIVATE_MESSAGE_ACCOUNT_NUMBER', language: 'korean' }) });
+        await expect.poll(() => page.evaluate(async () => {
+          const value = (await (await navigator.serviceWorker.ready).getNotifications()).find(value => value.tag === 'party-12');
+          return value ? { title: value.title, body: value.body, url: value.data.url } : null;
+        })).toEqual({ title: 'ガチムラ', body: '新しいチャットメッセージが届きました。', url: '/chat/12' });
+        assert.equal(await page.evaluate(() => window.pwaNativeCloseCalls), 0, 'the logged-in page must not close its new notification');
+        await context.addCookies([{ name: 'language', value: 'korean', url: base }]);
+        await page.reload();
+        await openSettings(page);
+        await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).waitFor();
+        await page.waitForLoadState('networkidle');
+        await expect.poll(() => page.evaluate(async () => (await (await caches.open('gachimura-push-preferences')).match('/__push-language'))?.text())).toBe('korean');
+        await cdp.send('ServiceWorker.deliverPushMessage', { origin: base, registrationId, data: JSON.stringify({ partyId: 13 }) });
+        await expect.poll(() => page.evaluate(async () => {
+          const value = (await (await navigator.serviceWorker.ready).getNotifications()).find(value => value.tag === 'party-13');
+          return value ? { title: value.title, body: value.body } : null;
+        })).toEqual({ title: '가치무라', body: '새 채팅 메시지가 도착했습니다.' });
+        const cacheContents = await page.evaluate(async () => {
+          const cache = await caches.open('gachimura-push-preferences');
+          return Promise.all((await cache.keys()).map(async request => ({ path: new URL(request.url).pathname, value: await (await cache.match(request)).text() })));
+        });
+        assert.deepEqual(cacheContents, [{ path: '/__push-language', value: 'korean' }]);
       } finally { await context.close(); }
     });
 
@@ -278,6 +362,69 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
       }
     });
 
+    await t.test('permission approval arriving after account switch cannot subscribe the next account', async () => {
+      state.user = first;
+      const { page, context } = await pageWithPush({ deferPermission: true });
+      try {
+        await page.goto(base + '/user/1');
+        await openSettings(page);
+        await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).click();
+        await page.waitForFunction(() => window.pwaFixture.permissionCalls === 1);
+        state.user = second;
+        await page.evaluate(user => window.dispatchEvent(new CustomEvent('gachimura:user-changed', { detail: user })), second);
+        await page.waitForFunction(() => !document.querySelector('details[aria-labelledby="app-settings-title"]'));
+        await page.evaluate(() => window.pwaFixture.resolvePermission('granted'));
+        await page.waitForLoadState('networkidle');
+        assert.equal(await page.evaluate(() => window.pwaFixture.subscribeCalls), 0);
+      } finally { await context.close(); }
+    });
+
+    await t.test('configuration and subscription failures preserve a retry path without leaking server details', async () => {
+      state.user = first;
+      state.failConfig = true;
+      const { page, context } = await pageWithPush();
+      try {
+        await page.goto(base + '/user/1');
+        await openSettings(page);
+        const retry = page.getByRole('button', { name: '다시 확인', exact: true });
+        await retry.waitFor();
+        state.failConfig = false;
+        await retry.click();
+        const enable = page.getByRole('button', { name: '채팅 알림 켜기', exact: true });
+        await enable.waitFor();
+        state.failPost = true;
+        await enable.click();
+        await page.getByRole('alert').filter({ hasText: '알림 설정을 변경하지 못했습니다.' }).waitFor();
+        assert.equal(await page.evaluate(() => window.pwaFixture.subscribed), false);
+        assert.equal((await page.locator('body').innerText()).includes('PRIVATE_'), false);
+        state.failPost = false;
+        await enable.click();
+        await page.getByRole('button', { name: '채팅 알림 끄기', exact: true }).waitFor();
+        assert.equal(await page.evaluate(() => window.pwaFixture.subscribed), true);
+      } finally { state.failConfig = false; state.failPost = false; await context.close(); }
+    });
+
+    await t.test('server deletion alone does not silently disable a browser subscription that survives', async () => {
+      state.user = first;
+      const { page, context } = await pageWithPush();
+      try {
+        await page.goto(base + '/user/1');
+        await openSettings(page);
+        await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).click();
+        const disable = page.getByRole('button', { name: '채팅 알림 끄기', exact: true });
+        await disable.waitFor();
+        await page.evaluate(() => { window.pwaFixture.localFalse = true; });
+        await disable.click();
+        await page.getByRole('alert').filter({ hasText: '알림 설정을 변경하지 못했습니다.' }).waitFor();
+        await disable.waitFor();
+        assert.equal(await page.evaluate(() => window.pwaFixture.subscribed), true);
+        await page.evaluate(() => { window.pwaFixture.localFalse = false; });
+        await disable.click();
+        await page.getByRole('button', { name: '채팅 알림 켜기', exact: true }).waitFor();
+        assert.equal(await page.evaluate(() => window.pwaFixture.subscribed), false);
+      } finally { await context.close(); }
+    });
+
     await t.test('failed browser and server removal stays enabled, and normal visible logout removes push first', async () => {
       state.user = first;
       const { page, context } = await pageWithPush();
@@ -306,6 +453,24 @@ test('PWA installation, explicit push consent, account cleanup and logout work o
         await context.close();
       }
     });
+    if (process.env.PWA_SCREENSHOTS_DIR) {
+      mkdirSync(process.env.PWA_SCREENSHOTS_DIR, { recursive: true });
+      for (const japanese of [false, true]) {
+        for (const mobile of [false, true]) {
+          state.user = first;
+          const { page, context } = await pageWithPush({ japanese, mobile });
+          try {
+            await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+            await page.goto(base + '/user/1');
+            await openSettings(page);
+            await page.getByRole('button', { name: japanese ? '通知をオンにする' : '채팅 알림 켜기', exact: true }).click();
+            await page.getByRole('button', { name: japanese ? '通知をオフにする' : '채팅 알림 끄기', exact: true }).waitFor();
+            await page.evaluate(() => document.fonts.ready);
+            await page.locator('details[aria-labelledby="app-settings-title"]').screenshot({ path: join(process.env.PWA_SCREENSHOTS_DIR, `pwa-settings-${japanese ? 'ja' : 'ko'}-${mobile ? 'mobile' : 'desktop'}.png`) });
+          } finally { await context.close(); }
+        }
+      }
+    }
     assert.deepEqual(errors, []);
   } finally {
     for (const release of state.holds.splice(0)) release();

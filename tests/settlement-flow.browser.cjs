@@ -3,6 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createServer } = require('node:http');
+const { mkdirSync } = require('node:fs');
 const { chromium } = require('playwright');
 
 test('host and member settlement selections, confirmed amounts and payment updates stay consistent', { timeout: 240000 }, async t => {
@@ -27,7 +28,7 @@ test('host and member settlement selections, confirmed amounts and payment updat
   function reset() {
     Object.assign(state, {
       settlement: { id: 10, partyId: 1, hostId: 1, status: 'SELECTING', totalAmount: 15000, items: initialItems() },
-      payments: [], sentMessages: [], selectionWrites: [], itemWrites: [], confirmations: 0, paymentWrites: [], reads: 0, failSnapshotFor: new Set(), holdFor: null, holdObserved: null,
+      payments: [], sentMessages: [], selectionWrites: [], itemWrites: [], confirmations: 0, paymentWrites: [], reads: 0, failSnapshotFor: new Set(), failSelection: false, holdMessageAck: false, messageAcks: [], messageObserved: null, holdFor: null, holdObserved: null,
     });
   }
   function confirmedFixture() {
@@ -72,6 +73,7 @@ test('host and member settlement selections, confirmed amounts and payment updat
       return { json: clone(state.settlement) };
     }
     if (path === '/api/settlements/10/select' && method === 'PATCH') {
+      if (state.failSelection) return { status: 503, json: { message: '선택 저장을 다시 시도해주세요.' } };
       if (state.settlement.status !== 'SELECTING') return { status: 400, json: { message: '항목 선택 기간이 아닙니다.' } };
       state.selectionWrites.push({ userId, itemIds: body.itemIds });
       for (const item of state.settlement.items) {
@@ -141,7 +143,12 @@ test('host and member settlement selections, confirmed amounts and payment updat
         }
         if (event === 'message' && joinedSockets.has(socket) && payload.partyId === 1) {
           state.sentMessages.push({ userId, ...payload });
-          if (acknowledgement) socket.send(`43${acknowledgement}[{"ok":true}]`);
+          if (acknowledgement) {
+            const acknowledge = () => socket.send(`43${acknowledgement}[{"ok":true}]`);
+            if (state.holdMessageAck) state.messageAcks.push(acknowledge);
+            else acknowledge();
+          }
+          state.messageObserved?.();
         }
       });
     });
@@ -179,6 +186,7 @@ test('host and member settlement selections, confirmed amounts and payment updat
       try { await run(); }
       finally {
         for (const held of state.held.splice(0)) held.release();
+        for (const acknowledge of state.messageAcks.splice(0)) acknowledge();
         await Promise.all([...contexts].map(context => context.close()));
         contexts.clear();
         joinedSockets.clear();
@@ -260,6 +268,22 @@ test('host and member settlement selections, confirmed amounts and payment updat
       await estimate(host).getByText('₩5,834', { exact: true }).waitFor();
     });
 
+    await check('a failed selection save keeps local choices and can be retried without refreshing', async () => {
+      const host = await openPage(1);
+      await itemButton(host, '샐러드').click();
+      state.failSelection = true;
+      await save(host).click();
+      await host.locator('[data-rht-toaster]').getByText('선택 저장을 다시 시도해주세요.', { exact: true }).last().waitFor();
+      assert.equal(state.selectionWrites.length, 0);
+      assert.equal(await itemButton(host, '샐러드').getAttribute('aria-pressed'), 'true');
+      assert.equal(await save(host).isDisabled(), false);
+      state.failSelection = false;
+      await saveSelection(host);
+      assert.equal(state.selectionWrites.length, 1);
+      assert.equal(state.selectionWrites[0].userId, 1);
+      assert.deepEqual([...state.selectionWrites[0].itemIds].sort((a, b) => a - b), [11, 12]);
+    });
+
     await check('reopening and saving item changes sends existing IDs and keeps saved buyers on both devices', async () => {
       const host = await openPage(1);
       const guest = await openPage(3);
@@ -311,6 +335,58 @@ test('host and member settlement selections, confirmed amounts and payment updat
       await guest.getByText(/정산.*완료/).first().waitFor();
       assert.equal(await host.evaluate(() => window.settlementDocument), 'preserved');
       assert.equal(await guest.evaluate(() => window.settlementDocument), 'preserved');
+    });
+
+    await check('invalid populated rows and overflowing totals are rejected without silently dropping items', async () => {
+      const host = await openPage(1);
+      await host.getByRole('button', { name: '수정하기', exact: true }).click();
+      const name = host.getByLabel('품목명', { exact: true }).first();
+      const price = host.getByLabel('가격 (원)', { exact: true }).first();
+      const quantity = host.getByLabel('수량', { exact: true }).first();
+      const saveItems = host.getByRole('button', { name: '품목 저장', exact: true });
+      await host.locator('[data-rht-toaster]').getByText('품목을 수정해주세요!', { exact: true }).waitFor({ state: 'hidden' });
+      for (const row of [
+        ['', '10', '1'],
+        ['샐러드', '2147483648', '1'],
+        ['샐러드', '2147483647', '2'],
+        ['샐러드', '10', '0'],
+        ['샐러드', '10', '1.5'],
+        ['샐러드', '-1', '1'],
+        ['', '0', '1'],
+        ['', '0', '2'],
+      ]) {
+        await name.fill(row[0]);
+        await price.fill(row[1]);
+        await quantity.fill(row[2]);
+        await saveItems.click();
+        await host.locator('[data-rht-toaster]').getByText('품목명과 가격, 수량을 확인해주세요.', { exact: true }).last().waitFor();
+        assert.equal(state.itemWrites.length, 0);
+        assert.equal(state.settlement.items.length, 3);
+        assert.deepEqual(state.settlement.items[0].members.map(member => member.userId), [2, 3]);
+        if (process.env.TEST_SCREENSHOT_DIR && row[0] === '' && row[1] === '10') {
+          mkdirSync(process.env.TEST_SCREENSHOT_DIR, { recursive: true });
+          for (const [device, width] of [['mobile', 390], ['desktop', 1280]]) {
+            await host.setViewportSize({ width, height: 1400 });
+            await host.evaluate(() => { window.scrollTo(0, 0); return document.fonts.ready; });
+            await host.screenshot({ path: `${process.env.TEST_SCREENSHOT_DIR}/settlement-validation-${device}.png`, animations: 'disabled' });
+          }
+        }
+      }
+      await name.fill('샐러드');
+      await price.fill('2147478647');
+      await quantity.fill('1');
+      await saveItems.click();
+      await host.locator('[data-rht-toaster]').getByText('품목이 저장되었습니다.', { exact: true }).last().waitFor();
+      assert.equal(state.itemWrites.length, 1);
+      assert.equal(state.settlement.totalAmount, 2147483647);
+      await price.fill('0');
+      await Promise.all([
+        host.waitForResponse(response => response.url().endsWith('/settlements/10/items') && response.request().method() === 'PATCH'),
+        saveItems.click(),
+      ]);
+      assert.equal(state.itemWrites.length, 2);
+      assert.equal(state.itemWrites[1].length, 3, 'a named free item must not be silently omitted');
+      assert.equal(state.settlement.totalAmount, 5000);
     });
 
     await check('confirmed server payment amounts remain authoritative and Japanese keeps the same won value', async () => {
@@ -388,6 +464,28 @@ test('host and member settlement selections, confirmed amounts and payment updat
       notifyUpdated();
       await host.getByRole('button', { name: '채팅방에서 모임 종료·평가', exact: true }).waitFor();
       assert.equal(await section.count(), 0, 'completed settlements must not offer another payment request');
+    });
+
+    await check('clipboard refusal keeps the account visible and delayed sharing acknowledgements prevent duplicates', async () => {
+      confirmedFixture();
+      const host = await openPage(1);
+      const section = host.getByRole('region', { name: '입금 계좌 안내', exact: true });
+      await section.getByRole('button', { name: '보기', exact: true }).click();
+      await host.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('clipboard denied'); } } }));
+      await section.getByRole('button', { name: '계좌번호 복사', exact: true }).click();
+      await host.locator('[data-rht-toaster]').getByText('복사하지 못했습니다. 계좌번호를 선택해 복사해주세요.', { exact: true }).last().waitFor();
+      assert.equal(await section.getByText('000000000000', { exact: true }).isVisible(), true);
+      assert.equal(state.sentMessages.length, 0);
+      state.holdMessageAck = true;
+      const observed = new Promise(resolve => { state.messageObserved = resolve; });
+      await section.getByRole('button', { name: '정산 안내 공유', exact: true }).dblclick();
+      await observed;
+      assert.equal(await section.getByRole('button', { name: '공유 중…', exact: true }).isDisabled(), true);
+      assert.equal(state.sentMessages.length, 1);
+      assert.equal(await host.locator('[data-rht-toaster]').getByText('채팅방에 공유했습니다.', { exact: true }).count(), 0);
+      for (const acknowledge of state.messageAcks.splice(0)) acknowledge();
+      await host.locator('[data-rht-toaster]').getByText('채팅방에 공유했습니다.', { exact: true }).last().waitFor();
+      assert.equal(state.sentMessages.length, 1);
     });
 
     await check('a Japanese account is not shared as a won settlement account', async () => {
