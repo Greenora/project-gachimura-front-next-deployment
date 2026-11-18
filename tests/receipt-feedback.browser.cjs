@@ -221,7 +221,7 @@ test('receipt failures and empty recognition preserve drafts, and a successful r
       page.on('dialog', unexpectedInvalidDialog);
       try {
         await save.click();
-        await page.locator('[data-rht-toaster]').getByText(isKorean ? /^품목명·단가·수량을 확인해주세요/ : /^商品名・単価・数量をご確認ください/).last().waitFor();
+        await page.locator('[data-rht-toaster]').getByText(isKorean ? '품목명과 가격, 수량을 확인해주세요.' : '商品名・価格・数量を確認してください。', { exact: true }).last().waitFor();
         assert.equal(invalidDialogs, 0, 'an incomplete row is rejected before the amount confirmation');
         assert.equal(state.saves, 0, 'an incomplete row must not be silently dropped from the saved items');
       } finally { page.off('dialog', unexpectedInvalidDialog); }

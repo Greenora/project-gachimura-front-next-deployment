@@ -344,13 +344,14 @@ test('host and member settlement selections, confirmed amounts and payment updat
       const price = host.getByLabel('가격 (원)', { exact: true }).first();
       const quantity = host.getByLabel('수량', { exact: true }).first();
       const saveItems = host.getByRole('button', { name: '품목 저장', exact: true });
+      await host.locator('[data-rht-toaster]').getByText('품목을 수정해주세요!', { exact: true }).waitFor({ state: 'hidden' });
       for (const row of [
+        ['', '10', '1'],
         ['샐러드', '2147483648', '1'],
         ['샐러드', '2147483647', '2'],
         ['샐러드', '10', '0'],
         ['샐러드', '10', '1.5'],
         ['샐러드', '-1', '1'],
-        ['', '10', '1'],
         ['', '0', '1'],
         ['', '0', '2'],
       ]) {
@@ -358,11 +359,11 @@ test('host and member settlement selections, confirmed amounts and payment updat
         await price.fill(row[1]);
         await quantity.fill(row[2]);
         await saveItems.click();
-        await host.locator('[data-rht-toaster]').getByText(/품목명·단가·수량을 확인해주세요/).last().waitFor();
+        await host.locator('[data-rht-toaster]').getByText('품목명과 가격, 수량을 확인해주세요.', { exact: true }).last().waitFor();
         assert.equal(state.itemWrites.length, 0);
         assert.equal(state.settlement.items.length, 3);
         assert.deepEqual(state.settlement.items[0].members.map(member => member.userId), [2, 3]);
-        if (process.env.TEST_SCREENSHOT_DIR && row[1] === '2147483648') {
+        if (process.env.TEST_SCREENSHOT_DIR && row[0] === '' && row[1] === '10') {
           mkdirSync(process.env.TEST_SCREENSHOT_DIR, { recursive: true });
           for (const [device, width] of [['mobile', 390], ['desktop', 1280]]) {
             await host.setViewportSize({ width, height: 1400 });
