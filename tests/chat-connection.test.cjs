@@ -9,9 +9,11 @@ const source = ts.transpileModule(readFileSync('app/hooks/useChat.tsx', 'utf8'),
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
-function chat() {
+function chat(language = 'korean') {
   const slots = [];
   const sockets = [];
+  const notices = [];
+  let currentLanguage = language;
   let index = 0;
   let effects = [];
   const react = {
@@ -39,6 +41,9 @@ function chat() {
     exports: {},
     require(name) {
       if (name === 'react') return react;
+      if (name === './LanguageContext') return { useLanguage: () => ({ lang: currentLanguage }) };
+      if (name === '@/app/common/types') return { Language: { korean: 'korean', japanese: 'japanese' } };
+      if (name === 'react-hot-toast') return { default: { error: (message, options) => notices.push({ message, options }) } };
       if (name === '@/config/api') return { API_CONFIG: { SOCKET_URL: 'https://example.com' } };
       if (name === 'socket.io-client') return { io(url, options) {
         const handlers = new Map();
@@ -80,6 +85,8 @@ function chat() {
   vm.runInNewContext(source, context);
   return {
     sockets,
+    notices,
+    setLanguage(language) { currentLanguage = language; },
     render(partyId = 1) {
       index = 0;
       const result = context.exports.useChat(partyId);
@@ -180,6 +187,48 @@ test('failed saves, timeouts and disconnects preserve the draft without automati
     assert.equal(await sent, false);
     assert.equal(socket.emitted.filter(item => item.event === 'message').length, 1);
   }
+});
+
+test('rate limits use the current language while keeping the joined socket and draft available', async () => {
+  const hook = chat();
+  hook.render();
+  const socket = hook.sockets[0];
+  socket.receive('connect');
+  socket.acknowledge('joinRoom');
+  const pending = hook.render().sendMessage('keep this draft');
+  hook.setLanguage('japanese');
+  hook.render();
+  socket.acknowledge('message', { ok: false, code: 'CHAT_RATE_LIMITED', error: 'RAW_SERVER_MESSAGE_MUST_NOT_APPEAR' });
+  assert.equal(await pending, false);
+  assert.equal(hook.render().connectionStatus, 'connected');
+  assert.equal(hook.render().connectionError, null);
+  assert.equal(hook.notices.length, 1);
+  assert.equal(hook.notices[0].message, '少し待ってから、もう一度送信してください。');
+  assert.equal(hook.notices[0].options.id, 'chat-rate-limit');
+  assert.equal(socket.emitted.filter(item => item.event === 'message').length, 1, 'no automatic retry');
+  const retry = hook.render().sendMessage('keep this draft');
+  socket.acknowledge('message');
+  assert.equal(await retry, true, 'a rate limit must not require reconnecting');
+  hook.setLanguage('korean');
+  const korean = hook.render().sendMessage('another draft');
+  socket.acknowledge('message', { ok: false, code: 'CHAT_RATE_LIMITED' });
+  assert.equal(await korean, false);
+  assert.equal(hook.notices.at(-1).message, '잠시 기다린 뒤 다시 보내주세요.');
+  assert.equal(hook.sockets.length, 1, 'changing the UI language must not reconnect');
+  assert.equal(socket.emitted.filter(item => item.event === 'joinRoom').length, 1);
+});
+
+test('a delayed rate-limit acknowledgement cannot notify a different room', async () => {
+  const hook = chat();
+  hook.render();
+  const first = hook.sockets[0];
+  first.receive('connect');
+  first.acknowledge('joinRoom');
+  const pending = hook.render().sendMessage('old room draft');
+  hook.render(2);
+  first.acknowledge('message', { ok: false, code: 'CHAT_RATE_LIMITED' });
+  assert.equal(await pending, false);
+  assert.equal(hook.notices.length, 0);
 });
 
 test('a late acknowledgement from a disconnected socket cannot enable a new connection', () => {

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { API_CONFIG } from "@/config/api";
+import { useLanguage } from "./LanguageContext";
+import { Language } from "@/app/common/types";
+import toast from "react-hot-toast";
 
 export interface ChatPayload {
   userId: number;
@@ -14,6 +17,9 @@ export interface ChatPayload {
 }
 
 export function useChat(partyId: number) {
+  const { lang } = useLanguage();
+  const languageRef = useRef(lang);
+  useEffect(() => { languageRef.current = lang; }, [lang]);
   const socketRef = useRef<Socket | null>(null);
   const roomJoinedRef = useRef(false);
   const [received, setReceived] = useState<{ partyId: number; messages: ChatPayload[] }>({ partyId, messages: [] });
@@ -117,9 +123,15 @@ export function useChat(partyId: number) {
     return new Promise(resolve => {
       const disconnected = () => resolve(false);
       socket.once("disconnect", disconnected);
-      socket.timeout(8000).emit("message", { partyId, message: msg }, (error: Error | null, response?: { ok: boolean; error?: string }) => {
+      socket.timeout(8000).emit("message", { partyId, message: msg }, (error: Error | null, response?: { ok: boolean; error?: string; code?: string }) => {
         socket.off("disconnect", disconnected);
         if (socketRef.current !== socket || !socket.connected || socket.id !== connectionId) return resolve(false);
+        if (!error && response?.ok === false && response.code === "CHAT_RATE_LIMITED") {
+          toast.error(languageRef.current === Language.japanese
+            ? "少し待ってから、もう一度送信してください。"
+            : "잠시 기다린 뒤 다시 보내주세요.", { id: "chat-rate-limit" });
+          return resolve(false);
+        }
         if (error || response?.ok !== true) {
           roomJoinedRef.current = false;
           setConnectionStatus("error");
