@@ -16,7 +16,7 @@ function compile(file, dependencies = {}, globals = {}) {
   return context.exports;
 }
 
-function worker(windows = []) {
+function worker(windows = [], storage = new Map()) {
   const handlers = new Map();
   const notifications = [];
   const opened = [];
@@ -31,7 +31,14 @@ function worker(windows = []) {
       openWindow: async url => opened.push(url),
     },
   };
-  vm.runInNewContext(readFileSync('public/sw.js', 'utf8'), { self, URL });
+  const caches = { open: async () => {
+    if (!storage) throw new Error('Storage unavailable');
+    return {
+      put: async (key, value) => storage.set(key, await value.text()),
+      match: async key => storage.has(key) ? new Response(storage.get(key)) : undefined,
+    };
+  } };
+  vm.runInNewContext(readFileSync('public/sw.js', 'utf8'), { self, URL, caches, Response });
   return {
     handlers, notifications, opened,
     async dispatch(name, data) {
@@ -77,6 +84,31 @@ test('push displays fixed generic copy and derives only the party destination', 
   }
   await app.dispatch('push', { data: { json: () => { throw new Error('malformed data'); } } });
   assert.equal(app.notifications.at(-1).options.data.url, '/chats');
+});
+
+test('device language survives worker restarts while untrusted messages and push copy are ignored', async () => {
+  const storage = new Map();
+  const app = worker([], storage);
+  const source = { url: 'https://gachimura.test/user/1' };
+  await app.dispatch('message', { source, data: { type: 'PUSH_LANGUAGE', language: 'japanese' } });
+  const restarted = worker([], storage);
+  for (const data of [
+    { source: { url: 'https://evil.example' }, data: { type: 'PUSH_LANGUAGE', language: 'korean' } },
+    { source, data: { type: 'PUSH_LANGUAGE', language: 'INVALID_PRIVATE_VALUE' } },
+    { source, data: { type: 'OTHER', language: 'korean' } },
+  ]) await restarted.dispatch('message', data);
+  await restarted.dispatch('push', { data: { json: () => ({ partyId: 12, language: 'korean', body: 'PRIVATE_MESSAGE' }) } });
+  assert.equal(restarted.notifications[0].title, 'ガチムラ');
+  assert.equal(restarted.notifications[0].options.body, '新しいチャットメッセージが届きました。');
+  assert.equal(JSON.stringify(restarted.notifications).includes('PRIVATE_'), false);
+  assert.deepEqual([...storage.values()], ['japanese'], 'only a validated language preference may be stored');
+  await restarted.dispatch('message', { source, data: { type: 'PUSH_LANGUAGE', language: 'korean' } });
+  await restarted.dispatch('push', {});
+  assert.equal(restarted.notifications.at(-1).options.body, '새 채팅 메시지가 도착했습니다.');
+  const blocked = worker([], null);
+  await blocked.dispatch('message', { source, data: { type: 'PUSH_LANGUAGE', language: 'japanese' } });
+  await blocked.dispatch('push', {});
+  assert.equal(blocked.notifications[0].options.body, '새 채팅 메시지가 도착했습니다.');
 });
 
 test('notification click focuses the destination and rejects foreign or malformed URLs', async () => {
@@ -149,4 +181,15 @@ test('a false unsubscribe result cannot hide a failed server removal', async () 
   }, async () => { calls.push('api'); throw new Error('private API failure'); });
   await assert.rejects(helpers.clearPushSubscription(), error => error.message === 'PUSH_UNSUBSCRIBE_FAILED');
   assert.deepEqual(calls, ['local', 'api']);
+});
+
+test('successful server removal cannot report disabled while the browser subscription survives', async () => {
+  let subscription = { endpoint: 'private', unsubscribe: async () => false };
+  const helpers = subscriptionHelpers({
+    pushManager: { getSubscription: async () => subscription },
+    getNotifications: async () => [],
+  }, async () => ({ subscribed: false }));
+  await assert.rejects(helpers.clearPushSubscription(), error => error.message === 'PUSH_UNSUBSCRIBE_FAILED');
+  subscription = { endpoint: 'private', unsubscribe: async () => { subscription = null; return false; } };
+  await helpers.clearPushSubscription();
 });

@@ -4,6 +4,7 @@ import { useLanguage } from "@/app/hooks/LanguageContext";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import Image from "next/image";
+import { createOAuthState } from "@/app/lib/oauth-state";
 
 interface Props {
   buttonText: string;
@@ -11,31 +12,30 @@ interface Props {
 
 // LINE OAuth 로그인 버튼 (CSRF 방지용 state 검증)
 export default function LineLogin({ buttonText }: Props) {
-  const { texts } = useLanguage();
+  const { texts, lang } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
 
   const LINE_CLIENT_ID = process.env.NEXT_PUBLIC_LINE_CLIENT_ID;
   
-  const generateRandomString = () => Math.random().toString(36).substring(2, 15);
-
   const handleLogin = () => {
     if (isLoading) return;
     setIsLoading(true);
 
     if (!LINE_CLIENT_ID) {
-        toast.error("LINE Client ID not found");
+        toast.error(lang === "japanese" ? "LINEログインは現在利用できません。しばらくしてからもう一度お試しください。" : "지금은 LINE 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
         setIsLoading(false);
         return;
     }
 
-    const state = generateRandomString();
-    sessionStorage.setItem("line_auth_state", state); // CSRF 검증용
-
-    const redirectUri = `${window.location.origin}/line/callback`;
-
-    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=profile%20openid%20email`;
-
-    window.location.href = lineAuthUrl;
+    try {
+      const state = createOAuthState("line");
+      const redirectUri = `${window.location.origin}/line/callback`;
+      const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=profile%20openid%20email`;
+      window.location.href = lineAuthUrl;
+    } catch {
+      toast.error(lang === "japanese" ? "ログインを開始できませんでした。ブラウザーの設定を確認して、もう一度お試しください。" : "로그인을 시작하지 못했습니다. 브라우저 설정을 확인한 뒤 다시 시도해주세요.");
+      setIsLoading(false);
+    }
   };
 
   return (

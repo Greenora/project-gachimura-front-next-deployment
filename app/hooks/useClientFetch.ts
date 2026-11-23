@@ -21,6 +21,7 @@ async function refreshSession(baseUrl: string): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${baseUrl}/auth/refresh`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       credentials: "include",
     })
       .then((response) => response.ok)

@@ -6,7 +6,7 @@ import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types";
 import toast from "react-hot-toast";
-import Cookies from "js-cookie";
+import { consumeOAuthState } from "@/app/lib/oauth-state";
 
 type KakaoLoginResponse = {
   user: {
@@ -22,32 +22,20 @@ export default function KakaoCallback() {
   const processedRef = useRef(false);
 
   useEffect(() => {
-    // URL에서 인가 코드(Code) 추출
-    const code = searchParams.get("code");
-
-    if (!code) {
-      router.push("/login"); // 코드가 없으면 로그인 창으로
-      return;
-    }
-
     // 중복 실행 방지
     if (processedRef.current) return;
     processedRef.current = true;
 
-    let currentLang: Language | string | undefined = lang;
-    if (!currentLang) {
-      const cookieLang = Cookies.get("language");
-      if (cookieLang) {
-        currentLang = cookieLang as Language;
-      }
-    }
-
-    // Enum(Language.japanese) 또는 문자열('jp') 둘 다 체크하여 안전성 확보
-    const isJapanese =
-      currentLang === "jp" ||
-      currentLang === Language.japanese ||
-      currentLang === "japanese";
+    const code = searchParams.get("code");
+    const validState = consumeOAuthState("kakao", searchParams.get("state"));
+    const isJapanese = lang === Language.japanese;
     const langCode = isJapanese ? "jp" : "ko";
+    window.history.replaceState(null, "", window.location.pathname);
+    if (!code || !validState) {
+      toast.error(isJapanese ? "ログインを確認できませんでした。もう一度ログインしてください。" : "로그인 요청을 확인하지 못했습니다. 다시 로그인해주세요.");
+      router.replace("/login");
+      return;
+    }
 
     const redirectUri = `${window.location.origin}/kakao/callback`;
 
@@ -72,10 +60,12 @@ export default function KakaoCallback() {
         );
         router.push("/home");
       })
-      .catch((err) => {
-        console.error(err);
-        toast.error("카카오 로그인 실패");
-        router.push("/login"); // 실패 시 이동 경로 통일
+      .catch((error: unknown) => {
+        const conflict = error !== null && typeof error === "object" && "status" in error && error.status === 409;
+        toast.error(conflict
+          ? (isJapanese ? "このメールアドレスはすでに登録されています。以前と同じ方法でログインしてください。" : "같은 이메일의 계정이 있습니다. 기존 로그인 방식으로 로그인해주세요.")
+          : (isJapanese ? "カカオログインに失敗しました。もう一度お試しください。" : "카카오 로그인에 실패했습니다. 다시 시도해주세요."));
+        router.replace("/login");
       });
   }, [router, searchParams, lang, texts]);
 
@@ -84,7 +74,7 @@ export default function KakaoCallback() {
       <div className="text-center">
         {/* 카카오 노란색 스피너 */}
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-        <p className="text-gray-600 font-sans">카카오 로그인 중...</p>
+        <p className="text-gray-600 font-sans">{lang === Language.japanese ? "カカオでログインしています…" : "카카오 로그인 중..."}</p>
       </div>
     </div>
   );

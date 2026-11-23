@@ -6,7 +6,7 @@ import { clientFetch } from "@/app/hooks/useClientFetch";
 import { useLanguage } from "@/app/hooks/LanguageContext";
 import { Language } from "@/app/common/types"; 
 import toast from "react-hot-toast";
-import Cookies from "js-cookie";
+import { consumeOAuthState } from "@/app/lib/oauth-state";
 
 type LineLoginResponse = {
   user: {
@@ -23,32 +23,18 @@ export default function LineCallback() {
   const processedRef = useRef(false);
 
   useEffect(() => {
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
-    const storedState = sessionStorage.getItem("line_auth_state");
-
-    if (!code) {
-      sessionStorage.removeItem("line_auth_state");
-      router.push("/login");
-      return;
-    }
-
     if (processedRef.current) return;
     processedRef.current = true;
-
-    // CSRF 검증
-    if (state !== storedState) {
-        sessionStorage.removeItem("line_auth_state");
-        toast.error("보안 검증 실패 (State mismatch)");
-        router.push("/login");
-        return;
+    const code = searchParams.get("code");
+    const validState = consumeOAuthState("line", searchParams.get("state"));
+    const japanese = lang === Language.japanese;
+    const langCode = japanese ? 'jp' : 'ko';
+    window.history.replaceState(null, "", window.location.pathname);
+    if (!code || !validState) {
+      toast.error(japanese ? "ログインを確認できませんでした。もう一度ログインしてください。" : "로그인 요청을 확인하지 못했습니다. 다시 로그인해주세요.");
+      router.replace("/login");
+      return;
     }
-    
-    let currentLang = lang;
-    if (!currentLang) {
-       currentLang = Cookies.get("language") as Language;
-    }
-    const langCode = currentLang === Language.japanese ? 'jp' : 'ko';
     
     const redirectUri = `${window.location.origin}/line/callback`;
 
@@ -69,22 +55,17 @@ export default function LineCallback() {
         toast.success(`${texts.auth.welcomePrefix} ${displayNickname}${texts.auth.welcomeSuffix}`);
         router.push("/home"); // 메인으로 이동
       })
-      .catch((err) => {
-        console.error(err);
-        toast.error("LINE 로그인 실패");
-        router.push("/login");
+      .catch(() => {
+        toast.error(japanese ? "LINEログインに失敗しました。もう一度お試しください。" : "LINE 로그인에 실패했습니다. 다시 시도해주세요.");
+        router.replace("/login");
       });
-      
-      // state 검증 끝났으니 sessionStorage에서 삭제
-      sessionStorage.removeItem("line_auth_state");
-      
   }, [router, searchParams, lang, texts]);
 
   return (
     <div className="flex h-screen items-center justify-center bg-white">
       <div className="text-center">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500 mx-auto mb-4"></div>
-        <p className="text-gray-600 font-sans">LINE 로그인 중...</p>
+        <p className="text-gray-600 font-sans">{lang === Language.japanese ? "LINEでログインしています…" : "LINE 로그인 중..."}</p>
       </div>
     </div>
   );
