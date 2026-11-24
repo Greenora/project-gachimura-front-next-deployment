@@ -30,7 +30,7 @@ export default function LineLogin({ buttonText }: Props) {
     try {
       const state = createOAuthState("line");
       const redirectUri = `${window.location.origin}/line/callback`;
-      const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=profile%20openid%20email`;
+      const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=profile%20openid`;
       window.location.href = lineAuthUrl;
     } catch {
       toast.error(lang === "japanese" ? "ログインを開始できませんでした。ブラウザーの設定を確認して、もう一度お試しください。" : "로그인을 시작하지 못했습니다. 브라우저 설정을 확인한 뒤 다시 시도해주세요.");
