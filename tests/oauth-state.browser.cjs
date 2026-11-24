@@ -86,38 +86,45 @@ test('Kakao and LINE callbacks require a fresh one-use browser state in both lan
     browser = await chromium.launch();
     for (const japanese of [false, true]) {
       for (const provider of ['kakao', 'line']) {
-        await check(`${provider} ${japanese ? 'JA' : 'KO'} starts with random state and consumes a valid callback once`, async () => {
-          const page = await open({ japanese });
-          let authorization;
-          const pattern = provider === 'kakao' ? 'https://kauth.kakao.com/oauth/authorize**' : 'https://access.line.me/oauth2/v2.1/authorize**';
-          await page.route(pattern, async route => {
-            authorization = new URL(route.request().url());
-            await route.fulfill({ status: 302, headers: { location: `${base}/login?provider-fixture=${provider}` } });
+        for (const width of provider === 'line' ? [390, 1280] : [390]) {
+          await check(`${provider} ${japanese ? 'JA' : 'KO'} ${width}px starts with random state and consumes a valid callback once`, async () => {
+            const page = await open({ japanese, width });
+            let authorization;
+            const pattern = provider === 'kakao' ? 'https://kauth.kakao.com/oauth/authorize**' : 'https://access.line.me/oauth2/v2.1/authorize**';
+            await page.route(pattern, async route => {
+              authorization = new URL(route.request().url());
+              await route.fulfill({ status: 302, headers: { location: `${base}/login?provider-fixture=${provider}` } });
+            });
+            await page.goto(base + '/login');
+            if (provider === 'line' && process.env.TEST_SCREENSHOT_DIR) {
+              mkdirSync(process.env.TEST_SCREENSHOT_DIR, { recursive: true });
+              await page.screenshot({ path: `${process.env.TEST_SCREENSHOT_DIR}/line-login-${japanese ? 'ja' : 'ko'}-${width < 600 ? 'mobile' : 'desktop'}.png`, animations: 'disabled' });
+            }
+            const login = provider === 'kakao' ? /카카오|カカオ/ : /LINE/;
+            await page.getByRole('button', { name: login }).click();
+            await page.waitForURL(`${base}/login?provider-fixture=${provider}`);
+            assert.ok(authorization, 'authorization must stay inside the intercepted provider');
+            assert.match(authorization.searchParams.get('state'), /^[a-f0-9]{64}$/);
+            assert.equal(authorization.searchParams.get('redirect_uri'), `${base}/${provider}/callback`);
+            if (provider === 'line') assert.deepEqual(authorization.searchParams.get('scope').split(' '), ['profile', 'openid']);
+            const saved = await page.evaluate(provider => JSON.parse(sessionStorage.getItem(`${provider}_auth_state`)), provider);
+            assert.equal(saved.state, authorization.searchParams.get('state'));
+            assert.equal(state.exchanges.length, 0);
+            await page.goto(`${base}/${provider}/callback?code=fixture-code&state=${saved.state}`);
+            await page.waitForURL(base + '/home');
+            assert.equal(await page.locator('html').getAttribute('lang'), japanese ? 'ja' : 'ko');
+            assert.equal(state.exchanges.length, 1);
+            assert.deepEqual(state.exchanges[0], { provider, body: { code: 'fixture-code', redirectUri: `${base}/${provider}/callback`, language: japanese ? 'jp' : 'ko' } });
+            assert.equal(await page.evaluate(provider => sessionStorage.getItem(`${provider}_auth_state`), provider), null);
+            assert.equal(await page.evaluate(() => location.search), '');
+            state.user = null;
+            await page.context().clearCookies();
+            await page.context().addCookies([{ name: 'language', value: japanese ? 'japanese' : 'korean', url: base }]);
+            await page.goto(`${base}/${provider}/callback?code=fixture-code&state=${saved.state}`);
+            await page.getByText(errorCopy(japanese), { exact: true }).last().waitFor();
+            assert.equal(state.exchanges.length, 1, 'a consumed attempt must not exchange its code twice');
           });
-          await page.goto(base + '/login');
-          const login = provider === 'kakao' ? /카카오|カカオ/ : /LINE/;
-          await page.getByRole('button', { name: login }).click();
-          await page.waitForURL(`${base}/login?provider-fixture=${provider}`);
-          assert.ok(authorization, 'authorization must stay inside the intercepted provider');
-          assert.match(authorization.searchParams.get('state'), /^[a-f0-9]{64}$/);
-          assert.equal(authorization.searchParams.get('redirect_uri'), `${base}/${provider}/callback`);
-          const saved = await page.evaluate(provider => JSON.parse(sessionStorage.getItem(`${provider}_auth_state`)), provider);
-          assert.equal(saved.state, authorization.searchParams.get('state'));
-          assert.equal(state.exchanges.length, 0);
-          await page.goto(`${base}/${provider}/callback?code=fixture-code&state=${saved.state}`);
-          await page.waitForURL(base + '/home');
-          assert.equal(await page.locator('html').getAttribute('lang'), japanese ? 'ja' : 'ko');
-          assert.equal(state.exchanges.length, 1);
-          assert.deepEqual(state.exchanges[0], { provider, body: { code: 'fixture-code', redirectUri: `${base}/${provider}/callback`, language: japanese ? 'jp' : 'ko' } });
-          assert.equal(await page.evaluate(provider => sessionStorage.getItem(`${provider}_auth_state`), provider), null);
-          assert.equal(await page.evaluate(() => location.search), '');
-          state.user = null;
-          await page.context().clearCookies();
-          await page.context().addCookies([{ name: 'language', value: japanese ? 'japanese' : 'korean', url: base }]);
-          await page.goto(`${base}/${provider}/callback?code=fixture-code&state=${saved.state}`);
-          await page.getByText(errorCopy(japanese), { exact: true }).last().waitFor();
-          assert.equal(state.exchanges.length, 1, 'a consumed attempt must not exchange its code twice');
-        });
+        }
 
         if (provider === 'kakao') {
           await check(`kakao ${japanese ? 'JA' : 'KO'} explains an existing-account conflict without signing in`, async () => {
